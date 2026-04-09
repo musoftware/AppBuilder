@@ -154,10 +154,11 @@ const distPackageJson = {
   repository: rootPackageJson.repository,
   type: 'module',
   main: 'cli.js',
-  bin: {
-    autocreator: 'cli.js',
-    autopilot: 'cli.js',
-  },
+  bin: rootPackageJson.bin
+    ? Object.fromEntries(
+        Object.entries(rootPackageJson.bin).map(([k]) => [k, 'cli.js']),
+      )
+    : { mu: 'cli.js', 'mu-pilot': 'cli.js' },
   files: [
     'cli.js',
     'vendor',

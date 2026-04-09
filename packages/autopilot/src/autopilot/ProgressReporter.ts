@@ -42,6 +42,14 @@ export class ProgressReporter {
     console.log(
       `\n${chalk.bold.cyan(`[${idx}/${total}]`)} ${chalk.bold(task.title)}`,
     );
+    if (task.description) {
+      task.description.split('\n').forEach((line) => {
+        const trimmed = line.trim();
+        if (trimmed) {
+          console.log(chalk.dim(`    ${trimmed}`));
+        }
+      });
+    }
   }
 
   reportActivity(msg: string): void {

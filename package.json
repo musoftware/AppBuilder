@@ -1,5 +1,5 @@
 {
-  "name": "@qwen-code/qwen-code",
+  "name": "@musoftware/appbuilder",
   "version": "0.14.2",
   "engines": {
     "node": ">=20.0.0"
@@ -76,8 +76,8 @@
     "baseline-browser-mapping": "^2.9.19"
   },
   "bin": {
-    "autocreator": "dist/cli.js",
-    "autopilot": "dist/cli.js"
+    "mu": "dist/cli.js",
+    "mu-pilot": "dist/cli.js"
   },
   "files": [
     "dist/",

@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import chalk from 'chalk';
 import type { ContextSpec, ChatMessage, Task, TaskGraph } from '../types.js';
 import type { TaskRunner } from './TaskRunner.js';
@@ -84,13 +86,32 @@ export class QualityCheckLoop {
 
       console.log(
         chalk.bold.yellow(
-          ` ⚠ Found ${analysis.issues.length} issue(s) to fix:`,
+          ` ⚠ Found ${analysis.issues.length} issue(s) to fix:\n`,
         ),
       );
       analysis.issues.forEach((issue, i) => {
-        console.log(`  ${chalk.dim(`[${i + 1}]`)} ${issue.title}`);
+        console.log(
+          `  ${chalk.bold.yellow(`[${i + 1}]`)} ${chalk.bold(issue.title)}`,
+        );
+        issue.description.split('\n').forEach((line) => {
+          const trimmed = line.trim();
+          if (trimmed) {
+            console.log(chalk.dim(`       ${trimmed}`));
+          }
+        });
+        console.log('');
       });
       console.log(chalk.cyan('━'.repeat(50)));
+
+      // Write checkpoint file before starting fixes
+      const checkpointPath = this.checkpointFilePath(iteration);
+      await this.writeCheckpoint(
+        checkpointPath,
+        iteration,
+        analysis.issues,
+        [],
+      );
+      console.log(chalk.dim(`  Checkpoints → ${checkpointPath}\n`));
 
       const graph = this.buildGraph(analysis.issues);
       const reporter = new ProgressReporter(graph);
@@ -101,6 +122,17 @@ export class QualityCheckLoop {
         this.context,
       );
       await orchestrator.run();
+
+      // Update checkpoint with final task results
+      const doneIds = graph.tasks
+        .filter((t) => t.status === 'done')
+        .map((t) => t.id);
+      await this.writeCheckpoint(
+        checkpointPath,
+        iteration,
+        analysis.issues,
+        doneIds,
+      );
     }
 
     console.log('\n' + chalk.bold.cyan('━'.repeat(50)));
@@ -110,6 +142,42 @@ export class QualityCheckLoop {
       ),
     );
     console.log(chalk.cyan('━'.repeat(50)) + '\n');
+  }
+
+  private checkpointFilePath(iteration: number): string {
+    const root = this.context.workspaceRoot ?? process.cwd();
+    return path.join(root, `QC_REPORT_pass${iteration}.md`);
+  }
+
+  private async writeCheckpoint(
+    filePath: string,
+    iteration: number,
+    issues: AnalysisIssue[],
+    doneTaskIds: string[],
+  ): Promise<void> {
+    const lines: string[] = [
+      `# Quality Check Report — Pass ${iteration}`,
+      ``,
+      `Generated: ${new Date().toISOString()}`,
+      ``,
+      `## Issues (${issues.length})`,
+      ``,
+    ];
+
+    issues.forEach((issue, i) => {
+      const taskId = `qc-fix-${i + 1}`;
+      const checked = doneTaskIds.includes(taskId) ? 'x' : ' ';
+      lines.push(`- [${checked}] **${issue.title}**`);
+      issue.description.split('\n').forEach((line) => {
+        const trimmed = line.trim();
+        if (trimmed) {
+          lines.push(`  ${trimmed}`);
+        }
+      });
+      lines.push('');
+    });
+
+    await fs.writeFile(filePath, lines.join('\n'), 'utf8');
   }
 
   private async analyze(): Promise<AnalysisResult> {
