@@ -9,6 +9,7 @@ import { TaskRunner } from './autopilot/TaskRunner.js';
 import { AutopilotOrchestrator } from './autopilot/AutopilotOrchestrator.js';
 import { ProgressReporter } from './autopilot/ProgressReporter.js';
 import { writeCoreProjectDocs } from './project/coreProjectDocs.js';
+import { ProjectDocsGenerator } from './project/ProjectDocsGenerator.js';
 import type { AutopilotSettings, ChatMessage } from './types.js';
 import { mergeAutopilotPartialSettings } from './types.js';
 
@@ -104,11 +105,16 @@ export class AutopilotSession {
       ),
     );
 
+    console.log(chalk.dim('  • Generating project documents with AI…'));
+    const docsGenerator = new ProjectDocsGenerator(this.callModel);
+    const generatedDocs = await docsGenerator.generate(context, graph);
+
     console.log(chalk.dim('  • Writing core project documents…'));
     const docs = await writeCoreProjectDocs(
       context.workspaceRoot,
       context,
       graph,
+      generatedDocs,
     );
     const docLine = (label: string, files: string[]) =>
       files.length > 0

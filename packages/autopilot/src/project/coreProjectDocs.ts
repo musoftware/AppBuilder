@@ -9,6 +9,14 @@ export interface CoreDocsWriteResult {
   updated: string[];
 }
 
+/** AI-generated content for the core project documents. */
+export interface GeneratedDocs {
+  prd: string;
+  architecture: string;
+  context: string;
+  env: string;
+}
+
 async function fileExists(absPath: string): Promise<boolean> {
   try {
     await fs.access(absPath);
@@ -295,11 +303,14 @@ async function writeIfAbsent(
  * Writes the recommended “core documents” layout under the workspace root.
  * Existing PRD/ARCH/RULES/etc. are left untouched so manual edits are preserved.
  * TASKS.md is always regenerated from the current task graph.
+ * When `generated` is provided its AI-produced content is used instead of the
+ * static template builders for PRD, ARCHITECTURE, CONTEXT and ENV.
  */
 export async function writeCoreProjectDocs(
   workspaceRoot: string | undefined,
   context: ContextSpec,
   graph: TaskGraph,
+  generated?: GeneratedDocs,
 ): Promise<CoreDocsWriteResult> {
   const created: string[] = [];
   const updated: string[] = [];
@@ -310,11 +321,16 @@ export async function writeCoreProjectDocs(
 
   const root = path.resolve(workspaceRoot);
 
-  await writeIfAbsent(root, 'PRD.md', buildPrdMarkdown(context), created);
+  await writeIfAbsent(
+    root,
+    'PRD.md',
+    generated?.prd ?? buildPrdMarkdown(context),
+    created,
+  );
   await writeIfAbsent(
     root,
     'ARCHITECTURE.md',
-    buildArchitectureMarkdown(context),
+    generated?.architecture ?? buildArchitectureMarkdown(context),
     created,
   );
   await writeIfAbsent(root, 'RULES.md', buildRulesMarkdown(), created);
@@ -322,11 +338,16 @@ export async function writeCoreProjectDocs(
   await writeIfAbsent(
     root,
     'CONTEXT.md',
-    buildContextMarkdown(context),
+    generated?.context ?? buildContextMarkdown(context),
     created,
   );
   await writeIfAbsent(root, 'PROJECT.md', buildProjectIndexMarkdown(), created);
-  await writeIfAbsent(root, 'ENV.md', buildEnvMarkdown(), created);
+  await writeIfAbsent(
+    root,
+    'ENV.md',
+    generated?.env ?? buildEnvMarkdown(),
+    created,
+  );
   await writeIfAbsent(root, 'CHANGELOG.md', buildChangelogMarkdown(), created);
 
   const tasksPath = path.join(root, 'TASKS.md');
