@@ -15,6 +15,10 @@ import type { Content, Part, PartListUnion } from '@google/genai';
 import type { ChatMessage } from '@qwen-code/autopilot';
 import { JsonOutputAdapter } from '../nonInteractive/io/JsonOutputAdapter.js';
 import { handleToolError } from '../utils/errors.js';
+import { setMaxListeners } from 'node:events';
+
+/** Same signal is shared across many tool schedules; core adds abort listeners per queued call. */
+const AUTOPILOT_ABORT_SIGNAL_MAX_LISTENERS = 64;
 
 function formatAutopilotMessages(
   messages: ChatMessage[],
@@ -40,6 +44,7 @@ export async function runAutopilotToolLoop(
 
   const adapter = new JsonOutputAdapter(config);
   const abortController = new AbortController();
+  setMaxListeners(AUTOPILOT_ABORT_SIGNAL_MAX_LISTENERS, abortController.signal);
 
   const initialPartList: PartListUnion = [{ text: promptText }];
   const initialParts = normalizePartList(initialPartList);

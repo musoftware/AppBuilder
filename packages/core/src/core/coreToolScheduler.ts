@@ -66,6 +66,11 @@ import levenshtein from 'fast-levenshtein';
 import { getPlanModeSystemReminder } from './prompts.js';
 import { ShellToolInvocation } from '../tools/shell.js';
 import { IdeClient } from '../ide/ide-client.js';
+import { setMaxListeners } from 'node:events';
+
+/** Node's default AbortSignal max listeners (10) is easy to exceed when many
+ *  tool schedules queue on the same session signal; avoid MaxListenersExceededWarning. */
+const TOOL_SCHEDULER_ABORT_SIGNAL_MAX_LISTENERS = 64;
 
 const TRUNCATION_PARAM_GUIDANCE =
   'Note: Your previous response was truncated due to max_tokens limit, ' +
@@ -655,6 +660,8 @@ export class CoreToolScheduler {
     request: ToolCallRequestInfo | ToolCallRequestInfo[],
     signal: AbortSignal,
   ): Promise<void> {
+    setMaxListeners(TOOL_SCHEDULER_ABORT_SIGNAL_MAX_LISTENERS, signal);
+
     if (this.isRunning() || this.isScheduling) {
       return new Promise((resolve, reject) => {
         const abortHandler = () => {

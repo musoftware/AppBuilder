@@ -39,18 +39,26 @@ export class ProgressReporter {
   startTask(task: Task): void {
     const idx = this.graph.tasks.findIndex((t) => t.id === task.id) + 1;
     const total = this.graph.tasks.length;
-    process.stdout.write(
-      `\n${chalk.bold.cyan(`[${idx}/${total}]`)} ${chalk.bold(task.title)} `,
+    console.log(
+      `\n${chalk.bold.cyan(`[${idx}/${total}]`)} ${chalk.bold(task.title)}`,
     );
+    console.log(
+      chalk.dim(
+        '    Autopilot is running this step with file and shell tools; it may take several minutes with little output.',
+      ),
+    );
+    process.stdout.write(chalk.dim('    Outcome: '));
   }
 
   completeTask(task: Task): void {
-    console.log(chalk.green('✓'));
+    process.stdout.write(chalk.green('✓') + '\n');
     task.status = 'done';
   }
 
   failTask(task: Task, error: Error): void {
-    console.log(chalk.red('✗') + chalk.dim(` ${error.message}`));
+    process.stdout.write(
+      chalk.red('✗') + chalk.dim(` ${error.message}`) + '\n',
+    );
     task.status = 'failed';
   }
 

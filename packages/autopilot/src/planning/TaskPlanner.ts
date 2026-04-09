@@ -37,6 +37,9 @@ Rules:
 - Tasks with no dependsOn run first; others wait for their deps.
 - "description" must be specific enough for an AI to execute without any extra context.
 - If you assign a skillName, it must exactly match one of the available skills listed above.
+- The repo root should already have (or will have) PRD.md, ARCHITECTURE.md, RULES.md, .cursorrules,
+  TASKS.md, CONTEXT.md, PROJECT.md, ENV.md, and CHANGELOG.md — the first implementation tasks should read them,
+  flesh them out from the JSON context, and keep them accurate as the build progresses.
 `.trim();
 
 function fallbackGraph(context: ContextSpec): TaskGraph {

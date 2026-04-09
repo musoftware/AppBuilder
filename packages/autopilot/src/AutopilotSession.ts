@@ -8,6 +8,7 @@ import { TaskPlanner } from './planning/TaskPlanner.js';
 import { TaskRunner } from './autopilot/TaskRunner.js';
 import { AutopilotOrchestrator } from './autopilot/AutopilotOrchestrator.js';
 import { ProgressReporter } from './autopilot/ProgressReporter.js';
+import { writeCoreProjectDocs } from './project/coreProjectDocs.js';
 import type { AutopilotSettings, ChatMessage } from './types.js';
 import { mergeAutopilotPartialSettings } from './types.js';
 
@@ -99,9 +100,32 @@ export class AutopilotSession {
     const graph = await planner.plan(context, selectedSkills);
     console.log(
       chalk.dim(
-        `       ✓ ${graph.tasks.length} task(s) ready — showing plan below.\n`,
+        `       ✓ ${graph.tasks.length} task(s) ready — showing plan below.`,
       ),
     );
+
+    console.log(chalk.dim('  • Writing core project documents…'));
+    const docs = await writeCoreProjectDocs(
+      context.workspaceRoot,
+      context,
+      graph,
+    );
+    const docLine = (label: string, files: string[]) =>
+      files.length > 0
+        ? chalk.dim(`       ${label}: `) + chalk.white(files.join(', '))
+        : '';
+    if (docs.created.length > 0) {
+      console.log(docLine('Created', docs.created));
+    }
+    if (docs.updated.length > 0) {
+      console.log(docLine('Updated', docs.updated));
+    }
+    if (docs.created.length === 0 && docs.updated.length === 0) {
+      console.log(
+        chalk.dim('       (skipped — no workspace root set for file writes)'),
+      );
+    }
+    console.log('');
 
     const reporter = new ProgressReporter(graph);
     reporter.printPlan(this.settings.planPreviewSeconds);

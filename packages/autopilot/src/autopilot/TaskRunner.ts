@@ -14,6 +14,11 @@ Rules:
 - Output a concise summary of what you produced when done.
 - Stay within the project workspace root from context (no writes or destructive
   shell actions outside that directory unless the user explicitly required it).
+- Use the core docs at the repo root as shared memory: read PRD.md, ARCHITECTURE.md, and
+  PROJECT.md / CONTEXT.md when planning changes; update CONTEXT.md with decisions and progress;
+  keep TASKS.md checkboxes and notes aligned with what you actually did; extend ENV.md or
+  CHANGELOG.md when setup or behavior changes. Prefer editing real files over leaving everything
+  in chat-only reasoning.
 `.trim();
 
 export class TaskRunner {
