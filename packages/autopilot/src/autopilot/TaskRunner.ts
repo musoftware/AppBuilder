@@ -1,4 +1,4 @@
-import type { Task, ChatMessage } from '../types.js';
+import type { Task, ChatMessage, ContextSpec } from '../types.js';
 
 const TASK_SYSTEM_PROMPT = (skillContent?: string) =>
   `
@@ -12,6 +12,8 @@ Rules:
 - Run commands to verify your work (tests, linting, etc.).
 - If something fails, diagnose and fix it before moving on.
 - Output a concise summary of what you produced when done.
+- Stay within the project workspace root from context (no writes or destructive
+  shell actions outside that directory unless the user explicitly required it).
 `.trim();
 
 export class TaskRunner {
@@ -24,14 +26,19 @@ export class TaskRunner {
     private maxRetries: number,
   ) {}
 
-  async execute(task: Task, contextSpec: object): Promise<void> {
+  async execute(task: Task, contextSpec: ContextSpec): Promise<void> {
     const system = TASK_SYSTEM_PROMPT(task.skill?.content);
+
+    const root = contextSpec.workspaceRoot;
+    const workspaceNote = root
+      ? `\n## Workspace root (stay inside this path)\n${root}\n`
+      : '';
 
     const userMessage = `
 ## Task: ${task.title}
 
 ${task.description}
-
+${workspaceNote}
 ## Project context
 ${JSON.stringify(contextSpec, null, 2)}
 

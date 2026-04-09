@@ -1654,6 +1654,9 @@ export class Config {
   }
 
   setApprovalMode(mode: ApprovalMode): void {
+    if (mode === this.approvalMode) {
+      return;
+    }
     if (
       !this.isTrustedFolder() &&
       mode !== ApprovalMode.DEFAULT &&

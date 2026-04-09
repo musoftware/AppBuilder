@@ -1,4 +1,4 @@
-import type { Task, TaskGraph, ContextSpec } from '../types.js';
+import type { ContextSpec, Task, TaskGraph } from '../types.js';
 import type { ProgressReporter } from './ProgressReporter.js';
 import type { TaskRunner } from './TaskRunner.js';
 

@@ -13,6 +13,8 @@ export interface ContextSpec {
   constraints: string[];
   outputFormat: 'cli' | 'web' | 'api' | 'library' | 'script' | 'other';
   clarifications: Record<string, string>;
+  /** Project root: agents must limit file and shell effects to this directory. */
+  workspaceRoot?: string;
 }
 
 export interface Skill {

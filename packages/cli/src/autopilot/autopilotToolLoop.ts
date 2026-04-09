@@ -9,7 +9,8 @@ import {
 import {
   createAgentToolProgressHandler,
   createToolProgressHandler,
- normalizePartList } from '../utils/nonInteractiveHelpers.js';
+  normalizePartList,
+} from '../utils/nonInteractiveHelpers.js';
 import type { Content, Part, PartListUnion } from '@google/genai';
 import type { ChatMessage } from '@qwen-code/autopilot';
 import { JsonOutputAdapter } from '../nonInteractive/io/JsonOutputAdapter.js';
@@ -81,6 +82,9 @@ export async function runAutopilotToolLoop(
         const { handler: outputUpdateHandler } = isAgentTool
           ? createAgentToolProgressHandler(config, requestInfo.callId, adapter)
           : createToolProgressHandler(requestInfo, adapter);
+
+        // Keep YOLO across tools: some tools may change approval mode after run.
+        config.setApprovalMode(ApprovalMode.YOLO);
 
         const toolResponse = await executeToolCall(
           config,

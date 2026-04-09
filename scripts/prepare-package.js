@@ -166,6 +166,7 @@ const distPackageJson = {
     'LICENSE',
     'locales',
     'bundled',
+    'autopilot-bundled-skills',
   ],
   config: rootPackageJson.config,
   dependencies: {},

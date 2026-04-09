@@ -64,18 +64,44 @@ export class AutopilotSession {
 
     rl.close();
 
-    const context = agent.getContextSpec();
+    const context = {
+      ...agent.getContextSpec(),
+      workspaceRoot: process.cwd(),
+    };
 
     console.log(chalk.dim('Loading skills...'));
     const loader = new SkillLoader(this.settings.skillsPath);
     const allSkills = await loader.loadAll();
     console.log(chalk.dim(`Found ${allSkills.length} skills.`));
 
+    console.log('');
+    console.log(chalk.bold.dim('Planning (this may take a little while)'));
+    console.log(
+      chalk.dim('  1/2 ') +
+        chalk.white('Choosing skills for your project…') +
+        chalk.dim(' (calling model)'),
+    );
     const matcher = new SkillMatcher(this.callModel);
     const selectedSkills = await matcher.match(context, allSkills);
+    const picked = selectedSkills.map((s) => `@${s.name}`).join(', ');
+    console.log(
+      chalk.dim('       ✓ ') +
+        chalk.dim(`Using ${selectedSkills.length} skill(s): `) +
+        chalk.yellow(picked),
+    );
 
+    console.log(
+      chalk.dim('  2/2 ') +
+        chalk.white('Drafting the task plan…') +
+        chalk.dim(' (calling model)'),
+    );
     const planner = new TaskPlanner(this.callModel);
     const graph = await planner.plan(context, selectedSkills);
+    console.log(
+      chalk.dim(
+        `       ✓ ${graph.tasks.length} task(s) ready — showing plan below.\n`,
+      ),
+    );
 
     const reporter = new ProgressReporter(graph);
     reporter.printPlan(this.settings.planPreviewSeconds);

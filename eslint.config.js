@@ -245,6 +245,16 @@ export default tseslint.config(
     files: ['packages/autopilot/**/*.ts', 'packages/autopilot/**/*.tsx'],
     rules: { 'no-console': 'off' },
   },
+  // Autopilot bundled skill examples (plain Node scripts)
+  {
+    files: ['packages/autopilot/src/bundled-skills/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+      sourceType: 'module',
+    },
+  },
   // Specific esbuild configs not covered by scripts pattern
   {
     files: ['packages/vscode-ide-companion/esbuild.js'],

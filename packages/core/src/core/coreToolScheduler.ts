@@ -954,12 +954,15 @@ export class CoreToolScheduler {
             }
 
             /**
-             * In non-interactive mode, automatically deny.
+             * In non-interactive mode, automatically deny — unless approval mode
+             * already auto-approves (YOLO). That path should usually short-circuit
+             * above; this guards mode drift (e.g. a tool switching to DEFAULT).
              */
             const shouldAutoDeny =
               !this.config.isInteractive() &&
               !this.config.getExperimentalZedIntegration() &&
-              this.config.getInputFormat() !== InputFormat.STREAM_JSON;
+              this.config.getInputFormat() !== InputFormat.STREAM_JSON &&
+              this.config.getApprovalMode() !== ApprovalMode.YOLO;
 
             if (shouldAutoDeny) {
               const errorMessage = `Qwen Code requires permission to use "${reqInfo.name}", but that permission was declined (non-interactive mode cannot prompt for confirmation).`;

@@ -3,18 +3,38 @@ import path from 'path';
 import os from 'os';
 import { glob } from 'glob';
 import type { Skill } from '../types.js';
+import { getBundledAutopilotSkillsDir } from '../bundledSkillsDir.js';
+
+function dedupePaths(paths: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of paths) {
+    if (!p) {
+      continue;
+    }
+    const norm = path.normalize(p);
+    if (seen.has(norm)) {
+      continue;
+    }
+    seen.add(norm);
+    out.push(norm);
+  }
+  return out;
+}
 
 export class SkillLoader {
   private readonly searchPaths: string[];
 
   constructor(customPath?: string) {
-    this.searchPaths = [
+    const bundled = getBundledAutopilotSkillsDir();
+    this.searchPaths = dedupePaths([
       customPath,
       path.join(os.homedir(), '.qwen', 'skills'),
       path.join(process.cwd(), '.qwen', 'skills'),
       path.join(process.cwd(), '.agent', 'skills'),
       path.join(process.cwd(), '.claude', 'skills'),
-    ].filter(Boolean) as string[];
+      bundled,
+    ]);
   }
 
   async loadAll(): Promise<Skill[]> {
@@ -46,7 +66,7 @@ export class SkillLoader {
 
     if (skills.length === 0) {
       console.warn(
-        '[autopilot] No skills loaded. Install skills (e.g. npx antigravity-awesome-skills --path ~/.qwen/skills) or set autopilot.skillsPath in settings.',
+        '[autopilot] No skills loaded. The CLI ships default skills in the install; if you see this, your build may be incomplete. You can also install more under ~/.qwen/skills or set autopilot.skillsPath in settings.',
       );
     }
 

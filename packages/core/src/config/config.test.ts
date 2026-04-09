@@ -1164,6 +1164,15 @@ describe('setApprovalMode with folder trust', () => {
     );
   });
 
+  it('should NOT throw when re-applying YOLO that is already active (untrusted folder)', () => {
+    const config = new Config({
+      ...baseParams,
+      approvalMode: ApprovalMode.YOLO,
+    });
+    vi.spyOn(config, 'isTrustedFolder').mockReturnValue(false);
+    expect(() => config.setApprovalMode(ApprovalMode.YOLO)).not.toThrow();
+  });
+
   it('should throw an error when setting AUTO_EDIT mode in an untrusted folder', () => {
     const config = new Config(baseParams);
     vi.spyOn(config, 'isTrustedFolder').mockReturnValue(false);

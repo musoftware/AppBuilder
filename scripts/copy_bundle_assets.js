@@ -72,6 +72,26 @@ if (existsSync(bundledSkillsDir)) {
   );
 }
 
+// Autopilot default SKILL.md library (brainstorming, architecture, etc.)
+const autopilotBundledSkillsDir = join(
+  root,
+  'packages',
+  'autopilot',
+  'src',
+  'bundled-skills',
+);
+if (existsSync(autopilotBundledSkillsDir)) {
+  const destAutopilotSkills = join(distDir, 'autopilot-bundled-skills');
+  copyRecursiveSync(autopilotBundledSkillsDir, destAutopilotSkills);
+  console.log(
+    'Copied autopilot bundled skills to dist/autopilot-bundled-skills/',
+  );
+} else {
+  console.warn(
+    `Warning: Autopilot bundled skills not found at ${autopilotBundledSkillsDir}`,
+  );
+}
+
 // Copy user docs into qc-helper bundled skill so it can reference them at runtime.
 // The qc-helper skill reads docs from a `docs/` subdirectory relative to its own
 // directory. In the esbuild bundle this becomes dist/bundled/qc-helper/docs/.

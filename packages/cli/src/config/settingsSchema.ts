@@ -1664,7 +1664,7 @@ const SETTINGS_SCHEMA = {
         requiresRestart: false,
         default: '' as string,
         description:
-          'Directory with SKILL.md files (e.g. ~/.qwen/skills). Empty uses default search paths.',
+          'Extra directory with SKILL.md files (e.g. ~/.qwen/skills). The CLI also ships default autopilot skills; this path is searched first when set.',
         showInDialog: false,
       },
       maxTaskRetries: {

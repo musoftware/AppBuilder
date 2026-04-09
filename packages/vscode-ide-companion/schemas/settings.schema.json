@@ -1476,7 +1476,7 @@
       "type": "object",
       "properties": {
         "skillsPath": {
-          "description": "Directory with SKILL.md files (e.g. ~/.qwen/skills). Empty uses default search paths.",
+          "description": "Extra directory with SKILL.md files (e.g. ~/.qwen/skills). The CLI also ships default autopilot skills; this path is searched first when set.",
           "type": "string",
           "default": ""
         },

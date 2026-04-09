@@ -654,6 +654,28 @@ describe('loadCliConfig', () => {
     ]);
   });
 
+  it('should force YOLO when --brainstorm is set (autopilot unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--brainstorm'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --brainstorm even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--brainstorm'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
   it('should use configured context file name when settings.context.fileName is set', async () => {
     process.argv = ['node', 'script.js'];
     const argv = await parseArguments();

@@ -816,6 +816,13 @@ export async function loadCliConfig(
     approvalMode = ApprovalMode.DEFAULT;
   }
 
+  // Autopilot (--brainstorm) executes tools without interactive confirmations.
+  // Always use YOLO here so the bundled/global CLI works without `-y` (trust
+  // checks still apply when *changing* mode via setApprovalMode).
+  if (argv.brainstorm) {
+    approvalMode = ApprovalMode.YOLO;
+  }
+
   let telemetrySettings;
   try {
     telemetrySettings = await resolveTelemetrySettings({
