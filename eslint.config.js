@@ -240,6 +240,11 @@ export default tseslint.config(
     ],
     rules: { 'no-console': 'off' },
   },
+  // Autopilot — terminal session output (brainstorm / plan / progress)
+  {
+    files: ['packages/autopilot/**/*.ts', 'packages/autopilot/**/*.tsx'],
+    rules: { 'no-console': 'off' },
+  },
   // Specific esbuild configs not covered by scripts pattern
   {
     files: ['packages/vscode-ide-companion/esbuild.js'],

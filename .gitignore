@@ -88,3 +88,4 @@ storybook-static
 
 # Dev symlink: qc-helper bundled skill docs (created by scripts/dev.js)
 packages/core/src/skills/bundled/qc-helper/docs
+qwen-code-qwen-code-0.14.2.tgz
