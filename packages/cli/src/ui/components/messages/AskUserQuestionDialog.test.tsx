@@ -238,11 +238,15 @@ describe('<AskUserQuestionDialog />', () => {
 
       // Navigate directly to submit tab without answering anything
       stdin.write('\u001B[C'); // Right
-      await wait();
+      await wait(100);
       stdin.write('\u001B[C'); // Right
-      await wait();
-
-      expect(lastFrame()).toContain('(not answered)');
+      // KeypressProvider may buffer CSI until kitty timeout (~200ms) under load
+      await vi.waitFor(
+        () => {
+          expect(lastFrame()).toContain('(not answered)');
+        },
+        { timeout: 4000, interval: 50 },
+      );
       unmount();
     });
   });

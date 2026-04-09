@@ -163,6 +163,8 @@ export interface CliArgs {
   channel: string | undefined;
   brainstorm: boolean | undefined;
   brainstormInitialIdea: string | undefined;
+  brownfield: boolean | undefined;
+  qualityCheck: boolean | undefined;
 }
 
 function normalizeOutputFormat(
@@ -364,6 +366,18 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'boolean',
           description:
             'Autopilot brainstorm mode: clarify your idea, plan with skills, then execute tasks in YOLO mode',
+          default: false,
+        })
+        .option('brownfield', {
+          type: 'boolean',
+          description:
+            'Force brownfield (existing project) mode when used with --brainstorm. Skips auto-detection and treats the workspace as an existing project.',
+          default: false,
+        })
+        .option('quality-check', {
+          type: 'boolean',
+          description:
+            'Run a standalone quality-check loop on the current workspace: analyze for bugs, missing features, and conflicts, then fix and repeat until clean.',
           default: false,
         })
         .option('allowed-mcp-server-names', {

@@ -72,6 +72,15 @@ import { setMaxListeners } from 'node:events';
  *  tool schedules queue on the same session signal; avoid MaxListenersExceededWarning. */
 const TOOL_SCHEDULER_ABORT_SIGNAL_MAX_LISTENERS = 64;
 
+function relaxAbortSignalListenerLimit(signal: AbortSignal): void {
+  try {
+    setMaxListeners(TOOL_SCHEDULER_ABORT_SIGNAL_MAX_LISTENERS, signal);
+  } catch {
+    // `setMaxListeners` only accepts EventEmitter/EventTarget. Some runtimes (or test doubles)
+    // expose AbortSignal without matching Node's EventTarget check; scheduling still works.
+  }
+}
+
 const TRUNCATION_PARAM_GUIDANCE =
   'Note: Your previous response was truncated due to max_tokens limit, ' +
   'which likely caused incomplete tool call parameters. ' +
@@ -660,7 +669,7 @@ export class CoreToolScheduler {
     request: ToolCallRequestInfo | ToolCallRequestInfo[],
     signal: AbortSignal,
   ): Promise<void> {
-    setMaxListeners(TOOL_SCHEDULER_ABORT_SIGNAL_MAX_LISTENERS, signal);
+    relaxAbortSignalListenerLimit(signal);
 
     if (this.isRunning() || this.isScheduling) {
       return new Promise((resolve, reject) => {

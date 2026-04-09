@@ -109,6 +109,8 @@ export async function handleQwenAuth(
       channel: undefined,
       brainstorm: undefined,
       brainstormInitialIdea: undefined,
+      brownfield: undefined,
+      qualityCheck: undefined,
       systemPrompt: undefined,
       appendSystemPrompt: undefined,
     };

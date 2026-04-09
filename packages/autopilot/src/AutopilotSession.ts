@@ -151,12 +151,20 @@ export class AutopilotSession {
     this.callModelWithTools = callModelWithTools;
   }
 
-  async run(initialIdea?: string): Promise<void> {
+  async run(
+    initialIdea?: string,
+    forceMode?: 'brownfield' | 'greenfield',
+  ): Promise<void> {
     const rl = readline.createInterface({ input, output });
 
     const workspaceRoot = process.cwd();
     const scan = await scanWorkspace(workspaceRoot);
-    const isBrownfield = scan.mode === 'brownfield';
+    const isBrownfield =
+      forceMode === 'brownfield'
+        ? true
+        : forceMode === 'greenfield'
+          ? false
+          : scan.mode === 'brownfield';
 
     console.log('\n' + chalk.bold.cyan('━'.repeat(50)));
     console.log(chalk.bold(' MU Code — Autopilot mode'));
@@ -203,6 +211,9 @@ export class AutopilotSession {
     const context = {
       ...contextSpec,
       workspaceRoot,
+      projectMode: (isBrownfield ? 'brownfield' : 'greenfield') as
+        | 'brownfield'
+        | 'greenfield',
     };
 
     console.log(chalk.dim('Loading skills...'));

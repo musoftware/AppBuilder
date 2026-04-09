@@ -511,6 +511,8 @@ describe('gemini.tsx main function kitty protocol', () => {
       sessionId: undefined,
       brainstorm: undefined,
       brainstormInitialIdea: undefined,
+      brownfield: undefined,
+      qualityCheck: undefined,
     });
 
     await main();

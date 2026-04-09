@@ -409,6 +409,25 @@ export async function main() {
     // For other modes, initialize normally
     const initializationResult = await initializeApp(config, settings);
 
+    if (argv.qualityCheck) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'quality-check-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
     if (argv.brainstorm) {
       await config.initialize();
       if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -419,6 +438,7 @@ export async function main() {
           config,
           settings,
           argv.brainstormInitialIdea,
+          argv.brownfield ? 'brownfield' : undefined,
         );
       } finally {
         await runExitCleanup();

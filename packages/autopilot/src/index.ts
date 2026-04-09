@@ -1,4 +1,6 @@
 export { AutopilotSession } from './AutopilotSession.js';
+export { QualityCheckLoop } from './autopilot/QualityCheckLoop.js';
+export { TaskRunner } from './autopilot/TaskRunner.js';
 export { writeCoreProjectDocs } from './project/coreProjectDocs.js';
 export { ProjectDocsGenerator } from './project/ProjectDocsGenerator.js';
 export type {
