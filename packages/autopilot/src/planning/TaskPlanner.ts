@@ -6,7 +6,7 @@ import type {
   ChatMessage,
 } from '../types.js';
 
-const PLANNER_PROMPT = (context: ContextSpec, skills: Skill[]) =>
+const GREENFIELD_PLANNER_PROMPT = (context: ContextSpec, skills: Skill[]) =>
   `
 You are a senior software architect creating an execution plan for an AI autopilot agent.
 
@@ -16,7 +16,7 @@ ${JSON.stringify(context, null, 2)}
 Available skills to use:
 ${skills.map((s) => `- ${s.name}: ${s.description}`).join('\n')}
 
-Create a step-by-step task graph to fully implement this project.
+Create a step-by-step task graph to fully implement this project from scratch.
 Each task must be self-contained and executable by an AI coding agent.
 
 Return ONLY a JSON array of tasks with this exact shape:
@@ -42,21 +42,67 @@ Rules:
   flesh them out from the JSON context, and keep them accurate as the build progresses.
 `.trim();
 
+const BROWNFIELD_PLANNER_PROMPT = (context: ContextSpec, skills: Skill[]) =>
+  `
+You are a senior software engineer creating a targeted change plan for an AI autopilot agent.
+This is an EXISTING codebase — do not scaffold, do not reinitialise, do not overwrite existing files unnecessarily.
+
+Project context:
+${JSON.stringify(context, null, 2)}
+
+Available skills to use:
+${skills.map((s) => `- ${s.name}: ${s.description}`).join('\n')}
+
+Create a focused task graph to implement the requested change in the existing codebase.
+Each task must be self-contained and executable by an AI coding agent.
+
+Return ONLY a JSON array of tasks with this exact shape:
+[
+  {
+    "id": "task_1",
+    "title": "Short task title",
+    "description": "Detailed description of what to read/change and why",
+    "skillName": null,
+    "dependsOn": [],
+    "type": "implement"
+  }
+]
+
+Rules:
+- 3 to 6 tasks maximum. Keep changes targeted — do not rebuild things that already work.
+- Task types for brownfield: "implement" (code changes), "test" (add/update tests), "ship" (verify + update docs).
+- Do NOT use "scaffold" type — the project already exists.
+- First task should explore key existing files relevant to the change before modifying anything.
+- Always include a "ship" task at the end: run tests, update CONTEXT.md and CHANGELOG.md with what changed.
+- Tasks with no dependsOn run first; others wait for their deps.
+- "description" must be specific enough for an AI to execute without extra context.
+- If you assign a skillName, it must exactly match one of the available skills listed above.
+`.trim();
+
+const PLANNER_PROMPT = (context: ContextSpec, skills: Skill[]) =>
+  context.projectMode === 'brownfield'
+    ? BROWNFIELD_PLANNER_PROMPT(context, skills)
+    : GREENFIELD_PLANNER_PROMPT(context, skills);
+
 function fallbackGraph(context: ContextSpec): TaskGraph {
+  const isBrownfield = context.projectMode === 'brownfield';
   const tasks: Task[] = [
     {
       id: 'task_1',
-      title: 'Implement project',
-      description: `Implement the following based on context:\n${context.idea}\n\n${context.goal}`,
+      title: isBrownfield ? 'Implement changes' : 'Implement project',
+      description: isBrownfield
+        ? `Read relevant existing files first, then implement the following change:\n${context.idea}\n\n${context.goal}`
+        : `Implement the following based on context:\n${context.idea}\n\n${context.goal}`,
       dependsOn: [],
       type: 'implement',
       status: 'pending',
     },
     {
       id: 'task_ship',
-      title: 'Ship and document',
-      description:
-        'Finalize documentation, verify build/tests if applicable, and summarize deliverables.',
+      title: isBrownfield ? 'Verify and document changes' : 'Ship and document',
+      description: isBrownfield
+        ? 'Run existing tests to confirm nothing is broken. Update CONTEXT.md with what changed and CHANGELOG.md with a new entry.'
+        : 'Finalize documentation, verify build/tests if applicable, and summarize deliverables.',
       dependsOn: ['task_1'],
       type: 'ship',
       status: 'pending',

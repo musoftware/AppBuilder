@@ -42,23 +42,26 @@ export class ProgressReporter {
     console.log(
       `\n${chalk.bold.cyan(`[${idx}/${total}]`)} ${chalk.bold(task.title)}`,
     );
-    console.log(
-      chalk.dim(
-        '    Autopilot is running this step with file and shell tools; it may take several minutes with little output.',
-      ),
-    );
-    process.stdout.write(chalk.dim('    Outcome: '));
   }
 
-  completeTask(task: Task): void {
-    process.stdout.write(chalk.green('✓') + '\n');
+  reportActivity(msg: string): void {
+    console.log(chalk.dim('    → ') + chalk.white(msg));
+  }
+
+  completeTask(task: Task, summary?: string): void {
+    if (summary) {
+      const firstLine = summary.split('\n')[0]!.trim();
+      const display =
+        firstLine.length > 120 ? firstLine.slice(0, 117) + '…' : firstLine;
+      console.log(chalk.green('    ✓ ') + chalk.dim(display));
+    } else {
+      console.log(chalk.green('    ✓ Done'));
+    }
     task.status = 'done';
   }
 
   failTask(task: Task, error: Error): void {
-    process.stdout.write(
-      chalk.red('✗') + chalk.dim(` ${error.message}`) + '\n',
-    );
+    console.log(chalk.red('    ✗ ') + chalk.dim(error.message));
     task.status = 'failed';
   }
 

@@ -15,6 +15,10 @@ export interface ContextSpec {
   clarifications: Record<string, string>;
   /** Project root: agents must limit file and shell effects to this directory. */
   workspaceRoot?: string;
+  /** Whether this is a new project (greenfield) or an existing one (brownfield). */
+  projectMode?: 'greenfield' | 'brownfield';
+  /** Brief summary of the existing codebase — populated for brownfield projects. */
+  existingProjectSummary?: string;
 }
 
 export interface Skill {

@@ -34,9 +34,9 @@ export class AutopilotOrchestrator {
           task.status = 'running';
 
           try {
-            await this.runner.execute(task, this.context);
+            const summary = await this.runner.execute(task, this.context);
             task.status = 'done';
-            this.reporter.completeTask(task);
+            this.reporter.completeTask(task, summary);
           } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
             task.status = 'failed';
