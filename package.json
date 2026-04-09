@@ -60,6 +60,7 @@
     "preflight": "npm run clean && npm ci && npm run format && npm run lint:ci && npm run build && npm run typecheck && npm run test:ci",
     "prepare": "husky && npm run build && npm run bundle",
     "prepare:package": "node scripts/prepare-package.js",
+    "build:global-dist": "npm run build && npm run bundle && npm run prepare:package",
     "release:version": "node scripts/version.js",
     "telemetry": "node scripts/telemetry.js",
     "check:lockfile": "node scripts/check-lockfile.js",
@@ -75,7 +76,8 @@
     "baseline-browser-mapping": "^2.9.19"
   },
   "bin": {
-    "autocreator": "dist/cli.js"
+    "autocreator": "dist/cli.js",
+    "autopilot": "dist/cli.js"
   },
   "files": [
     "dist/",

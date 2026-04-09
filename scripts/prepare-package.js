@@ -156,6 +156,7 @@ const distPackageJson = {
   main: 'cli.js',
   bin: {
     autocreator: 'cli.js',
+    autopilot: 'cli.js',
   },
   files: [
     'cli.js',

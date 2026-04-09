@@ -10,7 +10,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "autocreator": "dist/index.js"
+    "autocreator": "dist/index.js",
+    "autopilot": "dist/index.js"
   },
   "exports": {
     ".": {
