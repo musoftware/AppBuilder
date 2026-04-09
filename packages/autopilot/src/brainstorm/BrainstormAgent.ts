@@ -75,6 +75,7 @@ export class BrainstormAgent {
     }
   }
 
+  /** Synchronous snapshot — only use when async extraction is not possible. */
   getContextSpec(): ContextSpec {
     const fullConversation = this.history
       .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
@@ -86,9 +87,63 @@ export class BrainstormAgent {
       techStack: this.context.techStack ?? [],
       constraints: this.context.constraints ?? [],
       outputFormat: this.context.outputFormat ?? 'other',
-      clarifications: this.context.clarifications ?? {
-        fullConversation,
-      },
+      clarifications: this.context.clarifications ?? { fullConversation },
     };
+  }
+
+  /**
+   * Uses the model to extract structured project context from the full
+   * brainstorm conversation. Call this after the user types "go" to get
+   * rich, specific context for document generation.
+   */
+  async extractContextSpec(): Promise<ContextSpec> {
+    const fullConversation = this.history
+      .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+      .join('\n\n');
+
+    const prompt = `You are extracting structured project context from a brainstorming conversation.
+
+## Brainstorm conversation
+${fullConversation}
+
+Extract the key details and return ONLY a valid JSON object with exactly these fields:
+
+{
+  "idea": "One clear sentence describing what is being built",
+  "goal": "What the user wants to achieve / definition of done for this session",
+  "outputFormat": "cli | web-app | api | library | mobile-app | desktop-app | other",
+  "techStack": ["list", "of", "specific", "languages/frameworks/tools", "mentioned"],
+  "constraints": ["list", "of", "hard", "requirements", "or", "restrictions"]
+}
+
+Rules:
+- Be specific — use the user's actual words, names, and details.
+- If something was not discussed, use an empty array [] or the best guess from context.
+- Return ONLY the JSON object. No explanation, no markdown fences.`;
+
+    try {
+      const response = await this.callModel(
+        [{ role: 'user', content: prompt }],
+        'Extract structured data from a conversation. Return only valid JSON.',
+      );
+
+      const cleaned = response.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleaned) as Partial<ContextSpec>;
+
+      return {
+        idea: (parsed.idea as string) || this.context.idea || 'Unknown idea',
+        goal: (parsed.goal as string) || fullConversation,
+        outputFormat:
+          (parsed.outputFormat as ContextSpec['outputFormat']) || 'other',
+        techStack: Array.isArray(parsed.techStack) ? parsed.techStack : [],
+        constraints: Array.isArray(parsed.constraints)
+          ? parsed.constraints
+          : [],
+        clarifications: { fullConversation },
+      };
+    } catch {
+      // Fall back to the sync version if extraction fails.
+      return this.getContextSpec();
+    }
   }
 }

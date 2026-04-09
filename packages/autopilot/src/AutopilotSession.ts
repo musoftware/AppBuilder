@@ -66,8 +66,10 @@ export class AutopilotSession {
 
     rl.close();
 
+    console.log(chalk.dim('  Extracting project context from brainstorm…'));
+    const contextSpec = await agent.extractContextSpec();
     const context = {
-      ...agent.getContextSpec(),
+      ...contextSpec,
       workspaceRoot: process.cwd(),
     };
 
@@ -107,7 +109,15 @@ export class AutopilotSession {
 
     console.log(chalk.dim('  • Generating project documents with AI…'));
     const docsGenerator = new ProjectDocsGenerator(this.callModel);
-    const generatedDocs = await docsGenerator.generate(context, graph);
+    const generatedDocs = await docsGenerator.generate(
+      context,
+      graph,
+      (label) => {
+        console.log(
+          chalk.dim('       ↳ Writing ') + chalk.white(label) + chalk.dim('…'),
+        );
+      },
+    );
 
     console.log(chalk.dim('  • Writing core project documents…'));
     const docs = await writeCoreProjectDocs(
