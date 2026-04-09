@@ -59,3 +59,22 @@ export const DEFAULT_SETTINGS: AutopilotSettings = {
     'proceed',
   ],
 };
+
+/**
+ * Merges partial CLI/settings overrides with defaults. Explicit `undefined` and
+ * empty `goTriggers` must not wipe defaults (callers often pass `undefined` per field).
+ */
+export function mergeAutopilotPartialSettings(
+  partial: Partial<AutopilotSettings> = {},
+): AutopilotSettings {
+  return {
+    skillsPath: partial.skillsPath ?? DEFAULT_SETTINGS.skillsPath,
+    maxTaskRetries: partial.maxTaskRetries ?? DEFAULT_SETTINGS.maxTaskRetries,
+    planPreviewSeconds:
+      partial.planPreviewSeconds ?? DEFAULT_SETTINGS.planPreviewSeconds,
+    goTriggers:
+      partial.goTriggers && partial.goTriggers.length > 0
+        ? partial.goTriggers
+        : DEFAULT_SETTINGS.goTriggers,
+  };
+}

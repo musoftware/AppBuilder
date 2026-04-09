@@ -567,6 +567,54 @@ describe('parseArguments', () => {
     const argv = await parseArguments();
     expect(argv.extensions).toEqual(['ext1', 'ext2']);
   });
+
+  it('should map autocreator --brainstorm with multi-word idea to brainstormInitialIdea', async () => {
+    process.argv = [
+      'node',
+      'script.js',
+      '--brainstorm',
+      'erp',
+      'system',
+      'in',
+      'laravel',
+    ];
+    const argv = await parseArguments();
+    expect(argv.brainstorm).toBe(true);
+    expect(argv.brainstormInitialIdea).toBe('erp system in laravel');
+    expect(argv.prompt).toBeUndefined();
+    expect(argv.promptInteractive).toBeUndefined();
+    expect(argv.query).toBe('erp system in laravel');
+  });
+
+  it('should map brainstorm -b alias with positional idea (autocreator -b erp app)', async () => {
+    process.argv = ['node', 'script.js', '-b', 'erp', 'app'];
+    const argv = await parseArguments();
+    expect(argv.brainstorm).toBe(true);
+    expect(argv.brainstormInitialIdea).toBe('erp app');
+    expect(argv.prompt).toBeUndefined();
+  });
+
+  it('should enable brainstorm without positional seed', async () => {
+    process.argv = ['node', 'script.js', '--brainstorm'];
+    const argv = await parseArguments();
+    expect(argv.brainstorm).toBe(true);
+    expect(argv.brainstormInitialIdea).toBeUndefined();
+    expect(argv.prompt).toBeUndefined();
+  });
+
+  it('should map --brainstorm with -p seed to brainstormInitialIdea', async () => {
+    process.argv = [
+      'node',
+      'script.js',
+      '--brainstorm',
+      '-p',
+      'erp system in laravel',
+    ];
+    const argv = await parseArguments();
+    expect(argv.brainstorm).toBe(true);
+    expect(argv.brainstormInitialIdea).toBe('erp system in laravel');
+    expect(argv.prompt).toBeUndefined();
+  });
 });
 
 describe('loadCliConfig', () => {

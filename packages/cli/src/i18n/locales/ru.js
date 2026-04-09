@@ -92,7 +92,7 @@ export default {
   // ============================================================================
   // Поля системной информации
   // ============================================================================
-  'Qwen Code': 'Qwen Code',
+  'Qwen Code': 'MU Code',
   Runtime: 'Среда выполнения',
   OS: 'ОС',
   Auth: 'Аутентификация',
@@ -1173,7 +1173,7 @@ export default {
     'Вы должны выбрать метод авторизации для продолжения. Нажмите Ctrl+C снова для выхода.',
   'Terms of Services and Privacy Notice':
     'Условия обслуживания и уведомление о конфиденциальности',
-  'Qwen OAuth': 'Qwen OAuth',
+  'Qwen OAuth': 'MU OAuth',
   'Free \u00B7 Up to 1,000 requests/day \u00B7 Qwen latest models':
     'Бесплатно \u00B7 До 1 000 запросов/день \u00B7 Новейшие модели Qwen',
   'Login with QwenChat account to use daily free quota.':

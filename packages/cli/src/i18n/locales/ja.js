@@ -63,6 +63,7 @@ export default {
   // ============================================================================
   // System Information Fields
   // ============================================================================
+  'Qwen Code': 'MU Code',
   'CLI Version': 'CLIバージョン',
   'Git Commit': 'Gitコミット',
   Model: 'モデル',
@@ -964,7 +965,7 @@ export default {
   'You must select an auth method to proceed. Press Ctrl+C again to exit.':
     '続行するには認証方法を選択してください。Ctrl+C をもう一度押すと終了します',
   'Terms of Services and Privacy Notice': '利用規約とプライバシー通知',
-  'Qwen OAuth': 'Qwen OAuth',
+  'Qwen OAuth': 'MU OAuth',
   'Free \u00B7 Up to 1,000 requests/day \u00B7 Qwen latest models':
     '無料 \u00B7 1日最大1,000リクエスト \u00B7 Qwen最新モデル',
   'Login with QwenChat account to use daily free quota.':

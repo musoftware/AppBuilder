@@ -72,7 +72,7 @@ export default {
   // ============================================================================
   // System Information Fields
   // ============================================================================
-  'Qwen Code': 'Qwen Code',
+  'Qwen Code': 'MU Code',
   Runtime: 'Laufzeit',
   OS: 'Betriebssystem',
   Auth: 'Authentifizierung',
@@ -1243,7 +1243,7 @@ export default {
     'Sie müssen eine Authentifizierungsmethode wählen, um fortzufahren. Drücken Sie erneut Strg+C zum Beenden.',
   'Terms of Services and Privacy Notice':
     'Nutzungsbedingungen und Datenschutzhinweis',
-  'Qwen OAuth': 'Qwen OAuth',
+  'Qwen OAuth': 'MU OAuth',
   'Free \u00B7 Up to 1,000 requests/day \u00B7 Qwen latest models':
     'Kostenlos \u00B7 Bis zu 1.000 Anfragen/Tag \u00B7 Qwen neueste Modelle',
   'Login with QwenChat account to use daily free quota.':

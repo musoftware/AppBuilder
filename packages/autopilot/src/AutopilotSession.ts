@@ -9,7 +9,7 @@ import { TaskRunner } from './autopilot/TaskRunner.js';
 import { AutopilotOrchestrator } from './autopilot/AutopilotOrchestrator.js';
 import { ProgressReporter } from './autopilot/ProgressReporter.js';
 import type { AutopilotSettings, ChatMessage } from './types.js';
-import { DEFAULT_SETTINGS } from './types.js';
+import { mergeAutopilotPartialSettings } from './types.js';
 
 export class AutopilotSession {
   private settings: AutopilotSettings;
@@ -32,19 +32,7 @@ export class AutopilotSession {
     ) => Promise<string>,
     settings: Partial<AutopilotSettings> = {},
   ) {
-    // Do not use `{ ...DEFAULT_SETTINGS, ...settings }`: callers pass explicit
-    // `undefined` for omitted options, which would overwrite defaults.
-    this.settings = {
-      skillsPath: settings.skillsPath ?? DEFAULT_SETTINGS.skillsPath,
-      maxTaskRetries:
-        settings.maxTaskRetries ?? DEFAULT_SETTINGS.maxTaskRetries,
-      planPreviewSeconds:
-        settings.planPreviewSeconds ?? DEFAULT_SETTINGS.planPreviewSeconds,
-      goTriggers:
-        settings.goTriggers && settings.goTriggers.length > 0
-          ? settings.goTriggers
-          : DEFAULT_SETTINGS.goTriggers,
-    };
+    this.settings = mergeAutopilotPartialSettings(settings);
     this.callModel = callModel;
     this.callModelWithTools = callModelWithTools;
   }
@@ -53,7 +41,7 @@ export class AutopilotSession {
     const rl = readline.createInterface({ input, output });
 
     console.log('\n' + chalk.bold.cyan('━'.repeat(50)));
-    console.log(chalk.bold(' Qwen Code — Autopilot mode'));
+    console.log(chalk.bold(' MU Code — Autopilot mode'));
     console.log(chalk.dim(' Type your idea. Type "go" when ready to build.'));
     console.log(chalk.cyan('━'.repeat(50)) + '\n');
 
@@ -71,7 +59,7 @@ export class AutopilotSession {
         break;
       }
 
-      console.log(chalk.bold.cyan('\nQwen: ') + reply + '\n');
+      console.log(chalk.bold.cyan('\nMU: ') + reply + '\n');
     }
 
     rl.close();

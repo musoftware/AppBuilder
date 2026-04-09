@@ -89,7 +89,7 @@ export default {
   // ============================================================================
   // System Information Fields
   // ============================================================================
-  'Qwen Code': 'Qwen Code',
+  'Qwen Code': 'MU Code',
   Runtime: '运行环境',
   OS: '操作系统',
   Auth: '认证',
@@ -1224,7 +1224,7 @@ export default {
   'You must select an auth method to proceed. Press Ctrl+C again to exit.':
     '您必须选择认证方法才能继续。再次按 Ctrl+C 退出',
   'Terms of Services and Privacy Notice': '服务条款和隐私声明',
-  'Qwen OAuth': 'Qwen OAuth (免费)',
+  'Qwen OAuth': 'MU OAuth (免费)',
   'Free \u00B7 Up to 1,000 requests/day \u00B7 Qwen latest models':
     '免费 \u00B7 每天最多 1,000 次请求 \u00B7 Qwen 最新模型',
   'Login with QwenChat account to use daily free quota.':
