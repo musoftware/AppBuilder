@@ -10,6 +10,7 @@ import { TaskPlanner } from './planning/TaskPlanner.js';
 import { TaskRunner } from './autopilot/TaskRunner.js';
 import { AutopilotOrchestrator } from './autopilot/AutopilotOrchestrator.js';
 import { ProgressReporter } from './autopilot/ProgressReporter.js';
+import { QualityCheckLoop } from './autopilot/QualityCheckLoop.js';
 import { writeCoreProjectDocs } from './project/coreProjectDocs.js';
 import { ProjectDocsGenerator } from './project/ProjectDocsGenerator.js';
 import type { AutopilotSettings, ChatMessage } from './types.js';
@@ -326,5 +327,12 @@ export class AutopilotSession {
       context,
     );
     await orchestrator.run();
+
+    const qcLoop = new QualityCheckLoop(
+      this.callModelWithTools,
+      runner,
+      context,
+    );
+    await qcLoop.run();
   }
 }
