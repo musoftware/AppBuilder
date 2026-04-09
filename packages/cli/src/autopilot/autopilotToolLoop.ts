@@ -48,9 +48,24 @@ function getFriendlyToolDescription(
     case ToolNames.TODO_WRITE:
       return `Updating task list…`;
     case ToolNames.READ_FILE:
-    case ToolNames.GREP:
+      return `Reading ${str('path') ?? 'file'}`;
+    case ToolNames.GREP: {
+      const pattern = str('pattern') ?? '';
+      const short = pattern.length > 40 ? pattern.slice(0, 37) + '…' : pattern;
+      return `Searching: ${short}`;
+    }
     case ToolNames.GLOB:
+      return `Listing: ${str('pattern') ?? '*'}`;
     case ToolNames.LS:
+      return `Listing ${str('path') ?? 'directory'}`;
+    case ToolNames.AGENT: {
+      const desc = str('description') ?? str('prompt');
+      if (desc) {
+        const short = desc.length > 60 ? desc.slice(0, 57) + '…' : desc;
+        return `Agent: ${short}`;
+      }
+      return `Spawning sub-agent…`;
+    }
     case ToolNames.LSP:
       return undefined;
     default:
