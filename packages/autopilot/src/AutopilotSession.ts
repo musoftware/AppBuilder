@@ -32,7 +32,19 @@ export class AutopilotSession {
     ) => Promise<string>,
     settings: Partial<AutopilotSettings> = {},
   ) {
-    this.settings = { ...DEFAULT_SETTINGS, ...settings };
+    // Do not use `{ ...DEFAULT_SETTINGS, ...settings }`: callers pass explicit
+    // `undefined` for omitted options, which would overwrite defaults.
+    this.settings = {
+      skillsPath: settings.skillsPath ?? DEFAULT_SETTINGS.skillsPath,
+      maxTaskRetries:
+        settings.maxTaskRetries ?? DEFAULT_SETTINGS.maxTaskRetries,
+      planPreviewSeconds:
+        settings.planPreviewSeconds ?? DEFAULT_SETTINGS.planPreviewSeconds,
+      goTriggers:
+        settings.goTriggers && settings.goTriggers.length > 0
+          ? settings.goTriggers
+          : DEFAULT_SETTINGS.goTriggers,
+    };
     this.callModel = callModel;
     this.callModelWithTools = callModelWithTools;
   }

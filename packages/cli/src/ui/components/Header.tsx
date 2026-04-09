@@ -18,7 +18,7 @@ import { useTerminalSize } from '../hooks/useTerminalSize.js';
  * Simplified representation of authentication method shown to users.
  */
 export enum AuthDisplayType {
-  QWEN_OAUTH = 'Qwen OAuth',
+  QWEN_OAUTH = 'MU OAuth',
   CODING_PLAN = 'Coding Plan',
   API_KEY = 'API Key',
   UNKNOWN = 'Unknown',
@@ -134,10 +134,10 @@ export const Header: React.FC<HeaderProps> = ({
         flexGrow={showLogo ? 0 : 1}
         width={showLogo ? availableInfoPanelWidth : undefined}
       >
-        {/* Title line: >_ Qwen Code (v{version}) */}
+        {/* Title line: >_ MU Code (v{version}) */}
         <Text>
           <Text bold color={theme.text.accent}>
-            &gt;_ Qwen Code
+            &gt;_ MU Code
           </Text>
           <Text color={theme.text.secondary}> (v{version})</Text>
         </Text>

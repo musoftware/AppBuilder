@@ -197,7 +197,7 @@ export async function parseArguments(): Promise<CliArgs> {
     .locale('en')
     .scriptName('autocreator')
     .usage(
-      'Usage: autocreator [options] [command]\n\nQwen Code - Launch an interactive CLI, use -p/--prompt for non-interactive mode',
+      'Usage: autocreator [options] [command]\n\nMU Code - Launch an interactive CLI, use -p/--prompt for non-interactive mode',
     )
     .option('telemetry', {
       type: 'boolean',
@@ -262,7 +262,7 @@ export async function parseArguments(): Promise<CliArgs> {
     })
     .option('proxy', {
       type: 'string',
-      description: 'Proxy for Qwen Code, like schema://user:password@host:port',
+      description: 'Proxy for MU Code, like schema://user:password@host:port',
     })
     .deprecateOption(
       'proxy',
@@ -273,7 +273,7 @@ export async function parseArguments(): Promise<CliArgs> {
       description:
         'Enable chat recording to disk. If false, chat history is not saved and --continue/--resume will not work.',
     })
-    .command('$0 [query..]', 'Launch Qwen Code CLI', (yargsInstance: Argv) =>
+    .command('$0 [query..]', 'Launch MU Code CLI', (yargsInstance: Argv) =>
       yargsInstance
         .positional('query', {
           description:
