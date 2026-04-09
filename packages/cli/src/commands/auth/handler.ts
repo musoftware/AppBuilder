@@ -107,6 +107,8 @@ export async function handleQwenAuth(
       excludeTools: undefined,
       authType: undefined,
       channel: undefined,
+      brainstorm: undefined,
+      brainstormInitialIdea: undefined,
       systemPrompt: undefined,
       appendSystemPrompt: undefined,
     };
@@ -410,17 +412,19 @@ export async function showAuthStatus(): Promise<void> {
       writeStdoutLine(t('Run one of the following commands to get started:\n'));
       writeStdoutLine(
         t(
-          '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)',
+          '  autocreator auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)',
         ),
       );
       writeStdoutLine(
         t(
-          '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
+          '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
         ),
       );
       writeStdoutLine(t('Or simply run:'));
       writeStdoutLine(
-        t('  qwen auth                - Interactive authentication setup\n'),
+        t(
+          '  autocreator auth                - Interactive authentication setup\n',
+        ),
       );
       process.exit(0);
     }
@@ -479,7 +483,9 @@ export async function showAuthStatus(): Promise<void> {
         writeStdoutLine(
           t('  Issue: API key not found in environment or settings\n'),
         );
-        writeStdoutLine(t('  Run `qwen auth coding-plan` to re-configure.\n'));
+        writeStdoutLine(
+          t('  Run `autocreator auth coding-plan` to re-configure.\n'),
+        );
       }
     } else {
       writeStdoutLine(

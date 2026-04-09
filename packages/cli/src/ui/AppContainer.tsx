@@ -74,7 +74,7 @@ import { useVimMode } from './contexts/VimModeContext.js';
 import { VerboseModeProvider } from './contexts/VerboseModeContext.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { calculatePromptWidths } from './components/InputPrompt.js';
-import { useStdin, useStdout } from 'ink';
+import { useApp, useStdin, useStdout } from 'ink';
 import ansiEscapes from 'ansi-escapes';
 import * as fs from 'node:fs';
 import { basename } from 'node:path';
@@ -101,6 +101,7 @@ import { migrateTomlCommands } from '../services/command-migration-tool.js';
 import { type UpdateObject } from './utils/updateCheck.js';
 import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { registerCleanup, runExitCleanup } from '../utils/cleanup.js';
+import { runBrainstormAutopilot } from '../autopilot/runBrainstormAutopilot.js';
 import { useMessageQueue } from './hooks/useMessageQueue.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useSessionStats } from './contexts/SessionContext.js';
@@ -282,6 +283,35 @@ export const AppContainer = (props: AppContainerProps) => {
   const { columns: terminalWidth, rows: terminalHeight } = useTerminalSize();
   const { stdin, setRawMode } = useStdin();
   const { stdout } = useStdout();
+  const { exit } = useApp();
+  const autopilotHandlerRef = useRef<(idea?: string) => void>(() => {});
+
+  const handleAutopilotRequest = useCallback(
+    (idea?: string) => {
+      void (async () => {
+        try {
+          exit();
+          await new Promise((r) => setTimeout(r, 150));
+          if (process.stdin.isTTY && process.stdin.isRaw) {
+            process.stdin.setRawMode(false);
+          }
+          await config.initialize();
+          await runBrainstormAutopilot(config, settings, idea);
+        } catch (error: unknown) {
+          debugLogger.error(
+            'Autopilot:',
+            error instanceof Error ? error.message : String(error),
+          );
+        } finally {
+          await runExitCleanup();
+          process.exit(0);
+        }
+      })();
+    },
+    [config, settings, exit],
+  );
+
+  autopilotHandlerRef.current = handleAutopilotRequest;
 
   // Additional hooks moved from App.tsx
   const { stats: sessionStats, startNewSession } = useSessionStats();
@@ -745,6 +775,7 @@ export const AppContainer = (props: AppContainerProps) => {
     terminalWidth,
     terminalHeight,
     midTurnDrainRef,
+    autopilotHandlerRef,
   );
 
   // Track whether suggestions are visible for Tab key handling

@@ -1037,7 +1037,8 @@ export default {
   servers: 'servers',
   'Add MCP servers to your settings to get started.':
     'Add MCP servers to your settings to get started.',
-  'Run qwen --debug to see error logs': 'Run qwen --debug to see error logs',
+  'Run autocreator --debug to see error logs':
+    'Run autocreator --debug to see error logs',
 
   // MCP OAuth Authentication
   'OAuth Authentication': 'OAuth Authentication',
@@ -1546,8 +1547,8 @@ export default {
     'You can run any shell commands from Qwen Code using ! (e.g. !ls).',
   'Type / to open the command popup; Tab autocompletes slash commands and saved prompts.':
     'Type / to open the command popup; Tab autocompletes slash commands and saved prompts.',
-  'You can resume a previous conversation by running qwen --continue or qwen --resume.':
-    'You can resume a previous conversation by running qwen --continue or qwen --resume.',
+  'You can resume a previous conversation by running autocreator --continue or autocreator --resume.':
+    'You can resume a previous conversation by running autocreator --continue or autocreator --resume.',
   'You can switch permission mode quickly with Shift+Tab or /approval-mode.':
     'You can switch permission mode quickly with Shift+Tab or /approval-mode.',
   'You can switch permission mode quickly with Tab or /approval-mode.':
@@ -1976,13 +1977,13 @@ export default {
     '⚠️  No authentication method configured.\n',
   'Run one of the following commands to get started:\n':
     'Run one of the following commands to get started:\n',
-  '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
-    '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)',
-  '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
-    '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
+  '  autocreator auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
+    '  autocreator auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)',
+  '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
+    '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
   'Or simply run:': 'Or simply run:',
-  '  qwen auth                - Interactive authentication setup\n':
-    '  qwen auth                - Interactive authentication setup\n',
+  '  autocreator auth                - Interactive authentication setup\n':
+    '  autocreator auth                - Interactive authentication setup\n',
   '✓ Authentication Method: Qwen OAuth': '✓ Authentication Method: Qwen OAuth',
   '  Type: Free tier': '  Type: Free tier',
   '  Limit: Up to 1,000 requests/day': '  Limit: Up to 1,000 requests/day',
@@ -1999,8 +2000,8 @@ export default {
     '⚠️  Authentication Method: Alibaba Cloud Coding Plan (Incomplete)',
   '  Issue: API key not found in environment or settings\n':
     '  Issue: API key not found in environment or settings\n',
-  '  Run `qwen auth coding-plan` to re-configure.\n':
-    '  Run `qwen auth coding-plan` to re-configure.\n',
+  '  Run `autocreator auth coding-plan` to re-configure.\n':
+    '  Run `autocreator auth coding-plan` to re-configure.\n',
   '✓ Authentication Method: {{type}}': '✓ Authentication Method: {{type}}',
   '  Status: Configured\n': '  Status: Configured\n',
   'Failed to check authentication status: {{error}}':

@@ -188,6 +188,12 @@ export interface SubmitPromptActionReturn {
   content: PartListUnion;
 }
 
+/** Exit Ink UI and run CLI autopilot (brainstorm → plan → execute). */
+export interface AutopilotActionReturn {
+  type: 'autopilot';
+  initialIdea?: string;
+}
+
 /**
  * The return type for a command action that needs to pause and request
  * confirmation for a set of shell commands before proceeding.
@@ -220,6 +226,7 @@ export type SlashCommandActionReturn =
   | OpenDialogActionReturn
   | LoadHistoryActionReturn
   | SubmitPromptActionReturn
+  | AutopilotActionReturn
   | ConfirmShellCommandsActionReturn
   | ConfirmActionReturn;
 

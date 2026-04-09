@@ -161,6 +161,8 @@ export interface CliArgs {
   excludeTools: string[] | undefined;
   authType: string | undefined;
   channel: string | undefined;
+  brainstorm: boolean | undefined;
+  brainstormInitialIdea: string | undefined;
 }
 
 function normalizeOutputFormat(
@@ -193,9 +195,9 @@ export async function parseArguments(): Promise<CliArgs> {
 
   const yargsInstance = yargs(rawArgv)
     .locale('en')
-    .scriptName('qwen')
+    .scriptName('autocreator')
     .usage(
-      'Usage: qwen [options] [command]\n\nQwen Code - Launch an interactive CLI, use -p/--prompt for non-interactive mode',
+      'Usage: autocreator [options] [command]\n\nQwen Code - Launch an interactive CLI, use -p/--prompt for non-interactive mode',
     )
     .option('telemetry', {
       type: 'boolean',
@@ -356,6 +358,13 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'string',
           choices: ['VSCode', 'ACP', 'SDK', 'CI'],
           description: 'Channel identifier (VSCode, ACP, SDK, CI)',
+        })
+        .option('brainstorm', {
+          alias: 'b',
+          type: 'boolean',
+          description:
+            'Autopilot brainstorm mode: clarify your idea, plan with skills, then execute tasks in YOLO mode',
+          default: false,
         })
         .option('allowed-mcp-server-names', {
           type: 'array',
@@ -633,6 +642,19 @@ export async function parseArguments(): Promise<CliArgs> {
 
   // Keep CliArgs.query as a string for downstream typing
   (result as Record<string, unknown>)['query'] = q || undefined;
+
+  if (result['brainstorm']) {
+    const seed =
+      (typeof result['prompt'] === 'string' && result['prompt']) ||
+      (typeof result['promptInteractive'] === 'string' &&
+        result['promptInteractive']) ||
+      undefined;
+    if (seed) {
+      (result as Record<string, unknown>)['brainstormInitialIdea'] = seed;
+    }
+    delete (result as Record<string, unknown>)['prompt'];
+    delete (result as Record<string, unknown>)['promptInteractive'];
+  }
 
   // The import format is now only controlled by settings.memoryImportFormat
   // We no longer accept it as a CLI argument
@@ -993,7 +1015,7 @@ export async function loadCliConfig(
       sessionId = argv.resume;
       sessionData = await sessionService.loadSession(argv.resume);
       if (!sessionData) {
-        const message = `No saved session found with ID ${argv.resume}. Run \`qwen --resume\` without an ID to choose from existing sessions.`;
+        const message = `No saved session found with ID ${argv.resume}. Run \`autocreator --resume\` without an ID to choose from existing sessions.`;
         writeStderrLine(message);
         process.exit(1);
       }

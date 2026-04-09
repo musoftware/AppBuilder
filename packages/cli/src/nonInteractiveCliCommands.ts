@@ -171,6 +171,14 @@ function handleCommandResult(
         originalType: 'confirm_action',
       };
 
+    case 'autopilot':
+      return {
+        type: 'unsupported',
+        reason:
+          'Autopilot mode requires the interactive terminal. Use `autocreator --brainstorm` instead of /brainstorm in non-interactive mode.',
+        originalType: 'autopilot',
+      };
+
     default: {
       // Exhaustiveness check
       const _exhaustive: never = result;

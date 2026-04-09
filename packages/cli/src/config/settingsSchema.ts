@@ -1647,6 +1647,62 @@ const SETTINGS_SCHEMA = {
     },
   },
 
+  autopilot: {
+    type: 'object',
+    label: 'Autopilot',
+    category: 'Advanced',
+    requiresRestart: false,
+    default: {},
+    description:
+      'Brainstorm → plan → autopilot execution (autocreator --brainstorm / /brainstorm).',
+    showInDialog: false,
+    properties: {
+      skillsPath: {
+        type: 'string',
+        label: 'Autopilot skills path',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: '' as string,
+        description:
+          'Directory with SKILL.md files (e.g. ~/.qwen/skills). Empty uses default search paths.',
+        showInDialog: false,
+      },
+      maxTaskRetries: {
+        type: 'number',
+        label: 'Max task retries',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: 2,
+        description: 'Retries per autopilot task after failure.',
+        showInDialog: false,
+      },
+      planPreviewSeconds: {
+        type: 'number',
+        label: 'Plan preview seconds',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: 3,
+        description: 'Countdown before autopilot execution starts.',
+        showInDialog: false,
+      },
+      goTriggers: {
+        type: 'array',
+        label: 'Go triggers',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: [] as string[],
+        description:
+          'Phrases that start planning (merged with built-in defaults when empty).',
+        showInDialog: false,
+        mergeStrategy: MergeStrategy.CONCAT,
+        items: {
+          type: 'string',
+          description: 'Trigger phrase',
+        },
+      },
+    },
+  },
+
   experimental: {
     type: 'object',
     label: 'Experimental',

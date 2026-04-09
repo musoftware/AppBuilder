@@ -61,6 +61,7 @@ import { computeWindowTitle } from './utils/windowTitle.js';
 import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';
 import { showResumeSessionPicker } from './ui/components/StandaloneSessionPicker.js';
 import { initializeLlmOutputLanguage } from './utils/languageUtils.js';
+import { runBrainstormAutopilot } from './autopilot/runBrainstormAutopilot.js';
 
 const debugLogger = createDebugLogger('STARTUP');
 
@@ -408,6 +409,23 @@ export async function main() {
     // For other modes, initialize normally
     const initializationResult = await initializeApp(config, settings);
 
+    if (argv.brainstorm) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          argv.brainstormInitialIdea,
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
     if (config.getExperimentalZedIntegration()) {
       await runAcpAgent(config, settings, argv);
       // Clean up child processes and force exit, matching other non-interactive modes
@@ -492,7 +510,7 @@ export async function main() {
 
     if (!input) {
       writeStderrLine(
-        `No input provided via stdin. Input can be provided by piping data into gemini or using the --prompt option.`,
+        `No input provided via stdin. Input can be provided by piping data into autocreator or using the --prompt option.`,
       );
       process.exit(1);
     }

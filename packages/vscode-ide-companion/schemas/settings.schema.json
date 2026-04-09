@@ -1471,6 +1471,35 @@
         }
       }
     },
+    "autopilot": {
+      "description": "Brainstorm → plan → autopilot execution (autocreator --brainstorm / /brainstorm).",
+      "type": "object",
+      "properties": {
+        "skillsPath": {
+          "description": "Directory with SKILL.md files (e.g. ~/.qwen/skills). Empty uses default search paths.",
+          "type": "string",
+          "default": ""
+        },
+        "maxTaskRetries": {
+          "description": "Retries per autopilot task after failure.",
+          "type": "number",
+          "default": 2
+        },
+        "planPreviewSeconds": {
+          "description": "Countdown before autopilot execution starts.",
+          "type": "number",
+          "default": 3
+        },
+        "goTriggers": {
+          "description": "Phrases that start planning (merged with built-in defaults when empty).",
+          "type": "array",
+          "items": {
+            "description": "Trigger phrase",
+            "type": "string"
+          }
+        }
+      }
+    },
     "experimental": {
       "description": "Settings to enable experimental features.",
       "type": "object",

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { rmSync, mkdirSync, existsSync, cpSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,10 +14,37 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
+function resolveTscEntry() {
+  let dir = rootDir;
+  for (;;) {
+    const libTsc = join(dir, 'node_modules', 'typescript', 'lib', 'tsc.js');
+    if (existsSync(libTsc)) {
+      return libTsc;
+    }
+    const binTsc = join(dir, 'node_modules', 'typescript', 'bin', 'tsc');
+    if (existsSync(binTsc)) {
+      return binTsc;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      return null;
+    }
+    dir = parent;
+  }
+}
+
+const tscEntry = resolveTscEntry();
+if (!tscEntry) {
+  console.error(
+    'Could not find typescript. Run `npm install` from the repository root.',
+  );
+  process.exit(1);
+}
+
 rmSync(join(rootDir, 'dist'), { recursive: true, force: true });
 mkdirSync(join(rootDir, 'dist'), { recursive: true });
 
-execSync('tsc --project tsconfig.build.json', {
+execFileSync(process.execPath, [tscEntry, '--project', 'tsconfig.build.json'], {
   stdio: 'inherit',
   cwd: rootDir,
 });

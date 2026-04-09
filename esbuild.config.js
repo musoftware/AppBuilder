@@ -56,6 +56,8 @@ const wasmBinaryPlugin = {
 };
 
 const external = [
+  // Node subpath export; esbuild does not treat it as implicit builtin when bundling.
+  'readline/promises',
   '@lydell/node-pty',
   'node-pty',
   '@lydell/node-pty-darwin-arm64',

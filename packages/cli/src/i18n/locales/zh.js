@@ -978,7 +978,7 @@ export default {
   servers: '个服务器',
   'Add MCP servers to your settings to get started.':
     '请在设置中添加 MCP 服务器以开始使用。',
-  'Run qwen --debug to see error logs': '运行 qwen --debug 查看错误日志',
+  'Run autocreator --debug to see error logs': '运行 qwen --debug 查看错误日志',
 
   // MCP OAuth Authentication
   'OAuth Authentication': 'OAuth 认证',
@@ -1463,7 +1463,7 @@ export default {
     '在 Qwen Code 中使用 ! 可运行任意 shell 命令（例如 !ls）。',
   'Type / to open the command popup; Tab autocompletes slash commands and saved prompts.':
     '输入 / 打开命令弹窗；按 Tab 自动补全斜杠命令和保存的提示词。',
-  'You can resume a previous conversation by running qwen --continue or qwen --resume.':
+  'You can resume a previous conversation by running autocreator --continue or autocreator --resume.':
     '运行 qwen --continue 或 qwen --resume 可继续之前的会话。',
   'You can switch permission mode quickly with Shift+Tab or /approval-mode.':
     '按 Shift+Tab 或输入 /approval-mode 可快速切换权限模式。',
@@ -1780,13 +1780,13 @@ export default {
   '⚠️  No authentication method configured.\n': '⚠️  未配置认证方式。\n',
   'Run one of the following commands to get started:\n':
     '运行以下命令之一开始配置：\n',
-  '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
-    '  qwen auth qwen-oauth     - 使用 Qwen OAuth 认证（免费）',
-  '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
-    '  qwen auth coding-plan      - 使用阿里云百炼 Coding Plan 认证\n',
+  '  autocreator auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
+    '  autocreator auth qwen-oauth     - 使用 Qwen OAuth 认证（免费）',
+  '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
+    '  autocreator auth coding-plan      - 使用阿里云百炼 Coding Plan 认证\n',
   'Or simply run:': '或者直接运行：',
-  '  qwen auth                - Interactive authentication setup\n':
-    '  qwen auth                - 交互式认证配置\n',
+  '  autocreator auth                - Interactive authentication setup\n':
+    '  autocreator auth                - 交互式认证配置\n',
   '✓ Authentication Method: Qwen OAuth': '✓ 认证方式：Qwen OAuth',
   '  Type: Free tier': '  类型：免费版',
   '  Limit: Up to 1,000 requests/day': '  限额：每天最多 1,000 次请求',
@@ -1803,8 +1803,8 @@ export default {
     '⚠️  认证方式：阿里云百炼 Coding Plan（不完整）',
   '  Issue: API key not found in environment or settings\n':
     '  问题：在环境变量或设置中未找到 API 密钥\n',
-  '  Run `qwen auth coding-plan` to re-configure.\n':
-    '  运行 `qwen auth coding-plan` 重新配置。\n',
+  '  Run `autocreator auth coding-plan` to re-configure.\n':
+    '  运行 `autocreator auth coding-plan` 重新配置。\n',
   '✓ Authentication Method: {{type}}': '✓ 认证方式：{{type}}',
   '  Status: Configured\n': '  状态：已配置\n',
   'Failed to check authentication status: {{error}}':

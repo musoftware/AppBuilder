@@ -566,7 +566,11 @@ export type SlashCommandProcessorResult =
   | {
       type: 'handled'; // Indicates the command was processed and no further action is needed.
     }
-  | SubmitPromptResult;
+  | SubmitPromptResult
+  | {
+      type: 'autopilot';
+      initialIdea?: string;
+    };
 
 export interface ShellConfirmationRequest {
   commands: string[];

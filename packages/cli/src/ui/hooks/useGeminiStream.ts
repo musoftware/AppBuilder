@@ -4,7 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react';
 import type {
   Config,
   EditorType,
@@ -167,13 +176,14 @@ export const useGeminiStream = (
   onAuthError: (error: string) => void,
   performMemoryRefresh: () => Promise<void>,
   modelSwitchedFromQuotaError: boolean,
-  setModelSwitchedFromQuotaError: React.Dispatch<React.SetStateAction<boolean>>,
+  setModelSwitchedFromQuotaError: Dispatch<SetStateAction<boolean>>,
   onEditorClose: () => void,
   onCancelSubmit: () => void,
   setShellInputFocused: (value: boolean) => void,
   terminalWidth: number,
   terminalHeight: number,
-  midTurnDrainRef?: React.RefObject<(() => string[]) | null>,
+  midTurnDrainRef?: RefObject<(() => string[]) | null>,
+  autopilotRequestRef?: RefObject<((idea?: string) => void) | null>,
 ) => {
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -533,6 +543,10 @@ export const useGeminiStream = (
             case 'handled': {
               return { queryToSend: null, shouldProceed: false };
             }
+            case 'autopilot': {
+              autopilotRequestRef?.current?.(slashCommandResult.initialIdea);
+              return { queryToSend: null, shouldProceed: false };
+            }
             default: {
               const unreachable: never = slashCommandResult;
               throw new Error(
@@ -591,6 +605,7 @@ export const useGeminiStream = (
       logger,
       shellModeActive,
       scheduleToolCalls,
+      autopilotRequestRef,
     ],
   );
 

@@ -17,17 +17,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { execSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { execFileSync, execSync } from 'node:child_process';
+import { existsSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 if (!process.cwd().includes('packages')) {
   console.error('must be invoked from a package directory');
   process.exit(1);
 }
 
+/**
+ * Resolve typescript/bin/tsc.js by walking up from the package dir (npm may
+ * hoist `typescript` to the workspace root with no local node_modules copy).
+ */
+function resolveTscJs() {
+  let dir = process.cwd();
+  for (;;) {
+    const tscBin = join(dir, 'node_modules', 'typescript', 'bin', 'tsc');
+    if (existsSync(tscBin)) {
+      return tscBin;
+    }
+    const tscJs = join(dir, 'node_modules', 'typescript', 'bin', 'tsc.js');
+    if (existsSync(tscJs)) {
+      return tscJs;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return null;
+}
+
+const tscJs = resolveTscJs();
+if (!tscJs) {
+  console.error(
+    'Could not find typescript (tsc). Run `npm install` from the repository root.',
+  );
+  process.exit(1);
+}
+
 // build typescript files
-execSync('tsc --build', { stdio: 'inherit' });
+execFileSync(process.execPath, [tscJs, '--build'], { stdio: 'inherit' });
 
 // copy .{md,json} files
 execSync('node ../../scripts/copy_files.js', { stdio: 'inherit' });

@@ -86,6 +86,7 @@
     "src/commands/extensions/examples/**"
   ],
   "references": [
+    { "path": "../autopilot" },
     { "path": "../core" },
     { "path": "../channels/base" },
     { "path": "../channels/telegram" },

@@ -52,6 +52,7 @@ const buildOrder = [
   'packages/channels/weixin',
   'packages/channels/dingtalk',
   'packages/channels/plugin-example',
+  'packages/autopilot',
   'packages/cli',
   'packages/webui',
   'packages/sdk-typescript',
