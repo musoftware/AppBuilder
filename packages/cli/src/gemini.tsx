@@ -139,7 +139,7 @@ ${reason.stack}`
 }
 
 export type InteractiveUiStartupOptions = {
-  /** Pre-fill the prompt with `/quality-check` (same submit path as typing it). */
+  /** Auto-submit `/quality-check` when the UI is ready (same path as typing it). */
   startupQualityCheck?: boolean;
 };
 

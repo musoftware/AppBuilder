@@ -152,7 +152,7 @@ interface AppContainerProps {
   startupWarnings?: string[];
   version: string;
   initializationResult: InitializationResult;
-  /** From `mu-pilot --quality-check`: same UI as plain launch; prompt pre-filled with `/quality-check`. */
+  /** From `mu-pilot --quality-check`: same UI as plain launch; auto-submits `/quality-check` when ready. */
   startupQualityCheck?: boolean;
 }
 
@@ -865,19 +865,6 @@ export const AppContainer = (props: AppContainerProps) => {
   );
   autopilotHandlerRef.current = handleAutopilotRequest;
 
-  const startupQualityCheckFiredRef = useRef(false);
-  useEffect(() => {
-    if (
-      !startupQualityCheck ||
-      !isConfigInitialized ||
-      startupQualityCheckFiredRef.current
-    ) {
-      return;
-    }
-    startupQualityCheckFiredRef.current = true;
-    buffer.setText('/quality-check');
-  }, [startupQualityCheck, isConfigInitialized, buffer]);
-
   // Track whether suggestions are visible for Tab key handling
   const [hasSuggestionsVisible, setHasSuggestionsVisible] = useState(false);
 
@@ -1199,6 +1186,7 @@ export const AppContainer = (props: AppContainerProps) => {
   // Initial prompt handling
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const initialPromptSubmitted = useRef(false);
+  const startupQualityCheckSubmitted = useRef(false);
 
   useEffect(() => {
     if (activePtyId) {
@@ -1227,6 +1215,38 @@ export const AppContainer = (props: AppContainerProps) => {
       initialPromptSubmitted.current = true;
     }
   }, [
+    initialPrompt,
+    isConfigInitialized,
+    handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupQualityCheck ||
+      !isConfigInitialized ||
+      startupQualityCheckSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupQualityCheckSubmitted.current = true;
+    handleFinalSubmit('/quality-check');
+  }, [
+    startupQualityCheck,
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,

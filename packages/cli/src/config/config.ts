@@ -377,7 +377,7 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('quality-check', {
           type: 'boolean',
           description:
-            'Quality check: in an interactive terminal, same as plain launch but the input is pre-filled with /quality-check (press Enter to run). Without a TTY, runs a standalone analyze/fix loop until clean or max passes.',
+            'Quality check: in an interactive terminal, same as plain launch but submits /quality-check once the UI is ready (no extra Enter). Without a TTY, runs a standalone analyze/fix loop until clean or max passes.',
           default: false,
         })
         .option('allowed-mcp-server-names', {
