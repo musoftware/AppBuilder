@@ -72,6 +72,7 @@ import type { UseHistoryManagerReturn } from './useHistoryManager.js';
 import type { AutopilotInteractiveMode } from '../commands/types.js';
 import { useLogger } from './useLogger.js';
 import { buildPostUserPromptFollowUpMessages } from '../postPromptFollowUpQueue.js';
+import { isLikelyNewFeatureOrImplementationRequest } from '../postPromptFollowUpTrigger.js';
 import {
   useReactToolScheduler,
   mapToDisplay as mapTrackedToolCallsToDisplay,
@@ -1355,19 +1356,22 @@ export const useGeminiStream = (
             handleLoopDetectedEvent();
           }
 
+          const trimmedUserText =
+            typeof finalQueryToSend === 'string' ? finalQueryToSend.trim() : '';
+
           if (
             submitType === SendMessageType.UserQuery &&
             settings.merged.ui?.postPromptFollowUp?.enabled === true &&
+            isLikelyNewFeatureOrImplementationRequest(trimmedUserText) &&
             !streamHadError &&
             !streamHadLoop &&
             !turnCancelledRef.current &&
             config.getApprovalMode() !== ApprovalMode.PLAN &&
             config.isInteractive() &&
-            typeof finalQueryToSend === 'string' &&
-            finalQueryToSend.trim().length > 0
+            trimmedUserText.length > 0
           ) {
             const followUps = await buildPostUserPromptFollowUpMessages(
-              finalQueryToSend.trim(),
+              trimmedUserText,
               settings,
             );
             if (followUps.length > 0) {

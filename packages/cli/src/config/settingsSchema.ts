@@ -608,7 +608,7 @@ const SETTINGS_SCHEMA = {
         requiresRestart: false,
         default: {},
         description:
-          'After each normal user message completes successfully, queue three skill-driven prompts: deep tests, verify/fix, then complete/polish. Uses .qwen/skills playbooks (see post-turn-* skills).',
+          'After a normal user message completes successfully, optionally queue three skill-driven prompts (tests → verify/fix → complete) when the message looks like a new-feature or implementation request — not for Q&A or casual replies. Uses post-turn-* skills.',
         showInDialog: false,
         mergeStrategy: MergeStrategy.SHALLOW_MERGE,
         properties: {
@@ -619,7 +619,7 @@ const SETTINGS_SCHEMA = {
             requiresRestart: false,
             default: false,
             description:
-              'When true, the UI appends three automated follow-up turns (Cron) after every successful user-submitted prompt. Not triggered by slash-only flows that never reach the model.',
+              'When true, the UI may append three automated follow-up turns (Cron) after a successful user prompt that looks like a new feature or implementation request (heuristic). Not triggered for typical questions, thanks, or slash-only flows that never reach the model.',
             showInDialog: true,
           },
           skillPhaseIds: {
