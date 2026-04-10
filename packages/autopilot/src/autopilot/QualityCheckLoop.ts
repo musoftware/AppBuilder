@@ -54,7 +54,7 @@ export class QualityCheckLoop {
     ) => Promise<string>,
     private runner: TaskRunner,
     private context: ContextSpec,
-    maxIterations = 3,
+    maxIterations = 100,
   ) {
     this.maxIterations = maxIterations;
   }

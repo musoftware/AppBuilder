@@ -152,6 +152,8 @@ interface AppContainerProps {
   startupWarnings?: string[];
   version: string;
   initializationResult: InitializationResult;
+  /** From `mu-pilot --quality-check`: same UI as plain launch; prompt pre-filled with `/quality-check`. */
+  startupQualityCheck?: boolean;
 }
 
 /**
@@ -167,7 +169,7 @@ const SHELL_WIDTH_FRACTION = 0.89;
 const SHELL_HEIGHT_PADDING = 10;
 
 export const AppContainer = (props: AppContainerProps) => {
-  const { settings, config, initializationResult } = props;
+  const { settings, config, initializationResult, startupQualityCheck } = props;
   const historyManager = useHistory();
   useMemoryMonitor(historyManager);
   const [debugMessage, setDebugMessage] = useState<string>('');
@@ -862,6 +864,19 @@ export const AppContainer = (props: AppContainerProps) => {
     [config, settings, historyManager, setAutopilotQueue],
   );
   autopilotHandlerRef.current = handleAutopilotRequest;
+
+  const startupQualityCheckFiredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !startupQualityCheck ||
+      !isConfigInitialized ||
+      startupQualityCheckFiredRef.current
+    ) {
+      return;
+    }
+    startupQualityCheckFiredRef.current = true;
+    buffer.setText('/quality-check');
+  }, [startupQualityCheck, isConfigInitialized, buffer]);
 
   // Track whether suggestions are visible for Tab key handling
   const [hasSuggestionsVisible, setHasSuggestionsVisible] = useState(false);

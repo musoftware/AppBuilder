@@ -43,7 +43,7 @@ export async function runStandaloneQualityCheck(
     callModelWithTools,
     runner,
     context,
-    options.maxIterations ?? 3,
+    options.maxIterations ?? 100,
   );
 
   await loop.run();

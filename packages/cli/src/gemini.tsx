@@ -138,12 +138,18 @@ ${reason.stack}`
   });
 }
 
+export type InteractiveUiStartupOptions = {
+  /** Pre-fill the prompt with `/quality-check` (same submit path as typing it). */
+  startupQualityCheck?: boolean;
+};
+
 export async function startInteractiveUI(
   config: Config,
   settings: LoadedSettings,
   startupWarnings: string[],
   workspaceRoot: string = process.cwd(),
   initializationResult: InitializationResult,
+  interactiveStartup?: InteractiveUiStartupOptions,
 ) {
   const version = await getCliVersion();
   setWindowTitle(basename(workspaceRoot), settings);
@@ -171,6 +177,7 @@ export async function startInteractiveUI(
                   startupWarnings={startupWarnings}
                   version={version}
                   initializationResult={initializationResult}
+                  startupQualityCheck={interactiveStartup?.startupQualityCheck}
                 />
               </AgentViewProvider>
             </VimModeProvider>
@@ -409,7 +416,8 @@ export async function main() {
     // For other modes, initialize normally
     const initializationResult = await initializeApp(config, settings);
 
-    if (argv.qualityCheck) {
+    // Non-interactive: standalone chalk loop. Interactive TTY: same UI + chat pipeline as /quality-check.
+    if (argv.qualityCheck && !config.isInteractive()) {
       await config.initialize();
       if (process.stdin.isTTY && process.stdin.isRaw) {
         process.stdin.setRawMode(false);
@@ -477,6 +485,7 @@ export async function main() {
         startupWarnings,
         process.cwd(),
         initializationResult!,
+        argv.qualityCheck ? { startupQualityCheck: true } : undefined,
       );
       return;
     }
