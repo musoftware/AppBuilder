@@ -10,13 +10,15 @@ export const QC_TESTING_TAXONOMY = `
 shallowest: unit (isolated parts) → integration (modules, services, DB, APIs,
 and boundaries together) → system (full application path, often overlapping
 automated e2e/browser/app runs) → acceptance / UAT (business-ready outcomes).
-If only technical tests exist, note acceptance/UAT gaps for a human.
+If only technical tests exist, **add or extend** automated acceptance-style
+tests from requirements — do not stop at “gap for a human”.
 
 **By approach** — Combine reading implementation (white-box) with checks on
 observable behavior (black-box); effective QC is usually grey-box.
 
-**By execution** — Prefer automated scripts and CI jobs. Explicitly note
-important checks that remain manual (exploratory passes, subjective usability).
+**By execution** — Prefer automated scripts and CI jobs. Where automation is
+missing for an important dimension, **implement** minimal runnable checks rather
+than assigning work to a human.
 
 **By purpose** — Run or inspect for automated hooks where the project defines
 them; do not invent tools that are not there:

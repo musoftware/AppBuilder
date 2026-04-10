@@ -1,6 +1,7 @@
 export { AutopilotSession } from './AutopilotSession.js';
 export { AutopilotDriver } from './AutopilotDriver.js';
 export type { AutopilotPlan } from './AutopilotDriver.js';
+export { DEFAULT_QUALITY_CHECK_MAX_PASSES } from './qualityCheckConstants.js';
 export { QualityCheckLoop } from './autopilot/QualityCheckLoop.js';
 export { TaskRunner } from './autopilot/TaskRunner.js';
 export { writeCoreProjectDocs } from './project/coreProjectDocs.js';

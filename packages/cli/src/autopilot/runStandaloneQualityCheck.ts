@@ -1,6 +1,10 @@
 /* eslint-disable no-console -- CLI banner output */
 import chalk from 'chalk';
-import { QualityCheckLoop, TaskRunner } from '@qwen-code/autopilot';
+import {
+  DEFAULT_QUALITY_CHECK_MAX_PASSES,
+  QualityCheckLoop,
+  TaskRunner,
+} from '@qwen-code/autopilot';
 import type { ChatMessage, ContextSpec } from '@qwen-code/autopilot';
 
 interface StandaloneQcOptions {
@@ -43,7 +47,7 @@ export async function runStandaloneQualityCheck(
     callModelWithTools,
     runner,
     context,
-    options.maxIterations ?? 100,
+    options.maxIterations ?? DEFAULT_QUALITY_CHECK_MAX_PASSES,
   );
 
   await loop.run();

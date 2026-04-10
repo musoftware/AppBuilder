@@ -6,6 +6,8 @@ import type { TaskRunner } from './TaskRunner.js';
 import { AutopilotOrchestrator } from './AutopilotOrchestrator.js';
 import { ProgressReporter } from './ProgressReporter.js';
 import { QC_TESTING_TAXONOMY } from '../qualityCheckTestingTaxonomy.js';
+import { QC_COVERAGE_GAP_CLOSURE_TASK_DESCRIPTION } from '../qualityCheckCoverageClosure.js';
+import { DEFAULT_QUALITY_CHECK_MAX_PASSES } from '../qualityCheckConstants.js';
 
 interface AnalysisIssue {
   title: string;
@@ -15,6 +17,19 @@ interface AnalysisIssue {
 interface AnalysisResult {
   hasIssues: boolean;
   issues: AnalysisIssue[];
+}
+
+function analysisJsonFailureResult(): AnalysisResult {
+  return {
+    hasIssues: true,
+    issues: [
+      {
+        title: 'Re-verify: QC analysis output was not valid JSON',
+        description:
+          'Run the project’s full automated test suite, capture failures, and fix them. The quality-check analysis step did not return parseable JSON matching the required schema.',
+      },
+    ],
+  };
 }
 
 const ANALYSIS_SYSTEM_PROMPT = `
@@ -35,6 +50,9 @@ Rules:
   the fastest unit-level tests — many production defects are invisible to narrow
   unit coverage.
 - Only report real, concrete issues — not stylistic preferences or speculative improvements.
+- Do not emit findings that only say a human must manually test; if coverage is
+  missing, report an issue to **add or enable automated** tests/checks for that
+  gap (or fix broken automation).
 - If everything looks correct and complete, output {"hasIssues": false, "issues": []}.
 - Output ONLY valid JSON matching the schema below, with no extra text before or after the JSON block.
 
@@ -63,7 +81,7 @@ export class QualityCheckLoop {
     ) => Promise<string>,
     private runner: TaskRunner,
     private context: ContextSpec,
-    maxIterations = 100,
+    maxIterations = DEFAULT_QUALITY_CHECK_MAX_PASSES,
   ) {
     this.maxIterations = maxIterations;
   }
@@ -73,7 +91,7 @@ export class QualityCheckLoop {
       console.log('\n' + chalk.bold.cyan('━'.repeat(50)));
       console.log(
         chalk.bold.cyan(
-          ` Quality check — pass ${iteration}/${this.maxIterations}`,
+          ` Quality check — verification pass ${iteration}/${this.maxIterations}`,
         ),
       );
       console.log(chalk.cyan('━'.repeat(50)));
@@ -87,10 +105,12 @@ export class QualityCheckLoop {
 
       if (!analysis.hasIssues || analysis.issues.length === 0) {
         console.log(
-          chalk.bold.green(' ✓ No issues found — quality check passed.'),
+          chalk.bold.green(
+            ` ✓ Pass ${iteration}: no issues reported — continuing remaining passes.`,
+          ),
         );
-        console.log(chalk.cyan('━'.repeat(50)) + '\n');
-        return;
+        console.log(chalk.cyan('━'.repeat(50)));
+        continue;
       }
 
       console.log(
@@ -146,10 +166,43 @@ export class QualityCheckLoop {
 
     console.log('\n' + chalk.bold.cyan('━'.repeat(50)));
     console.log(
-      chalk.bold.yellow(
-        ` ⚠ Quality check reached max iterations (${this.maxIterations}) — manual review recommended.`,
+      chalk.bold.green(
+        ` ✓ Finished ${this.maxIterations} verification pass(es).`,
       ),
     );
+    console.log(chalk.cyan('━'.repeat(50)));
+
+    console.log('\n' + chalk.bold.cyan('━'.repeat(50)));
+    console.log(
+      chalk.bold.cyan(' Coverage gap closure — automated implementation'),
+    );
+    console.log(chalk.cyan('━'.repeat(50)));
+    console.log(
+      chalk.dim(
+        '  Running final task: add or wire tests/checks (no human-only deferrals)…',
+      ),
+    );
+
+    const coverageTask: Task = {
+      id: 'qc-coverage-gaps',
+      title: 'Close automated coverage gaps',
+      description: QC_COVERAGE_GAP_CLOSURE_TASK_DESCRIPTION,
+      dependsOn: [],
+      type: 'test',
+      status: 'pending',
+    };
+
+    try {
+      await this.runner.execute(coverageTask, this.context);
+      console.log(chalk.bold.green(' ✓ Coverage gap closure task finished.'));
+    } catch (err) {
+      console.log(
+        chalk.bold.yellow(
+          ` ⚠ Coverage gap closure task failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    }
+
     console.log(chalk.cyan('━'.repeat(50)) + '\n');
   }
 
@@ -216,7 +269,12 @@ Steps:
 
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        return { hasIssues: false, issues: [] };
+        console.log(
+          chalk.yellow(
+            '  Warning: QC analysis did not return parseable JSON — forcing a re-verify pass.',
+          ),
+        );
+        return analysisJsonFailureResult();
       }
 
       const parsed = JSON.parse(jsonMatch[0]) as Partial<AnalysisResult>;
@@ -227,8 +285,12 @@ Steps:
           : [],
       };
     } catch {
-      // If parsing fails, treat as clean to avoid infinite loops
-      return { hasIssues: false, issues: [] };
+      console.log(
+        chalk.yellow(
+          '  Warning: QC analysis JSON failed to parse — forcing a re-verify pass.',
+        ),
+      );
+      return analysisJsonFailureResult();
     }
   }
 

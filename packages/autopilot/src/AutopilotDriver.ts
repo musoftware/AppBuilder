@@ -16,6 +16,8 @@ import type {
 } from './types.js';
 import { mergeAutopilotPartialSettings } from './types.js';
 import { findDesignSystem } from './designSystemsData.js';
+import { QC_COVERAGE_GAP_CLOSURE_TASK_DESCRIPTION } from './qualityCheckCoverageClosure.js';
+import { DEFAULT_QUALITY_CHECK_MAX_PASSES } from './qualityCheckConstants.js';
 import { QC_TESTING_TAXONOMY } from './qualityCheckTestingTaxonomy.js';
 
 // ─── Task system instructions (embedded in user message, no separate system prompt) ───
@@ -108,6 +110,8 @@ Rules:
   routing, persistence, and configuration mistakes often pass isolated tests but
   fail in broader suites.
 - Only report and fix real, concrete issues — not stylistic preferences.
+- Do not stop at “a human should manually verify”; close gaps with runnable
+  automation (tests, scripts, CI) whenever feasible.
 - After fixes, re-run the same verification until it passes or you hit a clear
   environment limit; say which commands you ran and any suite you could not run.
 
@@ -133,8 +137,14 @@ function formatQualityCheckMessage(context: ContextSpec): string {
     '3. Identify bugs, missing work, conflicts, wiring/runtime failures, and',
     '   missing automated coverage for important dimensions when obvious.',
     '4. Fix any issues you find.',
-    '5. When done, report commands run, fixes, skipped checks (and why), and',
-    '   any manual-only gaps (e.g. UAT, exploratory usability).',
+    '5. After each fix batch, re-run the same automated checks before the next',
+    '   cycle.',
+    `6. Repeat the full quality cycle up to ${DEFAULT_QUALITY_CHECK_MAX_PASSES} times`,
+    '   (analyze → fix → re-verify) so issues cannot hide behind a single pass.',
+    '7. Coverage gap closure — automated only (no “human should verify”):',
+    QC_COVERAGE_GAP_CLOSURE_TASK_DESCRIPTION,
+    '8. When finished, report commands run, what you fixed or added, and any',
+    '   item you could not automate with objective reasons.',
   ]
     .join('\n')
     .trim();
