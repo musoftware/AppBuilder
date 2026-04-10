@@ -31,8 +31,9 @@ echo.
 echo   mu-pilot --quality-check
 echo   mu-pilot --prod-ready
 echo   mu-pilot --prod-ready -p "optional focus text"
+echo   mu-pilot --full-chain
 echo.
 echo Interactive terminal ^(TTY^) - same flows via slash commands:
-echo   /quality-check     /prod-ready     /project-hardening
+echo   /quality-check     /prod-ready     /project-hardening     /full-chain
 echo   Optional focus: type text after /prod-ready or /project-hardening
 exit /b 0

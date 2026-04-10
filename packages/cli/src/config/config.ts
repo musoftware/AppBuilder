@@ -166,6 +166,7 @@ export interface CliArgs {
   brownfield: boolean | undefined;
   qualityCheck: boolean | undefined;
   prodReady: boolean | undefined;
+  fullChain: boolean | undefined;
 }
 
 function normalizeOutputFormat(
@@ -210,7 +211,7 @@ export async function parseArguments(): Promise<CliArgs> {
         'Run autocreator <command> --help for subcommands.',
         '',
         'Autopilot-style flags (default command): --brainstorm (-b),',
-        '--brownfield (with --brainstorm), --quality-check, --prod-ready.',
+        '--brownfield (with --brainstorm), --quality-check, --prod-ready, --full-chain.',
         '',
         'Interactive TUI: /help lists slash commands. Examples: /quality-check,',
         '/project-hardening (9-phase workspace hardening; optional focus text).',
@@ -402,6 +403,12 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'boolean',
           description:
             'Production readiness chain: runs 7 sequential agents (Analyst → Builder → Completer → Test Writer → Test Analyzer → Fixer → Prod Check) and loops until the app is production ready.',
+          default: false,
+        })
+        .option('full-chain', {
+          type: 'boolean',
+          description:
+            'Run the complete 10-phase BMAD chain: understand project → document it → audit gaps (code + business + UX + roles) → plan → build → complete → write tests → analyze tests → fix → production gate. Loops until PROD_READY.',
           default: false,
         })
         .option('allowed-mcp-server-names', {
@@ -855,11 +862,16 @@ export async function loadCliConfig(
   }
 
   // Unattended CLI entry points: force YOLO so tools run without prompts.
-  // - --brainstorm / --prod-ready / --quality-check (this block)
+  // - --brainstorm / --prod-ready / --full-chain / --quality-check (this block)
   // - Interactive TUI: cron-fired prompts, autopilot queues (/prod-ready, etc.)
   //   set YOLO in useGeminiStream; non-interactive cron in nonInteractiveCli /
   //   ACP Session sets YOLO when a job fires.
-  if (argv.brainstorm || argv.prodReady || argv.qualityCheck) {
+  if (
+    argv.brainstorm ||
+    argv.prodReady ||
+    argv.fullChain ||
+    argv.qualityCheck
+  ) {
     approvalMode = ApprovalMode.YOLO;
   }
 

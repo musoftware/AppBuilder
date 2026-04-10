@@ -158,6 +158,8 @@ interface AppContainerProps {
   startupQualityCheck?: boolean;
   /** From `mu-pilot --prod-ready`: same UI as plain launch; auto-submits `/prod-ready` when ready. */
   startupProdReady?: boolean;
+  /** From `mu-pilot --full-chain`: same UI as plain launch; auto-submits `/full-chain` when ready. */
+  startupFullChain?: boolean;
 }
 
 /**
@@ -179,6 +181,7 @@ export const AppContainer = (props: AppContainerProps) => {
     initializationResult,
     startupQualityCheck,
     startupProdReady,
+    startupFullChain,
   } = props;
   const historyManager = useHistory();
   useMemoryMonitor(historyManager);
@@ -916,6 +919,38 @@ export const AppContainer = (props: AppContainerProps) => {
           return;
         }
 
+        if (mode === 'full-chain') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Full chain: queuing 10 phases (understand → document → audit → plan → build → complete → test → analyze → fix → production gate)…',
+            },
+            Date.now(),
+          );
+          try {
+            const phases = await driver.fullChain();
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Full chain: ${phases.length} phase(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Full chain failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Full chain failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
         if (mode === 'design') {
           const designName = idea?.trim() ?? '';
           historyManager.addItem(
@@ -1308,6 +1343,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const initialPromptSubmitted = useRef(false);
   const startupQualityCheckSubmitted = useRef(false);
   const startupProdReadySubmitted = useRef(false);
+  const startupFullChainSubmitted = useRef(false);
 
   useEffect(() => {
     if (activePtyId) {
@@ -1400,6 +1436,38 @@ export const AppContainer = (props: AppContainerProps) => {
     handleFinalSubmit('/prod-ready');
   }, [
     startupProdReady,
+    initialPrompt,
+    isConfigInitialized,
+    handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupFullChain ||
+      !isConfigInitialized ||
+      startupFullChainSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupFullChainSubmitted.current = true;
+    handleFinalSubmit('/full-chain');
+  }, [
+    startupFullChain,
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,

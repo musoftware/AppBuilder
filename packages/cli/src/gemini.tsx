@@ -143,6 +143,8 @@ export type InteractiveUiStartupOptions = {
   startupQualityCheck?: boolean;
   /** Auto-submit `/prod-ready` when the UI is ready (same path as typing it). */
   startupProdReady?: boolean;
+  /** Auto-submit `/full-chain` when the UI is ready (same path as typing it). */
+  startupFullChain?: boolean;
 };
 
 export async function startInteractiveUI(
@@ -181,6 +183,7 @@ export async function startInteractiveUI(
                   initializationResult={initializationResult}
                   startupQualityCheck={interactiveStartup?.startupQualityCheck}
                   startupProdReady={interactiveStartup?.startupProdReady}
+                  startupFullChain={interactiveStartup?.startupFullChain}
                 />
               </AgentViewProvider>
             </VimModeProvider>
@@ -462,6 +465,25 @@ export async function main() {
       process.exit(0);
     }
 
+    if (argv.fullChain && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'full-chain-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
     if (argv.brainstorm) {
       await config.initialize();
       if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -515,7 +537,9 @@ export async function main() {
           ? { startupQualityCheck: true }
           : argv.prodReady
             ? { startupProdReady: true }
-            : undefined,
+            : argv.fullChain
+              ? { startupFullChain: true }
+              : undefined,
       );
       return;
     }

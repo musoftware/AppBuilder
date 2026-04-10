@@ -112,6 +112,7 @@ export async function handleQwenAuth(
       brownfield: undefined,
       qualityCheck: undefined,
       prodReady: undefined,
+      fullChain: undefined,
       systemPrompt: undefined,
       appendSystemPrompt: undefined,
     };

@@ -192,6 +192,7 @@ export interface SubmitPromptActionReturn {
 export type AutopilotInteractiveMode =
   | 'quality-check'
   | 'prod-ready'
+  | 'full-chain'
   | 'design'
   | 'skill'
   | 'project-hardening';
@@ -203,6 +204,7 @@ export interface AutopilotActionReturn {
    * - default (no mode): the user's idea/request for brainstorm → plan → execute
    * - 'quality-check': analyze & fix bugs only, no planning phase
    * - 'prod-ready': optional focus text; queues 7 production-readiness phases
+   * - 'full-chain': queues 10-phase BMAD chain through production gate
    * - 'design': initialIdea = design system name (e.g. 'cursor', 'stripe')
    * - 'skill': initialIdea = skill folder name (e.g. 'e2e-testing')
    * - 'project-hardening': optional focus text; queues 9 skill phases

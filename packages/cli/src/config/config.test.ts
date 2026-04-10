@@ -621,6 +621,12 @@ describe('parseArguments', () => {
     const argv = await parseArguments();
     expect(argv.prodReady).toBe(true);
   });
+
+  it('should enable --full-chain flag', async () => {
+    process.argv = ['node', 'script.js', '--full-chain'];
+    const argv = await parseArguments();
+    expect(argv.fullChain).toBe(true);
+  });
 });
 
 describe('loadCliConfig', () => {
@@ -695,6 +701,28 @@ describe('loadCliConfig', () => {
 
   it('should force YOLO for --prod-ready even if workspace is marked untrusted', async () => {
     process.argv = ['node', 'script.js', '--prod-ready'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --full-chain is set (full BMAD chain unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--full-chain'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --full-chain even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--full-chain'];
     const argv = await parseArguments();
     vi.mocked(isWorkspaceTrusted).mockReturnValue({
       isTrusted: false,
