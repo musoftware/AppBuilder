@@ -1837,10 +1837,19 @@ export const useGeminiStream = (
   const autopilotQueueRef = useRef<string[]>([]);
   const [autopilotTrigger, setAutopilotTrigger] = useState(0);
 
-  const setAutopilotQueue = useCallback((messages: string[]) => {
-    autopilotQueueRef.current = [...messages];
-    setAutopilotTrigger((n) => n + 1);
-  }, []);
+  const setAutopilotQueue = useCallback(
+    (messages: string[]) => {
+      autopilotQueueRef.current = [...messages];
+      if (messages.length > 0) {
+        // Match --brainstorm / --prod-ready: drain queued prompts without tool
+        // confirmation dialogs (agent, shell, edits, etc.).
+        config.setApprovalMode(ApprovalMode.YOLO);
+        void handleApprovalModeChange(ApprovalMode.YOLO);
+      }
+      setAutopilotTrigger((n) => n + 1);
+    },
+    [config, handleApprovalModeChange],
+  );
 
   useEffect(() => {
     if (

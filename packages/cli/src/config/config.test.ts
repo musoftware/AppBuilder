@@ -682,6 +682,50 @@ describe('loadCliConfig', () => {
     expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
   });
 
+  it('should force YOLO when --prod-ready is set (production readiness unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--prod-ready'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --prod-ready even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--prod-ready'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --quality-check is set (standalone QC unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--quality-check'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --quality-check even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--quality-check'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
   it('should use configured context file name when settings.context.fileName is set', async () => {
     process.argv = ['node', 'script.js'];
     const argv = await parseArguments();
