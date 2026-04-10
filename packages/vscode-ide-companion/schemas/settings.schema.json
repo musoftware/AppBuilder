@@ -224,6 +224,30 @@
           "description": "Show full tool output and thinking in verbose mode (toggle with Ctrl+O).",
           "type": "boolean",
           "default": true
+        },
+        "postPromptFollowUp": {
+          "description": "After each normal user message completes successfully, queue three skill-driven prompts: deep tests, verify/fix, then complete/polish. Uses .qwen/skills playbooks (see post-turn-* skills).",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "When true, the UI appends three automated follow-up turns (Cron) after every successful user-submitted prompt. Not triggered by slash-only flows that never reach the model.",
+              "type": "boolean",
+              "default": false
+            },
+            "skillPhaseIds": {
+              "description": "Skill IDs under skills search paths (e.g. .qwen/skills/<id>/SKILL.md). Executed in array order.",
+              "type": "array",
+              "items": {
+                "description": "Skill folder name",
+                "type": "string"
+              },
+              "default": [
+                "post-turn-deep-test",
+                "post-turn-verify-fix",
+                "post-turn-complete"
+              ]
+            }
+          }
         }
       }
     },

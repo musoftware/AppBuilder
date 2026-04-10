@@ -601,6 +601,48 @@ const SETTINGS_SCHEMA = {
           'Show full tool output and thinking in verbose mode (toggle with Ctrl+O).',
         showInDialog: false,
       },
+      postPromptFollowUp: {
+        type: 'object',
+        label: 'Post-prompt skill follow-ups',
+        category: 'UI',
+        requiresRestart: false,
+        default: {},
+        description:
+          'After each normal user message completes successfully, queue three skill-driven prompts: deep tests, verify/fix, then complete/polish. Uses .qwen/skills playbooks (see post-turn-* skills).',
+        showInDialog: false,
+        mergeStrategy: MergeStrategy.SHALLOW_MERGE,
+        properties: {
+          enabled: {
+            type: 'boolean',
+            label: 'Enable post-prompt skill pipeline',
+            category: 'UI',
+            requiresRestart: false,
+            default: false,
+            description:
+              'When true, the UI appends three automated follow-up turns (Cron) after every successful user-submitted prompt. Not triggered by slash-only flows that never reach the model.',
+            showInDialog: true,
+          },
+          skillPhaseIds: {
+            type: 'array',
+            label: 'Skill folder names (phase order)',
+            category: 'UI',
+            requiresRestart: false,
+            default: [
+              'post-turn-deep-test',
+              'post-turn-verify-fix',
+              'post-turn-complete',
+            ] as string[],
+            description:
+              'Skill IDs under skills search paths (e.g. .qwen/skills/<id>/SKILL.md). Executed in array order.',
+            showInDialog: false,
+            mergeStrategy: MergeStrategy.REPLACE,
+            items: {
+              type: 'string',
+              description: 'Skill folder name',
+            },
+          },
+        },
+      },
     },
   },
 

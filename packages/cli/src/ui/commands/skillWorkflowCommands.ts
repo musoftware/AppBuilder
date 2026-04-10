@@ -57,6 +57,21 @@ const SKILL_WORKFLOW_DEFINITIONS: ReadonlyArray<{
     description:
       'Run the cross-platform-shell skill — portable CLI commands (Windows vs Linux, no duplicate triples)',
   },
+  {
+    id: 'post-turn-deep-test',
+    description:
+      'Run post-turn-deep-test — phase 1: tests, edge cases, security-oriented coverage',
+  },
+  {
+    id: 'post-turn-verify-fix',
+    description:
+      'Run post-turn-verify-fix — phase 2: run tests, fix regressions tied to the request',
+  },
+  {
+    id: 'post-turn-complete',
+    description:
+      'Run post-turn-complete — phase 3: finish gaps, docs, polish for the same request',
+  },
 ] as const;
 
 function makeSkillWorkflowCommand(

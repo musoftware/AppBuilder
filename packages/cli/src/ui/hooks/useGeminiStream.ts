@@ -71,6 +71,7 @@ import { useStateAndRef } from './useStateAndRef.js';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
 import type { AutopilotInteractiveMode } from '../commands/types.js';
 import { useLogger } from './useLogger.js';
+import { buildPostUserPromptFollowUpMessages } from '../postPromptFollowUpQueue.js';
 import {
   useReactToolScheduler,
   mapToDisplay as mapTrackedToolCallsToDisplay,
@@ -1335,6 +1336,9 @@ export const useGeminiStream = (
             return;
           }
 
+          const streamHadError = lastPromptErroredRef.current;
+          const streamHadLoop = loopDetectedRef.current;
+
           if (pendingHistoryItemRef.current) {
             addItem(pendingHistoryItemRef.current, userMessageTimestamp);
             setPendingHistoryItem(null);
@@ -1349,6 +1353,34 @@ export const useGeminiStream = (
           if (loopDetectedRef.current) {
             loopDetectedRef.current = false;
             handleLoopDetectedEvent();
+          }
+
+          if (
+            submitType === SendMessageType.UserQuery &&
+            settings.merged.ui?.postPromptFollowUp?.enabled === true &&
+            !streamHadError &&
+            !streamHadLoop &&
+            !turnCancelledRef.current &&
+            config.getApprovalMode() !== ApprovalMode.PLAN &&
+            config.isInteractive() &&
+            typeof finalQueryToSend === 'string' &&
+            finalQueryToSend.trim().length > 0
+          ) {
+            const followUps = await buildPostUserPromptFollowUpMessages(
+              finalQueryToSend.trim(),
+              settings,
+            );
+            if (followUps.length > 0) {
+              autopilotQueueRef.current.push(...followUps);
+              setAutopilotTrigger((n) => n + 1);
+              addItem(
+                {
+                  type: MessageType.INFO,
+                  text: `Queued ${followUps.length} skill-driven follow-up phase(s) (tests → verify/fix → complete).`,
+                },
+                userMessageTimestamp,
+              );
+            }
           }
         } catch (error: unknown) {
           if (error instanceof UnauthorizedError) {
@@ -1391,6 +1423,7 @@ export const useGeminiStream = (
       pendingRetryCountdownItemRef,
       pendingRetryErrorItemRef,
       setPendingRetryErrorItem,
+      settings,
     ],
   );
 
