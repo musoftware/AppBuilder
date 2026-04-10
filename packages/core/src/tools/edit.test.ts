@@ -78,6 +78,7 @@ describe('EditTool', () => {
       setGeminiMdFileCount: vi.fn(),
       getToolRegistry: () => ({}) as any, // Minimal mock for ToolRegistry
       getDefaultFileEncoding: vi.fn().mockReturnValue('utf-8'),
+      isTrustedFolder: vi.fn().mockReturnValue(false),
     } as unknown as Config;
 
     // Reset mocks before each test
@@ -90,6 +91,32 @@ describe('EditTool', () => {
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  describe('getDefaultPermission', () => {
+    it('returns ask when folder is not trusted', async () => {
+      (mockConfig.isTrustedFolder as Mock).mockReturnValue(false);
+      const filePath = path.join(rootDir, 'x.php');
+      fs.writeFileSync(filePath, 'a', 'utf8');
+      const invocation = tool.build({
+        file_path: filePath,
+        old_string: 'a',
+        new_string: 'b',
+      });
+      expect(await invocation.getDefaultPermission()).toBe('ask');
+    });
+
+    it('returns allow when folder is trusted', async () => {
+      (mockConfig.isTrustedFolder as Mock).mockReturnValue(true);
+      const filePath = path.join(rootDir, 'y.php');
+      fs.writeFileSync(filePath, 'a', 'utf8');
+      const invocation = tool.build({
+        file_path: filePath,
+        old_string: 'a',
+        new_string: 'b',
+      });
+      expect(await invocation.getDefaultPermission()).toBe('allow');
+    });
   });
 
   describe('applyReplacement', () => {

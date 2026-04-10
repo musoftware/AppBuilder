@@ -66,6 +66,7 @@ const mockConfigInternal = {
       discoverTools: vi.fn(),
     }) as unknown as ToolRegistry,
   getDefaultFileEncoding: () => 'utf-8',
+  isTrustedFolder: vi.fn(() => false),
 };
 const mockConfig = mockConfigInternal as unknown as Config;
 
@@ -106,6 +107,7 @@ describe('WriteFileTool', () => {
     // Reset mocks before each test
     mockConfigInternal.getApprovalMode.mockReturnValue(ApprovalMode.DEFAULT);
     mockConfigInternal.setApprovalMode.mockClear();
+    vi.mocked(mockConfigInternal.isTrustedFolder).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -179,12 +181,22 @@ describe('WriteFileTool', () => {
   describe('shouldConfirmExecute', () => {
     const abortSignal = new AbortController().signal;
 
-    it('should always return ask from getDefaultPermission', async () => {
+    it('should return ask from getDefaultPermission when folder is not trusted', async () => {
+      vi.mocked(mockConfigInternal.isTrustedFolder).mockReturnValue(false);
       const filePath = path.join(rootDir, 'confirm_permission_file.txt');
       const params = { file_path: filePath, content: 'test content' };
       const invocation = tool.build(params);
       const permission = await invocation.getDefaultPermission();
       expect(permission).toBe('ask');
+    });
+
+    it('should return allow from getDefaultPermission when folder is trusted', async () => {
+      vi.mocked(mockConfigInternal.isTrustedFolder).mockReturnValue(true);
+      const filePath = path.join(rootDir, 'trusted_permission_file.txt');
+      const params = { file_path: filePath, content: 'test content' };
+      const invocation = tool.build(params);
+      const permission = await invocation.getDefaultPermission();
+      expect(permission).toBe('allow');
     });
 
     it('should throw if _getCorrectedFileContent returns an error', async () => {

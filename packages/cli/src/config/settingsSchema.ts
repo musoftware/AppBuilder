@@ -1667,6 +1667,22 @@ const SETTINGS_SCHEMA = {
           'Extra directory with SKILL.md files (e.g. ~/.qwen/skills). The CLI also ships default autopilot skills; this path is searched first when set.',
         showInDialog: false,
       },
+      extraSkillsPaths: {
+        type: 'array',
+        label: 'Extra skill library roots',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: [] as string[],
+        description:
+          'Additional directories to scan for **/SKILL.md (e.g. a shallow clone of antigravity-awesome-skills/skills). Merged with skillsPath, project ~/.qwen/skills, and bundled defaults. First occurrence of a skill name wins.',
+        showInDialog: false,
+        mergeStrategy: MergeStrategy.CONCAT,
+        items: {
+          type: 'string',
+          description:
+            'Absolute or home-relative path to a folder containing skill subfolders',
+        },
+      },
       maxTaskRetries: {
         type: 'number',
         label: 'Max task retries',

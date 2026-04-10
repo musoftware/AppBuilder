@@ -100,9 +100,12 @@ class WriteFileToolInvocation extends BaseToolInvocation<
   }
 
   /**
-   * Write operations always need user confirmation.
+   * Untrusted workspace: confirm each write. Trusted: allow without prompt.
    */
   override async getDefaultPermission(): Promise<PermissionDecision> {
+    if (this.config.isTrustedFolder?.()) {
+      return 'allow';
+    }
     return 'ask';
   }
 

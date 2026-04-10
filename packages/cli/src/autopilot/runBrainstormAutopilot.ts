@@ -25,6 +25,10 @@ export async function runBrainstormAutopilot(
 
   const session = new AutopilotSession(callModel, callModelWithTools, {
     skillsPath: ap?.skillsPath ? resolvePath(ap.skillsPath) : undefined,
+    extraSkillsPaths:
+      ap?.extraSkillsPaths && ap.extraSkillsPaths.length > 0
+        ? ap.extraSkillsPaths.map((p) => resolvePath(p))
+        : undefined,
     maxTaskRetries: ap?.maxTaskRetries,
     planPreviewSeconds: ap?.planPreviewSeconds,
     goTriggers:

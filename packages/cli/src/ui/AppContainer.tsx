@@ -102,6 +102,7 @@ import { type UpdateObject } from './utils/updateCheck.js';
 import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { registerCleanup, runExitCleanup } from '../utils/cleanup.js';
 import { AutopilotDriver } from '@qwen-code/autopilot';
+import type { AutopilotInteractiveMode } from './commands/types.js';
 import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
 import { resolvePath } from '../utils/resolvePath.js';
 import { useMessageQueue } from './hooks/useMessageQueue.js';
@@ -289,7 +290,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const { stdout } = useStdout();
   useApp();
   const autopilotHandlerRef = useRef<
-    (idea?: string, mode?: 'quality-check' | 'design') => void
+    (idea?: string, mode?: AutopilotInteractiveMode) => void
   >(() => {});
 
   // Additional hooks moved from App.tsx
@@ -761,11 +762,15 @@ export const AppContainer = (props: AppContainerProps) => {
   // Autopilot: runs planning internally, then submits task messages through the
   // normal chat pipeline so the user never leaves the interactive UI.
   const handleAutopilotRequest = useCallback(
-    (idea?: string, mode?: 'quality-check' | 'design') => {
+    (idea?: string, mode?: AutopilotInteractiveMode) => {
       void (async () => {
         const ap = settings.merged.autopilot;
         const driver = new AutopilotDriver({
           skillsPath: ap?.skillsPath ? resolvePath(ap.skillsPath) : undefined,
+          extraSkillsPaths:
+            ap?.extraSkillsPaths && ap.extraSkillsPaths.length > 0
+              ? ap.extraSkillsPaths.map((p) => resolvePath(p))
+              : undefined,
           maxTaskRetries: ap?.maxTaskRetries,
           planPreviewSeconds: ap?.planPreviewSeconds,
           goTriggers:
@@ -773,6 +778,9 @@ export const AppContainer = (props: AppContainerProps) => {
               ? ap.goTriggers
               : undefined,
         });
+        const resolvedSkillsPath = ap?.skillsPath
+          ? resolvePath(ap.skillsPath)
+          : undefined;
 
         if (mode === 'quality-check') {
           historyManager.addItem(
@@ -790,6 +798,35 @@ export const AppContainer = (props: AppContainerProps) => {
             debugLogger.error('Autopilot quality check failed:', msg);
             historyManager.addItem(
               { type: MessageType.ERROR, text: `Quality check failed: ${msg}` },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'skill') {
+          const skillName = idea?.trim() ?? '';
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Autopilot: Starting skill workflow \`${skillName || '(unknown)'}\`…`,
+            },
+            Date.now(),
+          );
+          try {
+            const skillMessage = await driver.skillWorkflow(
+              skillName,
+              resolvedSkillsPath,
+            );
+            setAutopilotQueue([skillMessage]);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Autopilot skill workflow failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Skill workflow failed: ${msg}`,
+              },
               Date.now(),
             );
           }
@@ -840,7 +877,7 @@ export const AppContainer = (props: AppContainerProps) => {
             callModel,
             idea,
             undefined,
-            ap?.skillsPath ? resolvePath(ap.skillsPath) : undefined,
+            resolvedSkillsPath,
           );
 
           historyManager.addItem(

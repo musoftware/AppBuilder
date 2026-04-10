@@ -14,6 +14,7 @@ export type {
   Task,
   TaskGraph,
   Skill,
+  SkillSummary,
   AutopilotSettings,
   ChatMessage,
 } from './types.js';

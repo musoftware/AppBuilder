@@ -1480,6 +1480,14 @@
           "type": "string",
           "default": ""
         },
+        "extraSkillsPaths": {
+          "description": "Additional directories to scan for **/SKILL.md (e.g. a shallow clone of antigravity-awesome-skills/skills). Merged with skillsPath, project ~/.qwen/skills, and bundled defaults. First occurrence of a skill name wins.",
+          "type": "array",
+          "items": {
+            "description": "Absolute or home-relative path to a folder containing skill subfolders",
+            "type": "string"
+          }
+        },
         "maxTaskRetries": {
           "description": "Retries per autopilot task after failure.",
           "type": "number",

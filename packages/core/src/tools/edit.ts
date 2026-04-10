@@ -271,9 +271,13 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
   }
 
   /**
-   * Edit operations always need user confirmation (unless overridden by PM or ApprovalMode).
+   * Untrusted workspace: confirm each edit. Trusted workspace: allow without
+   * prompt (same idea as shell in trusted folders; PM / YOLO still apply).
    */
   async getDefaultPermission(): Promise<PermissionDecision> {
+    if (this.config.isTrustedFolder?.()) {
+      return 'allow';
+    }
     return 'ask';
   }
 

@@ -217,9 +217,12 @@ export class AutopilotSession {
     };
 
     console.log(chalk.dim('Loading skills...'));
-    const loader = new SkillLoader(this.settings.skillsPath);
-    const allSkills = await loader.loadAll();
-    console.log(chalk.dim(`Found ${allSkills.length} skills.`));
+    const loader = new SkillLoader(
+      this.settings.skillsPath,
+      this.settings.extraSkillsPaths,
+    );
+    const summaries = await loader.loadSummaries();
+    console.log(chalk.dim(`Found ${summaries.length} skills (indexed).`));
 
     console.log('');
     console.log(chalk.bold.dim('Planning (this may take a little while)'));
@@ -233,7 +236,8 @@ export class AutopilotSession {
         chalk.dim(' (calling model)'),
     );
     const matcher = new SkillMatcher(this.callModel);
-    const selectedSkills = await matcher.match(context, allSkills);
+    const matchedSummaries = await matcher.match(context, summaries);
+    const selectedSkills = await loader.hydrateSummaries(matchedSummaries);
     const picked = selectedSkills.map((s) => `@${s.name}`).join(', ');
     console.log(
       chalk.dim('       ✓ ') +

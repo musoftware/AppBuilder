@@ -36,4 +36,23 @@ describe('mergeAutopilotPartialSettings', () => {
       mergeAutopilotPartialSettings({ skillsPath: undefined }).skillsPath,
     ).toBe(DEFAULT_SETTINGS.skillsPath);
   });
+
+  it('uses default extraSkillsPaths when partial omits or passes empty', () => {
+    expect(mergeAutopilotPartialSettings({}).extraSkillsPaths).toEqual([]);
+    expect(
+      mergeAutopilotPartialSettings({ extraSkillsPaths: undefined })
+        .extraSkillsPaths,
+    ).toEqual([]);
+    expect(
+      mergeAutopilotPartialSettings({ extraSkillsPaths: [] }).extraSkillsPaths,
+    ).toEqual([]);
+  });
+
+  it('uses custom extraSkillsPaths when non-empty', () => {
+    expect(
+      mergeAutopilotPartialSettings({
+        extraSkillsPaths: ['/a', '/b'],
+      }).extraSkillsPaths,
+    ).toEqual(['/a', '/b']);
+  });
 });

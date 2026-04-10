@@ -29,6 +29,15 @@ export interface Skill {
   description: string;
 }
 
+/** Lightweight index entry for large skill libraries (name + path + short text only). */
+export interface SkillSummary {
+  name: string;
+  path: string;
+  baseDir: string;
+  description: string;
+  tags: string[];
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -46,6 +55,8 @@ export interface TaskGraph {
 
 export interface AutopilotSettings {
   skillsPath: string;
+  /** Extra roots scanned for nested SKILL.md files after skillsPath (e.g. a cloned skill library). */
+  extraSkillsPaths: string[];
   maxTaskRetries: number;
   planPreviewSeconds: number;
   goTriggers: string[];
@@ -53,6 +64,7 @@ export interface AutopilotSettings {
 
 export const DEFAULT_SETTINGS: AutopilotSettings = {
   skillsPath: path.join(os.homedir(), '.qwen', 'skills'),
+  extraSkillsPaths: [],
   maxTaskRetries: 2,
   planPreviewSeconds: 3,
   goTriggers: [
@@ -75,6 +87,10 @@ export function mergeAutopilotPartialSettings(
 ): AutopilotSettings {
   return {
     skillsPath: partial.skillsPath ?? DEFAULT_SETTINGS.skillsPath,
+    extraSkillsPaths:
+      partial.extraSkillsPaths && partial.extraSkillsPaths.length > 0
+        ? partial.extraSkillsPaths
+        : DEFAULT_SETTINGS.extraSkillsPaths,
     maxTaskRetries: partial.maxTaskRetries ?? DEFAULT_SETTINGS.maxTaskRetries,
     planPreviewSeconds:
       partial.planPreviewSeconds ?? DEFAULT_SETTINGS.planPreviewSeconds,

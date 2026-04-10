@@ -10,6 +10,7 @@ import type {
   AutopilotSettings,
   ChatMessage,
   ContextSpec,
+  Skill,
   Task,
   TaskGraph,
 } from './types.js';
@@ -121,6 +122,41 @@ function formatQualityCheckMessage(context: ContextSpec): string {
     '3. Identify all bugs, missing implementations, and logical conflicts.',
     '4. Fix any issues you find.',
     '5. When done, report what you checked and what (if anything) you fixed.',
+  ]
+    .join('\n')
+    .trim();
+}
+
+const SKILL_WORKFLOW_RULES = `
+You are running in fully autonomous AI coding agent mode.
+
+Rules:
+- READ actual files in the workspace before drawing conclusions.
+- Follow the skill playbook below as the primary procedure; adapt only when the repository clearly differs.
+- Stay within the project workspace root for writes and destructive shell actions unless the skill explicitly requires otherwise.
+- Run verification commands the skill recommends when they apply to this repo.
+`.trim();
+
+function formatSkillWorkflowMessage(
+  context: ContextSpec,
+  skill: Skill,
+): string {
+  const root = context.workspaceRoot ?? process.cwd();
+  return [
+    `[AUTOPILOT SKILL: ${skill.name}]`,
+    '',
+    SKILL_WORKFLOW_RULES,
+    '',
+    `Operate in the project workspace at: ${root}`,
+    '',
+    '## Skill playbook',
+    '',
+    skill.content.trim(),
+    '',
+    '## Project context',
+    JSON.stringify(context, null, 2),
+    '',
+    'Execute the workflow from the skill playbook above. When finished, summarize what you did and any follow-ups.',
   ]
     .join('\n')
     .trim();
@@ -302,6 +338,51 @@ export class AutopilotDriver {
   }
 
   /**
+   * Build a single chat message that embeds a `.qwen/skills/<name>/SKILL.md`
+   * playbook (resolved via SkillLoader search paths), similar to qualityCheck()
+   * but guided by that skill’s procedure.
+   */
+  async skillWorkflow(
+    skillFolderName: string,
+    skillsPath?: string,
+  ): Promise<string> {
+    const trimmed = skillFolderName?.trim() ?? '';
+    if (!trimmed) {
+      throw new Error('Skill name is required.');
+    }
+
+    const workspaceRoot = process.cwd();
+    const loader = new SkillLoader(
+      skillsPath ?? this.settings.skillsPath,
+      this.settings.extraSkillsPaths,
+    );
+    const skill = await loader.loadFromFolderName(trimmed);
+    if (!skill) {
+      throw new Error(
+        `Skill "${trimmed}" not found. Expected a folder named "${trimmed}" with SKILL.md under autopilot skills paths (e.g. .qwen/skills or ~/.qwen/skills), or set autopilot.skillsPath.`,
+      );
+    }
+
+    const scan = await scanWorkspace(workspaceRoot);
+    const context: ContextSpec = {
+      idea: `Run skill workflow: ${skill.name}`,
+      goal:
+        skill.description.trim() ||
+        `Apply the ${skill.name} skill playbook to this project`,
+      techStack: [],
+      constraints: [],
+      outputFormat: 'other',
+      clarifications: { skill: skill.name, skillPath: skill.path },
+      workspaceRoot,
+      projectMode: scan.mode === 'brownfield' ? 'brownfield' : 'greenfield',
+      existingProjectSummary:
+        scan.mode === 'brownfield' ? scan.summary : undefined,
+    };
+
+    return formatSkillWorkflowMessage(context, skill);
+  }
+
+  /**
    * Run the full planning phase and return formatted task messages.
    *
    * @param callModel   Model call adapter (no tools — for planning only).
@@ -349,11 +430,15 @@ export class AutopilotDriver {
       projectMode: isBrownfield ? 'brownfield' : 'greenfield',
     };
 
-    // Load + match skills.
-    const loader = new SkillLoader(skillsPath ?? this.settings.skillsPath);
-    const allSkills = await loader.loadAll();
+    // Load skill index (cheap), match a small set, then load full bodies.
+    const loader = new SkillLoader(
+      skillsPath ?? this.settings.skillsPath,
+      this.settings.extraSkillsPaths,
+    );
+    const summaries = await loader.loadSummaries();
     const matcher = new SkillMatcher(callModel);
-    const selectedSkills = await matcher.match(context, allSkills);
+    const matchedSummaries = await matcher.match(context, summaries);
+    const selectedSkills = await loader.hydrateSummaries(matchedSummaries);
 
     // Plan tasks.
     const planner = new TaskPlanner(callModel);
