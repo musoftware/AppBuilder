@@ -19,6 +19,7 @@ import { findDesignSystem } from './designSystemsData.js';
 import { QC_COVERAGE_GAP_CLOSURE_TASK_DESCRIPTION } from './qualityCheckCoverageClosure.js';
 import { DEFAULT_QUALITY_CHECK_MAX_PASSES } from './qualityCheckConstants.js';
 import { QC_TESTING_TAXONOMY } from './qualityCheckTestingTaxonomy.js';
+import { buildProdReadyQueue } from './prodReadyQueue.js';
 
 // ─── Task system instructions (embedded in user message, no separate system prompt) ───
 
@@ -358,6 +359,10 @@ export class AutopilotDriver {
     };
 
     return formatQualityCheckMessage(context);
+  }
+
+  async prodReady(focus?: string): Promise<string[]> {
+    return buildProdReadyQueue(focus);
   }
 
   /**

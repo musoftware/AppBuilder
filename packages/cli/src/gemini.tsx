@@ -141,6 +141,8 @@ ${reason.stack}`
 export type InteractiveUiStartupOptions = {
   /** Auto-submit `/quality-check` when the UI is ready (same path as typing it). */
   startupQualityCheck?: boolean;
+  /** Auto-submit `/prod-ready` when the UI is ready (same path as typing it). */
+  startupProdReady?: boolean;
 };
 
 export async function startInteractiveUI(
@@ -178,6 +180,7 @@ export async function startInteractiveUI(
                   version={version}
                   initializationResult={initializationResult}
                   startupQualityCheck={interactiveStartup?.startupQualityCheck}
+                  startupProdReady={interactiveStartup?.startupProdReady}
                 />
               </AgentViewProvider>
             </VimModeProvider>
@@ -436,6 +439,29 @@ export async function main() {
       process.exit(0);
     }
 
+    if (argv.prodReady && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      const prodReadyFocus =
+        (typeof argv.prompt === 'string' && argv.prompt.trim()) ||
+        (typeof argv.query === 'string' && argv.query.trim()) ||
+        undefined;
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          prodReadyFocus,
+          'brownfield',
+          'prod-ready-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
     if (argv.brainstorm) {
       await config.initialize();
       if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -485,7 +511,11 @@ export async function main() {
         startupWarnings,
         process.cwd(),
         initializationResult!,
-        argv.qualityCheck ? { startupQualityCheck: true } : undefined,
+        argv.qualityCheck
+          ? { startupQualityCheck: true }
+          : argv.prodReady
+            ? { startupProdReady: true }
+            : undefined,
       );
       return;
     }

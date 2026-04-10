@@ -156,6 +156,8 @@ interface AppContainerProps {
   initializationResult: InitializationResult;
   /** From `mu-pilot --quality-check`: same UI as plain launch; auto-submits `/quality-check` when ready. */
   startupQualityCheck?: boolean;
+  /** From `mu-pilot --prod-ready`: same UI as plain launch; auto-submits `/prod-ready` when ready. */
+  startupProdReady?: boolean;
 }
 
 /**
@@ -171,7 +173,13 @@ const SHELL_WIDTH_FRACTION = 0.89;
 const SHELL_HEIGHT_PADDING = 10;
 
 export const AppContainer = (props: AppContainerProps) => {
-  const { settings, config, initializationResult, startupQualityCheck } = props;
+  const {
+    settings,
+    config,
+    initializationResult,
+    startupQualityCheck,
+    startupProdReady,
+  } = props;
   const historyManager = useHistory();
   useMemoryMonitor(historyManager);
   const [debugMessage, setDebugMessage] = useState<string>('');
@@ -805,6 +813,38 @@ export const AppContainer = (props: AppContainerProps) => {
           return;
         }
 
+        if (mode === 'prod-ready') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Production readiness: queuing 7 phases (Analyst → Builder → Completer → Test Writer → Test Analyzer → Fixer → Prod Check)…',
+            },
+            Date.now(),
+          );
+          try {
+            const phases = await driver.prodReady(idea);
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Production readiness: ${phases.length} phase(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Production readiness failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Production readiness failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
         if (mode === 'skill') {
           const skillName = idea?.trim() ?? '';
           historyManager.addItem(
@@ -1267,6 +1307,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const initialPromptSubmitted = useRef(false);
   const startupQualityCheckSubmitted = useRef(false);
+  const startupProdReadySubmitted = useRef(false);
 
   useEffect(() => {
     if (activePtyId) {
@@ -1327,6 +1368,38 @@ export const AppContainer = (props: AppContainerProps) => {
     handleFinalSubmit('/quality-check');
   }, [
     startupQualityCheck,
+    initialPrompt,
+    isConfigInitialized,
+    handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupProdReady ||
+      !isConfigInitialized ||
+      startupProdReadySubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupProdReadySubmitted.current = true;
+    handleFinalSubmit('/prod-ready');
+  }, [
+    startupProdReady,
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,

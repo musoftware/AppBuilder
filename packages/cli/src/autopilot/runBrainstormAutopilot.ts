@@ -10,7 +10,7 @@ export async function runBrainstormAutopilot(
   settings: LoadedSettings,
   initialIdea?: string,
   forceMode?: 'brownfield' | 'greenfield',
-  mode?: 'quality-check-only',
+  mode?: 'quality-check-only' | 'prod-ready-only',
 ): Promise<void> {
   const ap = settings.merged.autopilot;
   const { callModel, callModelWithTools } =
@@ -20,6 +20,22 @@ export async function runBrainstormAutopilot(
     await runStandaloneQualityCheck(callModelWithTools, {
       maxTaskRetries: ap?.maxTaskRetries,
     });
+    return;
+  }
+
+  if (mode === 'prod-ready-only') {
+    const { buildProdReadyQueue } = await import('@qwen-code/autopilot');
+    const focus = initialIdea?.trim();
+    const phases = buildProdReadyQueue(focus ? focus : undefined);
+    const system =
+      'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
+    for (const phase of phases) {
+      await callModelWithTools(
+        [{ role: 'user', content: phase }],
+        system,
+        true,
+      );
+    }
     return;
   }
 

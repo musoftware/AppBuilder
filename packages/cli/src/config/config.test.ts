@@ -615,6 +615,12 @@ describe('parseArguments', () => {
     expect(argv.brainstormInitialIdea).toBe('erp system in laravel');
     expect(argv.prompt).toBeUndefined();
   });
+
+  it('should enable --prod-ready flag', async () => {
+    process.argv = ['node', 'script.js', '--prod-ready'];
+    const argv = await parseArguments();
+    expect(argv.prodReady).toBe(true);
+  });
 });
 
 describe('loadCliConfig', () => {

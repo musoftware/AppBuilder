@@ -165,6 +165,7 @@ export interface CliArgs {
   brainstormInitialIdea: string | undefined;
   brownfield: boolean | undefined;
   qualityCheck: boolean | undefined;
+  prodReady: boolean | undefined;
 }
 
 function normalizeOutputFormat(
@@ -199,7 +200,23 @@ export async function parseArguments(): Promise<CliArgs> {
     .locale('en')
     .scriptName('autocreator')
     .usage(
-      'Usage: autocreator [options] [command]\n\nMU Code - Launch an interactive CLI, use -p/--prompt for non-interactive mode',
+      [
+        'Usage: autocreator [options] [command]',
+        '',
+        'MU Code: interactive CLI. Positional prompt or -p/--prompt: one-shot;',
+        '-i/--prompt-interactive: run a prompt then stay interactive.',
+        '',
+        'Commands: mcp, extensions, auth, hooks (alias: hook), channel.',
+        'Run autocreator <command> --help for subcommands.',
+        '',
+        'Autopilot-style flags (default command): --brainstorm (-b),',
+        '--brownfield (with --brainstorm), --quality-check, --prod-ready.',
+        '',
+        'Interactive TUI: /help lists slash commands. Examples: /quality-check,',
+        '/project-hardening (9-phase workspace hardening; optional focus text).',
+        '',
+        'Same entry point is also installed as: autopilot.',
+      ].join('\n'),
     )
     .option('telemetry', {
       type: 'boolean',
@@ -359,7 +376,8 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('channel', {
           type: 'string',
           choices: ['VSCode', 'ACP', 'SDK', 'CI'],
-          description: 'Channel identifier (VSCode, ACP, SDK, CI)',
+          description:
+            'Client launch context (VSCode, ACP, SDK, CI). Not the `channel` subcommand for messaging.',
         })
         .option('brainstorm', {
           alias: 'b',
@@ -378,6 +396,12 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'boolean',
           description:
             'Quality check: in an interactive terminal, same as plain launch but submits /quality-check once the UI is ready (no extra Enter). Without a TTY, runs a standalone loop of 3 verification passes (analyze and fix when needed), then a final automated coverage-gap closure task.',
+          default: false,
+        })
+        .option('prod-ready', {
+          type: 'boolean',
+          description:
+            'Production readiness chain: runs 7 sequential agents (Analyst → Builder → Completer → Test Writer → Test Analyzer → Fixer → Prod Check) and loops until the app is production ready.',
           default: false,
         })
         .option('allowed-mcp-server-names', {
@@ -517,13 +541,6 @@ export async function parseArguments(): Promise<CliArgs> {
           coerce: (tools: string[]) =>
             tools.flatMap((tool) => tool.split(',').map((t) => t.trim())),
         })
-        .option('allowed-tools', {
-          type: 'array',
-          string: true,
-          description: 'Tools to allow, will bypass confirmation',
-          coerce: (tools: string[]) =>
-            tools.flatMap((tool) => tool.split(',').map((t) => t.trim())),
-        })
         .option('auth-type', {
           type: 'string',
           choices: [
@@ -616,6 +633,13 @@ export async function parseArguments(): Promise<CliArgs> {
     .alias('v', 'version')
     .help()
     .alias('h', 'help')
+    .epilogue(
+      [
+        '--channel is the client context; `channel` configures messaging',
+        '(Telegram, Discord, etc.). TUI: /help for slash commands;',
+        '/project-hardening queues 9-phase hardening (understand, fix, quality).',
+      ].join(' '),
+    )
     .strict()
     .demandCommand(0, 0); // Allow base command to run with no subcommands
 
