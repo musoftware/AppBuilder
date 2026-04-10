@@ -5,6 +5,7 @@ import type { ContextSpec, ChatMessage, Task, TaskGraph } from '../types.js';
 import type { TaskRunner } from './TaskRunner.js';
 import { AutopilotOrchestrator } from './AutopilotOrchestrator.js';
 import { ProgressReporter } from './ProgressReporter.js';
+import { QC_TESTING_TAXONOMY } from '../qualityCheckTestingTaxonomy.js';
 
 interface AnalysisIssue {
   title: string;
@@ -23,13 +24,21 @@ Your job is to analyze the current state of a project workspace and identify:
 1. Bugs — code that is incorrect, broken, or will cause runtime errors
 2. Missing implementations — features or functionality that were planned but not completed
 3. Logical conflicts — contradictions between different parts of the code (e.g., mismatched types, broken imports, inconsistent interfaces)
+4. Wiring and integration failures — problems that show up only when subsystems work together (routing, rendering, persistence, external boundaries, dependency injection, or config as in a real run)
 
 Rules:
 - READ the actual files in the workspace before drawing conclusions.
-- Run existing tests (if any) to check for failures.
+- Discover how this project runs automated checks (scripts, CI, Makefile, docs)
+  and run them. Do not assume a specific stack.
+- Prefer the broadest automated suites the repository already defines when
+  practical (integration, feature/API, contract, browser, end-to-end), not only
+  the fastest unit-level tests — many production defects are invisible to narrow
+  unit coverage.
 - Only report real, concrete issues — not stylistic preferences or speculative improvements.
 - If everything looks correct and complete, output {"hasIssues": false, "issues": []}.
 - Output ONLY valid JSON matching the schema below, with no extra text before or after the JSON block.
+
+${QC_TESTING_TAXONOMY}
 
 Output schema:
 {
@@ -190,8 +199,11 @@ ${JSON.stringify(this.context, null, 2)}
 
 Steps:
 1. Explore the workspace files to understand the current state.
-2. Run tests if they exist (e.g. npm test, pytest, cargo test).
-3. Identify all bugs, missing implementations, and logical conflicts.
+2. Map scripts/CI/docs to the full testing taxonomy and run every automated
+   check that reasonably applies (deeper scope and purpose-specific jobs when
+   the repo defines them).
+3. Identify bugs, missing work, conflicts, wiring/runtime failures, and
+   obvious gaps in automated coverage for important dimensions.
 4. Output your findings as JSON following the required schema. No extra text.
     `.trim();
 

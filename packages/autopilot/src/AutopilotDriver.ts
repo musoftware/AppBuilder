@@ -16,6 +16,7 @@ import type {
 } from './types.js';
 import { mergeAutopilotPartialSettings } from './types.js';
 import { findDesignSystem } from './designSystemsData.js';
+import { QC_TESTING_TAXONOMY } from './qualityCheckTestingTaxonomy.js';
 
 // ─── Task system instructions (embedded in user message, no separate system prompt) ───
 
@@ -99,9 +100,18 @@ You are running in fully autonomous AI coding agent mode.
 
 Rules:
 - READ the actual files in the workspace before drawing conclusions.
-- Run existing tests (if any) to check for failures.
+- Discover how this project runs automated checks (scripts, CI workflows,
+  Makefile, docs) and run them. Do not assume a specific language or framework.
+- Use the broadest automated suites the repo already defines when practical —
+  for example integration, feature/API, contract, browser, or end-to-end tests —
+  not only the narrowest or fastest unit-level checks. Wiring, rendering,
+  routing, persistence, and configuration mistakes often pass isolated tests but
+  fail in broader suites.
 - Only report and fix real, concrete issues — not stylistic preferences.
-- After fixing issues, run tests again to confirm everything passes.
+- After fixes, re-run the same verification until it passes or you hit a clear
+  environment limit; say which commands you ran and any suite you could not run.
+
+${QC_TESTING_TAXONOMY}
 `.trim();
 
 function formatQualityCheckMessage(context: ContextSpec): string {
@@ -118,10 +128,13 @@ function formatQualityCheckMessage(context: ContextSpec): string {
     '',
     'Steps:',
     '1. Explore the workspace files to understand the current state.',
-    '2. Run tests if they exist (e.g. npm test, pytest, cargo test).',
-    '3. Identify all bugs, missing implementations, and logical conflicts.',
+    '2. Map scripts/CI/docs to the testing taxonomy (scope, approach, execution,',
+    '   purpose) and run every automated check that reasonably applies.',
+    '3. Identify bugs, missing work, conflicts, wiring/runtime failures, and',
+    '   missing automated coverage for important dimensions when obvious.',
     '4. Fix any issues you find.',
-    '5. When done, report what you checked and what (if anything) you fixed.',
+    '5. When done, report commands run, fixes, skipped checks (and why), and',
+    '   any manual-only gaps (e.g. UAT, exploratory usability).',
   ]
     .join('\n')
     .trim();
