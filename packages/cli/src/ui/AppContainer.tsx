@@ -101,7 +101,9 @@ import { migrateTomlCommands } from '../services/command-migration-tool.js';
 import { type UpdateObject } from './utils/updateCheck.js';
 import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { registerCleanup, runExitCleanup } from '../utils/cleanup.js';
-import { runBrainstormAutopilot } from '../autopilot/runBrainstormAutopilot.js';
+import { AutopilotDriver } from '@qwen-code/autopilot';
+import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
+import { resolvePath } from '../utils/resolvePath.js';
 import { useMessageQueue } from './hooks/useMessageQueue.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useSessionStats } from './contexts/SessionContext.js';
@@ -283,35 +285,10 @@ export const AppContainer = (props: AppContainerProps) => {
   const { columns: terminalWidth, rows: terminalHeight } = useTerminalSize();
   const { stdin, setRawMode } = useStdin();
   const { stdout } = useStdout();
-  const { exit } = useApp();
-  const autopilotHandlerRef = useRef<(idea?: string) => void>(() => {});
-
-  const handleAutopilotRequest = useCallback(
-    (idea?: string) => {
-      void (async () => {
-        try {
-          exit();
-          await new Promise((r) => setTimeout(r, 150));
-          if (process.stdin.isTTY && process.stdin.isRaw) {
-            process.stdin.setRawMode(false);
-          }
-          await config.initialize();
-          await runBrainstormAutopilot(config, settings, idea);
-        } catch (error: unknown) {
-          debugLogger.error(
-            'Autopilot:',
-            error instanceof Error ? error.message : String(error),
-          );
-        } finally {
-          await runExitCleanup();
-          process.exit(0);
-        }
-      })();
-    },
-    [config, settings, exit],
-  );
-
-  autopilotHandlerRef.current = handleAutopilotRequest;
+  useApp();
+  const autopilotHandlerRef = useRef<
+    (idea?: string, mode?: 'quality-check' | 'design') => void
+  >(() => {});
 
   // Additional hooks moved from App.tsx
   const { stats: sessionStats, startNewSession } = useSessionStats();
@@ -755,6 +732,7 @@ export const AppContainer = (props: AppContainerProps) => {
     handleApprovalModeChange,
     activePtyId,
     loopDetectionConfirmationRequest,
+    setAutopilotQueue,
   } = useGeminiStream(
     config.getGeminiClient(),
     historyManager.history,
@@ -777,6 +755,113 @@ export const AppContainer = (props: AppContainerProps) => {
     midTurnDrainRef,
     autopilotHandlerRef,
   );
+
+  // Autopilot: runs planning internally, then submits task messages through the
+  // normal chat pipeline so the user never leaves the interactive UI.
+  const handleAutopilotRequest = useCallback(
+    (idea?: string, mode?: 'quality-check' | 'design') => {
+      void (async () => {
+        const ap = settings.merged.autopilot;
+        const driver = new AutopilotDriver({
+          skillsPath: ap?.skillsPath ? resolvePath(ap.skillsPath) : undefined,
+          maxTaskRetries: ap?.maxTaskRetries,
+          planPreviewSeconds: ap?.planPreviewSeconds,
+          goTriggers:
+            ap?.goTriggers && ap.goTriggers.length > 0
+              ? ap.goTriggers
+              : undefined,
+        });
+
+        if (mode === 'quality-check') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Autopilot: Starting quality check…',
+            },
+            Date.now(),
+          );
+          try {
+            const qcMessage = await driver.qualityCheck();
+            setAutopilotQueue([qcMessage]);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Autopilot quality check failed:', msg);
+            historyManager.addItem(
+              { type: MessageType.ERROR, text: `Quality check failed: ${msg}` },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'design') {
+          const designName = idea?.trim() ?? '';
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Design: Downloading \`${designName}\` DESIGN.md and planning tasks…`,
+            },
+            Date.now(),
+          );
+          try {
+            const { callModel } = createAutopilotModelAdapters(config);
+            const { taskMessages, planSummary } = await driver.designPlan(
+              callModel,
+              designName,
+            );
+            historyManager.addItem(
+              { type: MessageType.INFO, text: planSummary },
+              Date.now(),
+            );
+            setAutopilotQueue(taskMessages);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Design autopilot failed:', msg);
+            historyManager.addItem(
+              { type: MessageType.ERROR, text: `Design failed: ${msg}` },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        historyManager.addItem(
+          {
+            type: MessageType.INFO,
+            text: `Autopilot: Planning tasks${idea ? ` for "${idea}"` : ''}…`,
+          },
+          Date.now(),
+        );
+        try {
+          const { callModel } = createAutopilotModelAdapters(config);
+          const { taskMessages, planSummary } = await driver.plan(
+            callModel,
+            idea,
+            undefined,
+            ap?.skillsPath ? resolvePath(ap.skillsPath) : undefined,
+          );
+
+          historyManager.addItem(
+            { type: MessageType.INFO, text: planSummary },
+            Date.now(),
+          );
+          setAutopilotQueue(taskMessages);
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : String(error);
+          debugLogger.error('Autopilot planning failed:', msg);
+          historyManager.addItem(
+            {
+              type: MessageType.ERROR,
+              text: `Autopilot planning failed: ${msg}`,
+            },
+            Date.now(),
+          );
+        }
+      })();
+    },
+    [config, settings, historyManager, setAutopilotQueue],
+  );
+  autopilotHandlerRef.current = handleAutopilotRequest;
 
   // Track whether suggestions are visible for Tab key handling
   const [hasSuggestionsVisible, setHasSuggestionsVisible] = useState(false);

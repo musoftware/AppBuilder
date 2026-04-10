@@ -579,6 +579,7 @@ export const useSlashCommandProcessor = (
                   return {
                     type: 'autopilot',
                     initialIdea: result.initialIdea,
+                    mode: result.mode,
                   };
                 case 'confirm_shell_commands': {
                   const { outcome, approvedCommands } = await new Promise<{

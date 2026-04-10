@@ -570,6 +570,7 @@ export type SlashCommandProcessorResult =
   | {
       type: 'autopilot';
       initialIdea?: string;
+      mode?: 'quality-check' | 'design';
     };
 
 export interface ShellConfirmationRequest {

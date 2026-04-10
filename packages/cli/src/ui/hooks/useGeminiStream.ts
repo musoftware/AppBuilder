@@ -183,7 +183,9 @@ export const useGeminiStream = (
   terminalWidth: number,
   terminalHeight: number,
   midTurnDrainRef?: RefObject<(() => string[]) | null>,
-  autopilotRequestRef?: RefObject<((idea?: string) => void) | null>,
+  autopilotRequestRef?: RefObject<
+    ((idea?: string, mode?: 'quality-check' | 'design') => void) | null
+  >,
 ) => {
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -544,7 +546,10 @@ export const useGeminiStream = (
               return { queryToSend: null, shouldProceed: false };
             }
             case 'autopilot': {
-              autopilotRequestRef?.current?.(slashCommandResult.initialIdea);
+              autopilotRequestRef?.current?.(
+                slashCommandResult.initialIdea,
+                slashCommandResult.mode,
+              );
               return { queryToSend: null, shouldProceed: false };
             }
             default: {
@@ -1787,6 +1792,28 @@ export const useGeminiStream = (
     }
   }, [streamingState, submitQuery, cronTrigger]);
 
+  // ─── Autopilot queue integration ──────────────────────────────────────────
+  // Works exactly like the cron queue: AppContainer calls setAutopilotQueue()
+  // with a list of task messages after the planning phase completes, then this
+  // hook drains them one-by-one through the normal chat pipeline.
+  const autopilotQueueRef = useRef<string[]>([]);
+  const [autopilotTrigger, setAutopilotTrigger] = useState(0);
+
+  const setAutopilotQueue = useCallback((messages: string[]) => {
+    autopilotQueueRef.current = [...messages];
+    setAutopilotTrigger((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    if (
+      streamingState === StreamingState.Idle &&
+      autopilotQueueRef.current.length > 0
+    ) {
+      const prompt = autopilotQueueRef.current.shift()!;
+      submitQuery(prompt, SendMessageType.Cron);
+    }
+  }, [streamingState, submitQuery, autopilotTrigger]);
+
   return {
     streamingState,
     submitQuery,
@@ -1799,5 +1826,6 @@ export const useGeminiStream = (
     handleApprovalModeChange,
     activePtyId,
     loopDetectionConfirmationRequest,
+    setAutopilotQueue,
   };
 };

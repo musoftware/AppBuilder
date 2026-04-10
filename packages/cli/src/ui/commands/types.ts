@@ -188,10 +188,16 @@ export interface SubmitPromptActionReturn {
   content: PartListUnion;
 }
 
-/** Exit Ink UI and run CLI autopilot (brainstorm → plan → execute). */
+/** Run autopilot through the interactive chat pipeline. */
 export interface AutopilotActionReturn {
   type: 'autopilot';
+  /**
+   * - default (no mode): the user's idea/request for brainstorm → plan → execute
+   * - 'quality-check': analyze & fix bugs only, no planning phase
+   * - 'design': initialIdea = design system name (e.g. 'cursor', 'stripe')
+   */
   initialIdea?: string;
+  mode?: 'quality-check' | 'design';
 }
 
 /**
