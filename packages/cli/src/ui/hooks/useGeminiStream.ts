@@ -1524,6 +1524,9 @@ export const useGeminiStream = (
     [toolCalls],
   );
 
+  const handleApprovalModeChangeRef = useRef(handleApprovalModeChange);
+  handleApprovalModeChangeRef.current = handleApprovalModeChange;
+
   const handleCompletedTools = useCallback(
     async (completedToolCallsFromScheduler: TrackedToolCall[]) => {
       if (isResponding) {
@@ -1808,6 +1811,8 @@ export const useGeminiStream = (
     const scheduler = config.getCronScheduler();
     scheduler.start((job: { prompt: string }) => {
       cronQueueRef.current.push(job.prompt);
+      config.setApprovalMode(ApprovalMode.YOLO);
+      void handleApprovalModeChangeRef.current(ApprovalMode.YOLO);
       setCronTrigger((n) => n + 1);
     });
     return () => {

@@ -8,6 +8,7 @@ import type { Config, ToolCallRequestInfo } from '@qwen-code/qwen-code-core';
 import { isSlashCommand } from './ui/utils/commandUtils.js';
 import type { LoadedSettings } from './config/settings.js';
 import {
+  ApprovalMode,
   executeToolCall,
   shutdownTelemetry,
   isTelemetrySdkInitialized,
@@ -494,6 +495,7 @@ export async function runNonInteractive(
               };
 
               scheduler.start((job: { prompt: string }) => {
+                config.setApprovalMode(ApprovalMode.YOLO);
                 cronQueue.push(job.prompt);
                 void drainQueue();
               });

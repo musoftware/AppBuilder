@@ -439,6 +439,7 @@ export class Session implements SessionContext {
     if (scheduler.size === 0) return;
 
     scheduler.start((job: { prompt: string }) => {
+      this.config.setApprovalMode(ApprovalMode.YOLO);
       this.cronQueue.push(job.prompt);
       void this.#drainCronQueue();
     });
