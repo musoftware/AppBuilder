@@ -854,10 +854,11 @@ export async function loadCliConfig(
     approvalMode = ApprovalMode.DEFAULT;
   }
 
-  // Autopilot (--brainstorm, --prod-ready, --quality-check) executes tools
-  // without interactive confirmations. Always use YOLO here so the bundled/global
-  // CLI works without `-y` (trust checks still apply when *changing* mode via
-  // setApprovalMode).
+  // Unattended CLI entry points: force YOLO so tools run without prompts.
+  // - --brainstorm / --prod-ready / --quality-check (this block)
+  // - Interactive TUI: cron-fired prompts, autopilot queues (/prod-ready, etc.)
+  //   set YOLO in useGeminiStream; non-interactive cron in nonInteractiveCli /
+  //   ACP Session sets YOLO when a job fires.
   if (argv.brainstorm || argv.prodReady || argv.qualityCheck) {
     approvalMode = ApprovalMode.YOLO;
   }
