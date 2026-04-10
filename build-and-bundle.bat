@@ -21,10 +21,18 @@ echo.
 echo Build and bundle finished successfully.
 echo.
 echo --- How to use ---
-echo mu-pilot - autopilot-style commands:
+echo mu-pilot ^(or mu^) - autopilot-style commands:
 echo   mu-pilot --brainstorm
 echo   mu-pilot --brainstorm "your app idea"
 echo   mu-pilot --brainstorm --brownfield
-echo   mu-pilot --quality-check
+echo   mu-pilot -b "your app idea"
 echo   ^(-b is short for --brainstorm^)
+echo.
+echo   mu-pilot --quality-check
+echo   mu-pilot --prod-ready
+echo   mu-pilot --prod-ready -p "optional focus text"
+echo.
+echo Interactive terminal ^(TTY^) - same flows via slash commands:
+echo   /quality-check     /prod-ready     /project-hardening
+echo   Optional focus: type text after /prod-ready or /project-hardening
 exit /b 0
