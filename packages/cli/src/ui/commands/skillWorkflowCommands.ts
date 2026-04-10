@@ -72,6 +72,33 @@ const SKILL_WORKFLOW_DEFINITIONS: ReadonlyArray<{
     description:
       'Run post-turn-complete — phase 3: finish gaps, docs, polish for the same request',
   },
+  {
+    id: 'project-harden-understand-1',
+    description:
+      'Project hardening understand 1/3 — repository inventory (read-first)',
+  },
+  {
+    id: 'project-harden-understand-2',
+    description: 'Project hardening understand 2/3 — architecture and flow',
+  },
+  {
+    id: 'project-harden-understand-3',
+    description:
+      'Project hardening understand 3/3 — consolidate and clarify ambiguities',
+  },
+  {
+    id: 'project-harden-fix-1',
+    description: 'Project hardening fix 1/3 — systematic bug sweep',
+  },
+  {
+    id: 'project-harden-fix-2',
+    description:
+      'Project hardening fix 2/3 — critical missing features vs focus',
+  },
+  {
+    id: 'project-harden-fix-3',
+    description: 'Project hardening fix 3/3 — implement P0/P1 fixes and gaps',
+  },
 ] as const;
 
 function makeSkillWorkflowCommand(

@@ -15,6 +15,7 @@ import { authCommand } from '../ui/commands/authCommand.js';
 import { brainstormCommand } from '../ui/commands/brainstormCommand.js';
 import { qualityCheckCommand } from '../ui/commands/qualityCheckCommand.js';
 import { designCommand } from '../ui/commands/designCommand.js';
+import { projectHardeningCommand } from '../ui/commands/projectHardeningCommand.js';
 import { skillWorkflowCommands } from '../ui/commands/skillWorkflowCommands.js';
 import { btwCommand } from '../ui/commands/btwCommand.js';
 import { bugCommand } from '../ui/commands/bugCommand.js';
@@ -93,6 +94,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       brainstormCommand,
       qualityCheckCommand,
       designCommand,
+      projectHardeningCommand,
       ...skillWorkflowCommands,
       btwCommand,
       bugCommand,

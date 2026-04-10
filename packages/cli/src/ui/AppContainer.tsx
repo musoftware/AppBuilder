@@ -103,6 +103,7 @@ import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { registerCleanup, runExitCleanup } from '../utils/cleanup.js';
 import { AutopilotDriver } from '@qwen-code/autopilot';
 import type { AutopilotInteractiveMode } from './commands/types.js';
+import { buildProjectHardeningQueue } from './projectHardeningQueue.js';
 import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
 import { resolvePath } from '../utils/resolvePath.js';
 import { useMessageQueue } from './hooks/useMessageQueue.js';
@@ -826,6 +827,48 @@ export const AppContainer = (props: AppContainerProps) => {
               {
                 type: MessageType.ERROR,
                 text: `Skill workflow failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'project-hardening') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Project hardening: queuing 9 phases (3 understand → 3 fix/gaps → 3 quality)…',
+            },
+            Date.now(),
+          );
+          try {
+            const messages = await buildProjectHardeningQueue(idea, settings);
+            if (messages.length === 0) {
+              historyManager.addItem(
+                {
+                  type: MessageType.ERROR,
+                  text: 'Project hardening: no phases loaded (missing skills under .qwen/skills or autopilot paths).',
+                },
+                Date.now(),
+              );
+              return;
+            }
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Project hardening: ${messages.length} phase(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(messages);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Project hardening failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Project hardening failed: ${msg}`,
               },
               Date.now(),
             );

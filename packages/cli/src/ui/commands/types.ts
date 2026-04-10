@@ -189,7 +189,11 @@ export interface SubmitPromptActionReturn {
 }
 
 /** Modes for slash commands that drive the interactive autopilot hook. */
-export type AutopilotInteractiveMode = 'quality-check' | 'design' | 'skill';
+export type AutopilotInteractiveMode =
+  | 'quality-check'
+  | 'design'
+  | 'skill'
+  | 'project-hardening';
 
 /** Run autopilot through the interactive chat pipeline. */
 export interface AutopilotActionReturn {
@@ -199,6 +203,7 @@ export interface AutopilotActionReturn {
    * - 'quality-check': analyze & fix bugs only, no planning phase
    * - 'design': initialIdea = design system name (e.g. 'cursor', 'stripe')
    * - 'skill': initialIdea = skill folder name (e.g. 'e2e-testing')
+   * - 'project-hardening': optional focus text; queues 9 skill phases
    */
   initialIdea?: string;
   mode?: AutopilotInteractiveMode;
