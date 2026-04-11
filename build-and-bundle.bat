@@ -40,27 +40,11 @@ echo Build, bundle, and dist package prep finished successfully.
 echo Output: dist\cli.js plus vendor, locales, project-brain-skills, etc.
 echo.
 echo --- How to use ---
-echo mu-pilot ^(or mu / autocreator^) — autopilot-style flags:
+echo mu-pilot ^(or mu / autocreator^) — two entry points ^(skills run inside these flows^):
 echo   mu-pilot --brainstorm
-echo   mu-pilot --brainstorm "your app idea"
-echo   mu-pilot --brainstorm --brownfield
-echo   mu-pilot -b "your app idea"
-echo   ^(-b is short for --brainstorm^)
+echo   mu-pilot --prod
 echo.
-echo   mu-pilot --quality-check
-echo   mu-pilot --prod-ready
-echo   mu-pilot --prod-ready -p "optional focus text"
-echo   mu-pilot --full-chain
-echo   mu-pilot --frontend-audit
-echo   mu-pilot --ready-production
-echo   mu-pilot --smart
-echo   mu-pilot --skill understand
-echo   mu-pilot --skill audit-frontend
+echo Interactive terminal ^(TTY^): /brainstorm   /prod
 echo.
-echo Interactive terminal ^(TTY^) — slash commands:
-echo   /quality-check   /prod-ready   /full-chain   /frontend-audit
-echo   /ready-production   /smart   /skill ^<name^>   /project-hardening
-echo   Optional focus: text after /prod-ready or /project-hardening
-echo.
-echo Run from dist: node dist\cli.js --help
+echo More flags: node dist\cli.js --help
 exit /b 0

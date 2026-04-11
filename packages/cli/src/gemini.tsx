@@ -139,21 +139,21 @@ ${reason.stack}`
 }
 
 export type InteractiveUiStartupOptions = {
-  /** Auto-submit `/quality-check` when the UI is ready (same path as typing it). */
+  /** When the UI is ready, start quality-check autopilot (direct; built-in slash list is /brainstorm and /prod only). */
   startupQualityCheck?: boolean;
-  /** Auto-submit `/prod` when the UI is ready (same path as typing it). */
+  /** When the UI is ready, start stack-detected prod autopilot. */
   startupProd?: boolean;
-  /** Auto-submit `/prod-ready` when the UI is ready (same path as typing it). */
+  /** When the UI is ready, start prod-ready autopilot (direct). */
   startupProdReady?: boolean;
-  /** Auto-submit `/full-chain` when the UI is ready (same path as typing it). */
+  /** When the UI is ready, start full-chain autopilot (direct). */
   startupFullChain?: boolean;
-  /** Auto-submit `/frontend-audit` when the UI is ready (same path as typing it). */
+  /** When the UI is ready, start frontend-audit autopilot (direct). */
   startupFrontendAudit?: boolean;
-  /** Auto-submit `/ready-production` when the UI is ready (same path as typing it). */
+  /** When the UI is ready, start ready-production autopilot (direct). */
   startupReadyProduction?: boolean;
-  /** Auto-submit `/smart` when the UI is ready. */
+  /** When the UI is ready, start smart orchestrator autopilot (direct). */
   startupSmart?: boolean;
-  /** Auto-submit `/skill <name>` when the UI is ready. */
+  /** When the UI is ready, start the given project-brain skill (direct). */
   startupBrainSkill?: string;
 };
 

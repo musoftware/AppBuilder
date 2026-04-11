@@ -513,6 +513,7 @@ describe('gemini.tsx main function kitty protocol', () => {
       brainstormInitialIdea: undefined,
       brownfield: undefined,
       qualityCheck: undefined,
+      prod: undefined,
       prodReady: undefined,
       fullChain: undefined,
       clearChainCache: undefined,

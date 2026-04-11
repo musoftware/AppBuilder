@@ -13,19 +13,7 @@ import { arenaCommand } from '../ui/commands/arenaCommand.js';
 import { approvalModeCommand } from '../ui/commands/approvalModeCommand.js';
 import { authCommand } from '../ui/commands/authCommand.js';
 import { brainstormCommand } from '../ui/commands/brainstormCommand.js';
-import { qualityCheckCommand } from '../ui/commands/qualityCheckCommand.js';
 import { prodCommand } from '../ui/commands/prodCommand.js';
-import { prodReadyCommand } from '../ui/commands/prodReadyCommand.js';
-import { designCommand } from '../ui/commands/designCommand.js';
-import { projectHardeningCommand } from '../ui/commands/projectHardeningCommand.js';
-import { fullChainCommand } from '../ui/commands/fullChainCommand.js';
-import { frontendAuditCommand } from '../ui/commands/frontendAuditCommand.js';
-import { readyProductionCommand } from '../ui/commands/readyProductionCommand.js';
-import {
-  brainSkillCommand,
-  smartCommand,
-} from '../ui/commands/smartCommand.js';
-import { skillWorkflowCommands } from '../ui/commands/skillWorkflowCommands.js';
 import { btwCommand } from '../ui/commands/btwCommand.js';
 import { bugCommand } from '../ui/commands/bugCommand.js';
 import { clearCommand } from '../ui/commands/clearCommand.js';
@@ -101,17 +89,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       approvalModeCommand,
       authCommand,
       brainstormCommand,
-      qualityCheckCommand,
       prodCommand,
-      prodReadyCommand,
-      designCommand,
-      projectHardeningCommand,
-      fullChainCommand,
-      frontendAuditCommand,
-      readyProductionCommand,
-      smartCommand,
-      brainSkillCommand,
-      ...skillWorkflowCommands,
       btwCommand,
       bugCommand,
       clearCommand,

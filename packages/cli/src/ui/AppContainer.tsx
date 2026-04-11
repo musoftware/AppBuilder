@@ -157,21 +157,21 @@ interface AppContainerProps {
   startupWarnings?: string[];
   version: string;
   initializationResult: InitializationResult;
-  /** From `mu-pilot --quality-check`: same UI as plain launch; auto-submits `/quality-check` when ready. */
+  /** From `mu-pilot --quality-check`: same UI; starts quality-check autopilot when ready (no slash). */
   startupQualityCheck?: boolean;
-  /** From `mu-pilot --prod`: same UI as plain launch; auto-submits `/prod` when ready. */
+  /** From `mu-pilot --prod`: same UI; starts stack-detected prod autopilot when ready. */
   startupProd?: boolean;
-  /** From `mu-pilot --prod-ready`: same UI as plain launch; auto-submits `/prod-ready` when ready. */
+  /** From `mu-pilot --prod-ready`: same UI; starts prod-ready autopilot when ready (no slash). */
   startupProdReady?: boolean;
-  /** From `mu-pilot --full-chain`: same UI as plain launch; auto-submits `/full-chain` when ready. */
+  /** From `mu-pilot --full-chain`: same UI; starts full-chain autopilot when ready (no slash). */
   startupFullChain?: boolean;
-  /** From `mu-pilot --frontend-audit`: same UI as plain launch; auto-submits `/frontend-audit` when ready. */
+  /** From `mu-pilot --frontend-audit`: same UI; starts frontend-audit autopilot when ready (no slash). */
   startupFrontendAudit?: boolean;
-  /** From `mu-pilot --ready-production`: auto-submits `/ready-production` when ready. */
+  /** From `mu-pilot --ready-production`: starts ready-production autopilot when ready (no slash). */
   startupReadyProduction?: boolean;
-  /** From `mu-pilot --smart`: auto-submits `/smart` when ready. */
+  /** From `mu-pilot --smart`: starts smart orchestrator autopilot when ready (no slash). */
   startupSmart?: boolean;
-  /** From `mu-pilot --skill <name>`: auto-submits `/skill <name>` when ready. */
+  /** From `mu-pilot --skill <name>`: starts that project-brain skill when ready (no slash). */
   startupBrainSkill?: string;
 }
 
@@ -1616,12 +1616,12 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
     startupQualityCheckSubmitted.current = true;
-    handleFinalSubmit('/quality-check');
+    handleAutopilotRequest(undefined, 'quality-check');
   }, [
     startupQualityCheck,
     initialPrompt,
     isConfigInitialized,
-    handleFinalSubmit,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
@@ -1648,12 +1648,12 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
     startupProdSubmitted.current = true;
-    handleFinalSubmit('/prod');
+    handleAutopilotRequest(undefined, 'prod');
   }, [
     startupProd,
     initialPrompt,
     isConfigInitialized,
-    handleFinalSubmit,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
@@ -1680,12 +1680,12 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
     startupProdReadySubmitted.current = true;
-    handleFinalSubmit('/prod-ready');
+    handleAutopilotRequest(undefined, 'prod-ready');
   }, [
     startupProdReady,
     initialPrompt,
     isConfigInitialized,
-    handleFinalSubmit,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
@@ -1712,12 +1712,12 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
     startupFullChainSubmitted.current = true;
-    handleFinalSubmit('/full-chain');
+    handleAutopilotRequest(undefined, 'full-chain');
   }, [
     startupFullChain,
     initialPrompt,
     isConfigInitialized,
-    handleFinalSubmit,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
@@ -1744,12 +1744,12 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
     startupFrontendAuditSubmitted.current = true;
-    handleFinalSubmit('/frontend-audit');
+    handleAutopilotRequest(undefined, 'frontend-audit');
   }, [
     startupFrontendAudit,
     initialPrompt,
     isConfigInitialized,
-    handleFinalSubmit,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
@@ -1776,12 +1776,12 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
     startupReadyProductionSubmitted.current = true;
-    handleFinalSubmit('/ready-production');
+    handleAutopilotRequest(undefined, 'ready-production');
   }, [
     startupReadyProduction,
     initialPrompt,
     isConfigInitialized,
-    handleFinalSubmit,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
@@ -1808,12 +1808,12 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
     startupSmartSubmitted.current = true;
-    handleFinalSubmit('/smart');
+    handleAutopilotRequest(undefined, 'smart');
   }, [
     startupSmart,
     initialPrompt,
     isConfigInitialized,
-    handleFinalSubmit,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
@@ -1841,12 +1841,12 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
     startupBrainSkillSubmitted.current = true;
-    handleFinalSubmit(`/skill ${name}`);
+    handleAutopilotRequest(name, 'brain-skill');
   }, [
     startupBrainSkill,
     initialPrompt,
     isConfigInitialized,
-    handleFinalSubmit,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
