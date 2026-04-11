@@ -34,6 +34,23 @@ describe('buildProdQueue', () => {
     expect(joined).toMatch(/AUDIT DONE: audit-backend/i);
   });
 
+  it('always appends fixed persona review skills before final gate', () => {
+    const root = tempWorkspace();
+    mkdirSync(join(root, '.project-brain'), { recursive: true });
+    writeFileSync(
+      join(root, '.project-brain', 'understand.md'),
+      ['HAS_BACKEND: Yes', 'HAS_FRONTEND: No', 'REST API', ''].join('\n'),
+    );
+    const phases = buildProdQueue(root);
+    const joined = phases.join('\n');
+    expect(joined).toMatch(/SKILL: REVIEW-AS-USER/i);
+    expect(joined).toMatch(/SKILL: REVIEW-AS-SECURITY/i);
+    expect(joined).toMatch(/SKILL: REVIEW-AS-DATA/i);
+    const gateIdx = joined.search(/FINAL PROD REPORT/i);
+    const userIdx = joined.search(/SKILL: REVIEW-AS-USER/i);
+    expect(gateIdx).toBeGreaterThan(userIdx);
+  });
+
   it('skips frontend and e2e when understand has no frontend', () => {
     const root = tempWorkspace();
     mkdirSync(join(root, '.project-brain'), { recursive: true });

@@ -67,6 +67,24 @@ function readSkillFile(skillName: string, root: string): string | null {
   return null;
 }
 
+/**
+ * Persona / lens reviews — always appended in `buildProdQueue` after stack-selected
+ * skills. Excluded from `getAvailableSkills` so empty-understand “run all” does not
+ * duplicate them.
+ */
+export const PROD_FIXED_REVIEW_SKILL_ORDER = [
+  'review-as-user',
+  'review-as-security',
+  'review-as-a11y',
+  'review-as-mobile',
+  'review-as-slow-network',
+  'review-as-developer',
+  'review-as-performance',
+  'review-as-qa',
+  'review-as-pm',
+  'review-as-data',
+] as const;
+
 /** Meta / orchestration playbooks — not run as per-skill mini-loops (prod-gate is the final prompt). */
 const SKILL_EXCLUDE = new Set([
   'smart-orchestrator',
@@ -76,6 +94,7 @@ const SKILL_EXCLUDE = new Set([
   'harden',
   'prod-gate',
   'report',
+  ...PROD_FIXED_REVIEW_SKILL_ORDER,
 ]);
 
 function listSkillDirs(skillsDir: string): string[] {
@@ -549,6 +568,20 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
       continue;
     }
 
+    const miniLoop = buildSkillMiniLoop(
+      skillName,
+      skillContent,
+      stackInstruction,
+      date,
+    );
+    queue.push(...miniLoop);
+  }
+
+  for (const skillName of PROD_FIXED_REVIEW_SKILL_ORDER) {
+    const skillContent = readSkillFile(skillName, root);
+    if (!skillContent) {
+      continue;
+    }
     const miniLoop = buildSkillMiniLoop(
       skillName,
       skillContent,

@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PROD_FIXED_REVIEW_SKILL_ORDER } from './prodQueue.js';
 
 /** Built-in project-brain pipeline skills under `.qwen/skills/<name>/SKILL.md`. */
 export const PROJECT_BRAIN_SKILL_ORDER = [
@@ -276,6 +277,7 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
 
 const KNOWN_SKILLS_LIST = [
   ...PROJECT_BRAIN_SKILL_ORDER,
+  ...PROD_FIXED_REVIEW_SKILL_ORDER,
   'smart-orchestrator',
   'report',
 ].join(', ');
