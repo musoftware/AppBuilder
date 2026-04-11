@@ -69,7 +69,10 @@ import { handleAtCommand } from './atCommandProcessor.js';
 import { findLastSafeSplitPoint } from '../utils/markdownUtilities.js';
 import { useStateAndRef } from './useStateAndRef.js';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
-import type { AutopilotInteractiveMode } from '../commands/types.js';
+import type {
+  AutopilotInteractiveMode,
+  AutopilotRequestOptions,
+} from '../commands/types.js';
 import { useLogger } from './useLogger.js';
 import { buildPostUserPromptFollowUpMessages } from '../postPromptFollowUpQueue.js';
 import { isLikelyNewFeatureOrImplementationRequest } from '../postPromptFollowUpTrigger.js';
@@ -187,7 +190,12 @@ export const useGeminiStream = (
   terminalHeight: number,
   midTurnDrainRef?: RefObject<(() => string[]) | null>,
   autopilotRequestRef?: RefObject<
-    ((idea?: string, mode?: AutopilotInteractiveMode) => void) | null
+    | ((
+        idea?: string,
+        mode?: AutopilotInteractiveMode,
+        options?: AutopilotRequestOptions,
+      ) => void)
+    | null
   >,
 ) => {
   const [initError, setInitError] = useState<string | null>(null);

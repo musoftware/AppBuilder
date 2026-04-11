@@ -139,6 +139,12 @@ ${reason.stack}`
 }
 
 export type InteractiveUiStartupOptions = {
+  /** When the UI is ready, start brainstorm → plan → task queue (same chat UI as /prod). */
+  startupBrainstorm?: boolean;
+  /** Optional seed idea from `mu-pilot --brainstorm "…"`. */
+  startupBrainstormInitialIdea?: string;
+  /** When true, force brownfield planning (`--brainstorm --brownfield`). */
+  startupBrainstormBrownfield?: boolean;
   /** When the UI is ready, start quality-check autopilot (direct; built-in slash list is /brainstorm and /prod only). */
   startupQualityCheck?: boolean;
   /** When the UI is ready, start stack-detected prod autopilot. */
@@ -191,6 +197,13 @@ export async function startInteractiveUI(
                   startupWarnings={startupWarnings}
                   version={version}
                   initializationResult={initializationResult}
+                  startupBrainstorm={interactiveStartup?.startupBrainstorm}
+                  startupBrainstormInitialIdea={
+                    interactiveStartup?.startupBrainstormInitialIdea
+                  }
+                  startupBrainstormBrownfield={
+                    interactiveStartup?.startupBrainstormBrownfield
+                  }
                   startupQualityCheck={interactiveStartup?.startupQualityCheck}
                   startupProd={interactiveStartup?.startupProd}
                   startupProdReady={interactiveStartup?.startupProdReady}
@@ -626,7 +639,7 @@ export async function main() {
       process.exit(0);
     }
 
-    if (argv.brainstorm) {
+    if (argv.brainstorm && !config.isInteractive()) {
       await config.initialize();
       if (process.stdin.isTTY && process.stdin.isRaw) {
         process.stdin.setRawMode(false);
@@ -691,7 +704,16 @@ export async function main() {
                       ? { startupSmart: true }
                       : typeof argv.skill === 'string' && argv.skill.trim()
                         ? { startupBrainSkill: argv.skill.trim() }
-                        : undefined,
+                        : argv.brainstorm
+                          ? {
+                              startupBrainstorm: true,
+                              startupBrainstormInitialIdea:
+                                argv.brainstormInitialIdea,
+                              startupBrainstormBrownfield: Boolean(
+                                argv.brownfield,
+                              ),
+                            }
+                          : undefined,
       );
       return;
     }

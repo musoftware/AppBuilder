@@ -390,7 +390,7 @@ export async function parseArguments(): Promise<CliArgs> {
           alias: 'b',
           type: 'boolean',
           description:
-            'Autopilot brainstorm mode: clarify your idea, plan with skills, then execute tasks in YOLO mode',
+            'Autopilot brainstorm mode: plan with skills, then execute tasks in YOLO mode. With a TTY, uses the main chat UI (same as /brainstorm); without a TTY, runs standalone autopilot.',
           default: false,
         })
         .option('brownfield', {

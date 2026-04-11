@@ -15,7 +15,9 @@ import { t } from '../../i18n/index.js';
 export const brainstormCommand: SlashCommand = {
   name: 'brainstorm',
   get description() {
-    return t('Start autopilot brainstorm mode (exits UI, runs in terminal)');
+    return t(
+      'Start autopilot brainstorm: plan with skills, then queue tasks (same UI as /prod-style flags)',
+    );
   },
   kind: CommandKind.BUILT_IN,
   action: async (

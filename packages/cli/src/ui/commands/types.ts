@@ -188,6 +188,15 @@ export interface SubmitPromptActionReturn {
   content: PartListUnion;
 }
 
+/** Optional flags for interactive autopilot (CLI startup or advanced slash flows). */
+export interface AutopilotRequestOptions {
+  /**
+   * When using the default brainstorm → plan path, override workspace mode detection.
+   * Set from `mu-pilot --brainstorm --brownfield`.
+   */
+  brainstormForceMode?: 'brownfield' | 'greenfield';
+}
+
 /** Modes for slash commands that drive the interactive autopilot hook. */
 export type AutopilotInteractiveMode =
   | 'quality-check'

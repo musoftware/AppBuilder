@@ -105,7 +105,10 @@ import {
   AutopilotDriver,
   getReadyProductionRounds,
 } from '@qwen-code/autopilot';
-import type { AutopilotInteractiveMode } from './commands/types.js';
+import type {
+  AutopilotInteractiveMode,
+  AutopilotRequestOptions,
+} from './commands/types.js';
 import { buildProjectHardeningQueue } from './projectHardeningQueue.js';
 import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
 import { resolvePath } from '../utils/resolvePath.js';
@@ -157,6 +160,12 @@ interface AppContainerProps {
   startupWarnings?: string[];
   version: string;
   initializationResult: InitializationResult;
+  /** From `mu-pilot --brainstorm`: same UI as `--prod`; starts brainstorm → plan → task queue when ready. */
+  startupBrainstorm?: boolean;
+  /** Seed idea from `mu-pilot --brainstorm "…"` (optional). */
+  startupBrainstormInitialIdea?: string;
+  /** From `mu-pilot --brainstorm --brownfield`: force brownfield planning. */
+  startupBrainstormBrownfield?: boolean;
   /** From `mu-pilot --quality-check`: same UI; starts quality-check autopilot when ready (no slash). */
   startupQualityCheck?: boolean;
   /** From `mu-pilot --prod`: same UI; starts stack-detected prod autopilot when ready. */
@@ -192,6 +201,9 @@ export const AppContainer = (props: AppContainerProps) => {
     settings,
     config,
     initializationResult,
+    startupBrainstorm,
+    startupBrainstormInitialIdea,
+    startupBrainstormBrownfield,
     startupQualityCheck,
     startupProd,
     startupProdReady,
@@ -320,7 +332,11 @@ export const AppContainer = (props: AppContainerProps) => {
   const { stdout } = useStdout();
   useApp();
   const autopilotHandlerRef = useRef<
-    (idea?: string, mode?: AutopilotInteractiveMode) => void
+    (
+      idea?: string,
+      mode?: AutopilotInteractiveMode,
+      options?: AutopilotRequestOptions,
+    ) => void
   >(() => {});
 
   // Additional hooks moved from App.tsx
@@ -792,7 +808,11 @@ export const AppContainer = (props: AppContainerProps) => {
   // Autopilot: runs planning internally, then submits task messages through the
   // normal chat pipeline so the user never leaves the interactive UI.
   const handleAutopilotRequest = useCallback(
-    (idea?: string, mode?: AutopilotInteractiveMode) => {
+    (
+      idea?: string,
+      mode?: AutopilotInteractiveMode,
+      options?: AutopilotRequestOptions,
+    ) => {
       void (async () => {
         const ap = settings.merged.autopilot;
         const driver = new AutopilotDriver({
@@ -1204,7 +1224,7 @@ export const AppContainer = (props: AppContainerProps) => {
           const { taskMessages, planSummary } = await driver.plan(
             callModel,
             idea,
-            undefined,
+            options?.brainstormForceMode,
             resolvedSkillsPath,
           );
 
@@ -1551,6 +1571,7 @@ export const AppContainer = (props: AppContainerProps) => {
   // Initial prompt handling
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const initialPromptSubmitted = useRef(false);
+  const startupBrainstormSubmitted = useRef(false);
   const startupQualityCheckSubmitted = useRef(false);
   const startupProdSubmitted = useRef(false);
   const startupProdReadySubmitted = useRef(false);
@@ -1590,6 +1611,47 @@ export const AppContainer = (props: AppContainerProps) => {
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupBrainstorm ||
+      !isConfigInitialized ||
+      startupBrainstormSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupBrainstormSubmitted.current = true;
+    const seed = startupBrainstormInitialIdea?.trim();
+    handleAutopilotRequest(
+      seed || undefined,
+      undefined,
+      startupBrainstormBrownfield
+        ? { brainstormForceMode: 'brownfield' }
+        : undefined,
+    );
+  }, [
+    startupBrainstorm,
+    startupBrainstormInitialIdea,
+    startupBrainstormBrownfield,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
