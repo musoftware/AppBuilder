@@ -92,6 +92,23 @@ if (existsSync(autopilotBundledSkillsDir)) {
   );
 }
 
+// Project-brain / --smart default playbooks (smartSkillsQueue import.meta.url → dist/cli.js).
+const projectBrainSkillsDir = join(
+  root,
+  'packages',
+  'autopilot',
+  'project-brain-skills',
+);
+if (existsSync(projectBrainSkillsDir)) {
+  const destProjectBrain = join(distDir, 'project-brain-skills');
+  copyRecursiveSync(projectBrainSkillsDir, destProjectBrain);
+  console.log('Copied project-brain-skills to dist/project-brain-skills/');
+} else {
+  console.warn(
+    `Warning: project-brain-skills not found at ${projectBrainSkillsDir}`,
+  );
+}
+
 // Copy user docs into qc-helper bundled skill so it can reference them at runtime.
 // The qc-helper skill reads docs from a `docs/` subdirectory relative to its own
 // directory. In the esbuild bundle this becomes dist/bundled/qc-helper/docs/.

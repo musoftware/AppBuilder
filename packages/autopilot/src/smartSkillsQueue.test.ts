@@ -47,4 +47,11 @@ describe('smartSkillsQueue', () => {
     const q = buildSmartQueue(root);
     expect(q).toEqual(['[SKILL: smart-orchestrator]\nRun all.\n']);
   });
+
+  it('buildSmartQueue uses bundled skills when workspace has no .qwen/skills', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pb-bundle-'));
+    const q = buildSmartQueue(root);
+    expect(q.length).toBeGreaterThan(0);
+    expect(q[0]).toContain('[SKILL: smart-orchestrator]');
+  });
 });

@@ -1055,7 +1055,7 @@ export const AppContainer = (props: AppContainerProps) => {
               historyManager.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: 'Smart orchestrator: no phases loaded. Add `.qwen/skills/smart-orchestrator/SKILL.md` or skill folders under `.qwen/skills/`.',
+                  text: 'Smart orchestrator: no phases loaded. Reinstall or rebuild @qwen-code/autopilot (bundled `project-brain-skills/`), or add `.qwen/skills/` in this workspace.',
                 },
                 Date.now(),
               );

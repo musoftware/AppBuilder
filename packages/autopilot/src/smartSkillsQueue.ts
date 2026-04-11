@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { execSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** Built-in project-brain pipeline skills under `.qwen/skills/<name>/SKILL.md`. */
 export const PROJECT_BRAIN_SKILL_ORDER = [
@@ -19,18 +20,45 @@ export const PROJECT_BRAIN_SKILL_ORDER = [
   'prod-gate',
 ] as const;
 
+/**
+ * Default playbooks shipped with the package:
+ * - Unpacked `@qwen-code/autopilot`: `project-brain-skills/` next to `dist/`.
+ * - Single-file CLI bundle (`dist/cli.js`): `dist/project-brain-skills/` (see
+ *   `scripts/copy_bundle_assets.js`).
+ */
+function getBundledProjectBrainSkillsRoot(): string | null {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(here, '..', 'project-brain-skills'),
+    join(here, 'project-brain-skills'),
+  ];
+  for (const dir of candidates) {
+    if (existsSync(dir)) {
+      return dir;
+    }
+  }
+  return null;
+}
+
 function readSkill(skillName: string, workspaceRoot: string): string | null {
-  const skillPath = join(
+  const workspacePath = join(
     workspaceRoot,
     '.qwen',
     'skills',
     skillName,
     'SKILL.md',
   );
-  if (!existsSync(skillPath)) {
-    return null;
+  if (existsSync(workspacePath)) {
+    return readFileSync(workspacePath, 'utf8');
   }
-  return readFileSync(skillPath, 'utf8');
+  const bundleRoot = getBundledProjectBrainSkillsRoot();
+  if (bundleRoot) {
+    const bundledPath = join(bundleRoot, skillName, 'SKILL.md');
+    if (existsSync(bundledPath)) {
+      return readFileSync(bundledPath, 'utf8');
+    }
+  }
+  return null;
 }
 
 function readBrainFile(
@@ -194,7 +222,7 @@ export function buildSingleSkillQueue(
   const skill = readSkill(trimmed, workspaceRoot);
   if (!skill) {
     return [
-      `[SKILL: ${trimmed || '(empty)'}]\nSkill file not found at .qwen/skills/${trimmed || '<name>'}/SKILL.md\nPrint: ❌ SKILL NOT FOUND: ${trimmed || '(empty)'}\nKnown built-in names: ${KNOWN_SKILLS_LIST}\n(Any folder under .qwen/skills/ with SKILL.md can be used if present.)`,
+      `[SKILL: ${trimmed || '(empty)'}]\nSkill not found: neither .qwen/skills/${trimmed || '<name>'}/SKILL.md in the workspace nor the bundled default in @qwen-code/autopilot.\nPrint: ❌ SKILL NOT FOUND: ${trimmed || '(empty)'}\nKnown built-in names: ${KNOWN_SKILLS_LIST}`,
     ];
   }
 
