@@ -928,15 +928,22 @@ export const AppContainer = (props: AppContainerProps) => {
             Date.now(),
           );
           try {
-            const phases = await driver.fullChain();
+            const workspaceRoot = process.cwd();
+            const plan = await driver.fullChain(workspaceRoot);
+            const cacheNote =
+              plan.cacheMode === 'hit'
+                ? ' (Phase 0 from .ai-docs/.chain-cache.json — full scan skipped)'
+                : plan.cacheMode === 'delta'
+                  ? ' (Phase 0 — delta scan vs last cached commit)'
+                  : '';
             historyManager.addItem(
               {
                 type: MessageType.INFO,
-                text: `Full chain: ${phases.length} phase(s) queued — they will run automatically when idle.`,
+                text: `Full chain: ${plan.phases.length} phase(s) queued — they will run automatically when idle.${cacheNote}`,
               },
               Date.now(),
             );
-            setAutopilotQueue(phases);
+            setAutopilotQueue(plan.phases);
           } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : String(error);
             debugLogger.error('Full chain failed:', msg);

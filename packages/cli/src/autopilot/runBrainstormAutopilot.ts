@@ -2,6 +2,7 @@ import { AutopilotSession } from '@qwen-code/autopilot';
 import type { Config } from '@qwen-code/qwen-code-core';
 import type { LoadedSettings } from '../config/settings.js';
 import { resolvePath } from '../utils/resolvePath.js';
+import { writeStdoutLine } from '../utils/stdioHelpers.js';
 import { createAutopilotModelAdapters } from './autopilotToolLoop.js';
 import { runStandaloneQualityCheck } from './runStandaloneQualityCheck.js';
 
@@ -40,16 +41,28 @@ export async function runBrainstormAutopilot(
   }
 
   if (mode === 'full-chain-only') {
-    const { buildFullChainQueue } = await import('@qwen-code/autopilot');
-    const phases = buildFullChainQueue();
+    const { buildFullChainRunPlan, persistProjectContextFromAssistantOutput } =
+      await import('@qwen-code/autopilot');
+    const workspaceRoot = process.cwd();
+    const plan = buildFullChainRunPlan(workspaceRoot, {
+      includePhase1CacheInstructions: false,
+    });
     const system =
       'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
-    for (const phase of phases) {
-      await callModelWithTools(
+    for (let i = 0; i < plan.phases.length; i++) {
+      const phase = plan.phases[i]!;
+      const output = await callModelWithTools(
         [{ role: 'user', content: phase }],
         system,
         true,
       );
+      if (plan.persistPhase0OutputToCache && i === 0) {
+        if (persistProjectContextFromAssistantOutput(workspaceRoot, output)) {
+          writeStdoutLine(
+            '[full-chain] Project context cached to .ai-docs/.chain-cache.json',
+          );
+        }
+      }
     }
     return;
   }

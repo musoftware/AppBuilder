@@ -1,7 +1,27 @@
 export { AutopilotSession } from './AutopilotSession.js';
 export { AutopilotDriver } from './AutopilotDriver.js';
 export { buildProdReadyQueue } from './prodReadyQueue.js';
-export { buildFullChainQueue } from './fullChainQueue.js';
+export {
+  buildFullChainQueue,
+  buildFullChainRunPlan,
+  buildCachedPhase0Prompt,
+} from './fullChainQueue.js';
+export type {
+  FullChainRunPlan,
+  FullChainQueueBuildOptions,
+} from './fullChainQueue.js';
+export {
+  readCache,
+  writeCache,
+  updateCache,
+  checkCache,
+  buildDeltaScanPrompt,
+  extractProjectContextBlock,
+  persistProjectContextFromAssistantOutput,
+  clearChainCacheFile,
+  getChainCacheFilePath,
+} from './fullChainCache.js';
+export type { ChainCache, CacheCheckResult } from './fullChainCache.js';
 export type { AutopilotPlan } from './AutopilotDriver.js';
 export { DEFAULT_QUALITY_CHECK_MAX_PASSES } from './qualityCheckConstants.js';
 export { QualityCheckLoop } from './autopilot/QualityCheckLoop.js';

@@ -167,6 +167,7 @@ export interface CliArgs {
   qualityCheck: boolean | undefined;
   prodReady: boolean | undefined;
   fullChain: boolean | undefined;
+  clearChainCache: boolean | undefined;
 }
 
 function normalizeOutputFormat(
@@ -409,6 +410,12 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'boolean',
           description:
             'Run the complete 10-phase BMAD chain: understand project → document it → audit gaps (code + business + UX + roles) → plan → build → complete → write tests → analyze tests → fix → production gate. Loops until PROD_READY.',
+          default: false,
+        })
+        .option('clear-chain-cache', {
+          type: 'boolean',
+          description:
+            'Clear the cached project context for --full-chain so the next run does a fresh full scan.',
           default: false,
         })
         .option('allowed-mcp-server-names', {

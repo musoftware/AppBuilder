@@ -627,6 +627,12 @@ describe('parseArguments', () => {
     const argv = await parseArguments();
     expect(argv.fullChain).toBe(true);
   });
+
+  it('should enable --clear-chain-cache flag', async () => {
+    process.argv = ['node', 'script.js', '--clear-chain-cache'];
+    const argv = await parseArguments();
+    expect(argv.clearChainCache).toBe(true);
+  });
 });
 
 describe('loadCliConfig', () => {

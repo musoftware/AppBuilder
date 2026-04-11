@@ -4,10 +4,43 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export function buildFullChainQueue(): string[] {
-  return [
-    // ─── PHASE 0 — UNDERSTAND ────────────────────────────────────────────────
-    `[FULL CHAIN 0/9 — PROJECT UNDERSTANDER]
+import { buildDeltaScanPrompt, checkCache } from './fullChainCache.js';
+
+export type FullChainQueueBuildOptions = {
+  /** When set, replaces the default full Phase 0 (understander or delta) prompt. */
+  phase0Prompt?: string;
+  /**
+   * When false, omits Phase 1 preamble that asks the agent to persist PROJECT CONTEXT
+   * to `.ai-docs/.chain-cache.json` (non-interactive runs persist programmatically).
+   */
+  includePhase1CacheInstructions?: boolean;
+};
+
+export type FullChainRunPlan = {
+  phases: string[];
+  persistPhase0OutputToCache: boolean;
+  cacheMode: 'hit' | 'delta' | 'full';
+};
+
+const PHASE_1_CHAIN_CACHE_PREAMBLE = `Before you begin the documentation tasks below:
+
+1. Find the ---PROJECT CONTEXT START--- through ---PROJECT CONTEXT END--- block from the most recent assistant response for Phase 0 (full project understander or delta scan) in this conversation.
+2. Write or merge \`.ai-docs/.chain-cache.json\` at the workspace root. The file MUST be valid JSON with:
+   - "version": 1
+   - "createdAt": ISO timestamp — preserve the existing value from a previous \`.chain-cache.json\` if the file already exists; otherwise use the current time
+   - "updatedAt": current ISO timestamp
+   - "gitCommit": output of running \`git rev-parse HEAD\` in the workspace (use the string "no-git" if this is not a git repository)
+   - "gitBranch": output of \`git rev-parse --abbrev-ref HEAD\` (or "unknown" if unavailable)
+   - "projectContext": the full PROJECT CONTEXT block verbatim (including the ---PROJECT CONTEXT START--- and ---PROJECT CONTEXT END--- lines)
+3. Ensure the \`.ai-docs/\` directory exists.
+4. Print: ✅ CHAIN CACHE UPDATED — .ai-docs/.chain-cache.json
+
+Then continue with the documentation tasks below.
+
+---`;
+
+function buildFreshPhase0Prompt(): string {
+  return `[FULL CHAIN 0/9 — PROJECT UNDERSTANDER]
 
 You are onboarding onto this project for the first time.
 Read the ENTIRE codebase. Do NOT write any code or files yet.
@@ -66,10 +99,35 @@ FEATURES:
 - <feature>: COMPLETE | PARTIAL | STUB
 ROLE MAP:
 - <role>: <what exists for this role>
----PROJECT CONTEXT END---`,
+---PROJECT CONTEXT END---`;
+}
 
+export function buildCachedPhase0Prompt(cachedContext: string): string {
+  return `[FULL CHAIN 0/9 — PROJECT UNDERSTANDER (from cache)]
+
+The project context has already been captured in a previous run.
+No re-analysis needed.
+
+${cachedContext}
+
+This context is available to all subsequent phases.
+Print: ✅ CACHE HIT — skipping full project scan, using cached context.
+Continue immediately to Phase 1.`;
+}
+
+export function buildFullChainQueue(
+  options?: FullChainQueueBuildOptions,
+): string[] {
+  const phase0Prompt = options?.phase0Prompt ?? buildFreshPhase0Prompt();
+  const includePhase1Preamble =
+    options?.includePhase1CacheInstructions !== false;
+
+  return [
+    phase0Prompt,
     // ─── PHASE 1 — DOCUMENT ──────────────────────────────────────────────────
-    `[FULL CHAIN 1/9 — REVERSE BROWNFIELD]
+    `${
+      includePhase1Preamble ? `${PHASE_1_CHAIN_CACHE_PREAMBLE}\n\n` : ''
+    }[FULL CHAIN 1/9 — REVERSE BROWNFIELD]
 
 Using the PROJECT CONTEXT from Phase 0, create a .ai-docs/ folder at the
 project root and generate all 10 documentation files below.
@@ -803,4 +861,51 @@ If ANY item is FAIL:
   List every failing item with one sentence on what needs to happen to fix it.
   Print: LOOP_REQUIRED — restarting from Phase 2 with all context preserved.`,
   ];
+}
+
+export function buildFullChainRunPlan(
+  workspaceRoot: string,
+  planOptions?: { includePhase1CacheInstructions?: boolean },
+): FullChainRunPlan {
+  const includePhase1CacheInstructions =
+    planOptions?.includePhase1CacheInstructions ?? true;
+
+  const cacheCheck = checkCache(workspaceRoot);
+  if (cacheCheck.status === 'fresh') {
+    console.log('[full-chain] Cache hit — skipping project scan');
+    return {
+      phases: buildFullChainQueue({
+        phase0Prompt: buildCachedPhase0Prompt(cacheCheck.cache.projectContext),
+        includePhase1CacheInstructions: false,
+      }),
+      persistPhase0OutputToCache: false,
+      cacheMode: 'hit',
+    };
+  }
+
+  if (cacheCheck.status === 'stale') {
+    console.log(
+      `[full-chain] Cache stale — ${cacheCheck.changedFiles.length} files changed, running delta scan`,
+    );
+    return {
+      phases: buildFullChainQueue({
+        phase0Prompt: buildDeltaScanPrompt(
+          cacheCheck.cache.projectContext,
+          cacheCheck.changedFiles,
+        ),
+        includePhase1CacheInstructions,
+      }),
+      persistPhase0OutputToCache: true,
+      cacheMode: 'delta',
+    };
+  }
+
+  console.log('[full-chain] No cache found — running full project scan');
+  return {
+    phases: buildFullChainQueue({
+      includePhase1CacheInstructions,
+    }),
+    persistPhase0OutputToCache: true,
+    cacheMode: 'full',
+  };
 }

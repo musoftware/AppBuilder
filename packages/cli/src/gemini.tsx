@@ -56,7 +56,7 @@ import { start_sandbox } from './utils/sandbox.js';
 import { getStartupWarnings } from './utils/startupWarnings.js';
 import { getUserStartupWarnings } from './utils/userStartupWarnings.js';
 import { getCliVersion } from './utils/version.js';
-import { writeStderrLine } from './utils/stdioHelpers.js';
+import { writeStderrLine, writeStdoutLine } from './utils/stdioHelpers.js';
 import { computeWindowTitle } from './utils/windowTitle.js';
 import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';
 import { showResumeSessionPicker } from './ui/components/StandaloneSessionPicker.js';
@@ -236,6 +236,19 @@ export async function main() {
       'Error: The --prompt-interactive flag cannot be used when input is piped from stdin.',
     );
     process.exit(1);
+  }
+
+  if (argv.clearChainCache) {
+    const { clearChainCacheFile } = await import('@qwen-code/autopilot');
+    const removed = clearChainCacheFile(process.cwd());
+    if (removed) {
+      writeStdoutLine(
+        '✅ Chain cache cleared. Next --full-chain run will do a full project scan.',
+      );
+    } else {
+      writeStdoutLine('No cache found — nothing to clear.');
+    }
+    process.exit(0);
   }
 
   const isDebugMode = cliConfig.isDebugMode(argv);

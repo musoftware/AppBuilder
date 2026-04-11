@@ -53,6 +53,9 @@ packages/web-templates/src/generated/
 .integration-tests/
 packages/vscode-ide-companion/*.vsix
 
+# Full-chain BMAD cache (machine-specific; .ai-docs/*.md may be committed)
+.ai-docs/.chain-cache.json
+
 # Qwen Code Configs
 
 .qwen/*
