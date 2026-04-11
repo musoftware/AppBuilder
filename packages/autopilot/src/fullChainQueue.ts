@@ -625,46 +625,121 @@ If ALL tests pass and there are no critical untested areas: append READY_FOR_PRO
     // ─── PHASE 8 — FIXER ─────────────────────────────────────────────────────
     `[FULL CHAIN 8/9 — FIXER]
 
-Using the TEST ANALYSIS from Phase 7, fix every issue in this exact order:
+You are a senior engineer. Your job is to finish everything that is unfinished.
+You have TWO sources of work — process BOTH before moving on:
 
-1. ENV ISSUES first (unblock other tests from running)
+SOURCE 1: The COMPLETION SUMMARY from the previous phase.
+SOURCE 2: The TEST ANALYSIS from the test analyzer phase.
+
+Do NOT re-analyze the codebase from scratch.
+Do NOT rerun the audit.
+Read the output of the previous phases and act on it directly.
+
+════════════════════════════════════════════════
+PART 1 — FINISH "STILL NEEDS ATTENTION" ITEMS
+════════════════════════════════════════════════
+
+Find the ---COMPLETION SUMMARY END--- block from the Completer phase.
+Locate the "STILL NEEDS ATTENTION" list inside it.
+
+For each item in that list:
+
+Step 1 — Classify it:
+  - IMPLEMENTABLE NOW: all dependencies exist, can be built immediately
+  - BLOCKED: requires a library, external service, or another feature first
+  - ARCHITECTURAL: requires a design decision before implementation
+
+Step 2 — Act on it:
+
+  If IMPLEMENTABLE NOW:
+    Build it completely. Follow the existing code patterns in this project.
+    Do not leave stubs. Do not defer.
+    After finishing: print ✅ FINISHED: <item name> — <files created or changed>
+
+  If BLOCKED by a missing library:
+    Install the library using the package manager this project uses.
+    Then implement the feature completely.
+    After finishing: print ✅ FINISHED: <item name> — installed <package>, created <files>
+
+  If BLOCKED by something that genuinely cannot be resolved now
+  (external API key not available, requires product decision, etc.):
+    Create a placeholder implementation that:
+      - Does not crash the app
+      - Returns a clear "not yet implemented" response
+      - Has a TODO comment with exactly what is needed to complete it
+    Print ⚠️ DEFERRED: <item name> — <exact reason> — placeholder added at <file>
+
+  If ARCHITECTURAL:
+    Make a decision. Pick the simpler option. Implement it.
+    Document the decision in a comment at the top of the relevant file.
+    Print ✅ DECIDED AND BUILT: <item name> — <decision made>
+
+For the specific example of "STILL NEEDS ATTENTION" items like these,
+here is how to handle each category:
+
+  "X library not installed" → run npm/composer/pip install X, then implement
+  "Y method exists but no UI" → create the UI component/blade/form that calls Y
+  "Z only partially implemented" → find Z in the code, complete the missing parts
+  "A and B are near-duplicates" → consolidate them into one, update all callers
+  "No CRUD interface for X" → create the full CRUD: list, create, edit, delete, confirm
+
+════════════════════════════════════════════════
+PART 2 — FIX TEST FAILURES
+════════════════════════════════════════════════
+
+Find the ---TEST ANALYSIS START--- block from the Test Analyzer phase.
+Work through failures in this exact order:
+
+1. ENV ISSUES first (unblock other tests)
    - Add missing env vars to .env.example
-   - Fix missing mocks or test setup
+   - Fix missing mocks or test setup files
 
 2. TYPE ERRORS second (unblock compilation)
-   - Fix TypeScript errors in source or test files
+   - Fix TypeScript or type errors in source or test files
 
-3. LOGIC BUGS third (fix the implementation)
-   - Read the original feature spec in .ai-docs/ before fixing
-   - Make sure the fix matches what the feature is supposed to do
-   - Do not change the test — fix the code
+3. LOGIC BUGS third (fix the implementation, not the test)
+   - Read what the feature is supposed to do before changing code
+   - The test is the spec — make the code match it
 
-4. MISSING IMPL fourth (add the missing code)
-   - Implement what's missing following the existing code patterns
+4. MISSING IMPLEMENTATION (add the missing code)
+   - Implement what the test expects, following existing patterns
 
 5. TEST BUGS last (fix the test, not the code)
-   - Only change a test if the implementation is genuinely correct
-   - Add a comment explaining why the test was wrong
+   - Only change a test if you are certain the implementation is correct
+   - Add a comment explaining what was wrong with the test
 
 6. UNTESTED AREAS
-   - Write new tests for every area flagged as untested
+   - Write new tests for every function or path flagged as untested
+   - Follow the existing test file naming convention
 
 7. FLAKY TESTS
    - Fix the root cause if possible
-   - If not fixable, mark with: // FLAKY: <reason> and skip
+   - If not: add // FLAKY: <reason>, mark as skipped with explanation
 
-For each fix print: ✅ FIXED: <test name> — <what you changed and why>
-Do not break passing tests while fixing failing ones.
-Run the test suite again after all fixes and print the new results.
+For each fix: print ✅ FIXED: <test name> — <what changed and why>
 
-End with:
+After all fixes, run the test suite again and print the new results.
+
+════════════════════════════════════════════════
+FINAL OUTPUT
+════════════════════════════════════════════════
+
 ---FIX SUMMARY START---
-FIXED:
-- <item>
-NEW TESTS ADDED:
-- <item>
-STILL FAILING (requires manual review):
-- <item>
+FINISHED FROM PREVIOUS PHASE:
+- <item>: <what was built> — <files>
+
+DEFERRED (with placeholder):
+- <item>: <exact reason> — <placeholder location>
+
+TEST FIXES:
+- <test name>: <what changed>
+
+NEW TESTS WRITTEN:
+- <filename>: <what it covers>
+
+STILL FAILING (genuine blockers — needs human decision):
+- <item>: <why it cannot be fixed automatically>
+
 FINAL TEST RESULT: <N> passed / <N> failed
 ---FIX SUMMARY END---`,
 
