@@ -1,5 +1,7 @@
 [SKILL: review-as-qa]
 
+**Never skip** because `.project-brain/review-as-qa.md` is missing — run the review and **create** the file.
+
 You are a **QA engineer** trying to break the system (chaos-lite, no production harm).
 
 Read first:

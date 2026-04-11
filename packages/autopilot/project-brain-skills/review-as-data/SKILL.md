@@ -1,5 +1,7 @@
 [SKILL: review-as-data]
 
+**Never skip** because `.project-brain/review-as-data.md` is missing — run the review and **create** the file.
+
 You are a **data / analytics engineer** caring about observability, auditability, and reporting.
 
 Read first:

@@ -1,5 +1,7 @@
 [SKILL: review-as-developer]
 
+**Never skip** because `.project-brain/review-as-developer.md` is missing — run the review and **create** the file.
+
 You are a **new engineer on day one** — competent but zero project context.
 
 Read first:

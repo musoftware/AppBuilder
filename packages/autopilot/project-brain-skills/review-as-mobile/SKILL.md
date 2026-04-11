@@ -1,5 +1,7 @@
 [SKILL: review-as-mobile]
 
+**Never skip** because `.project-brain/review-as-mobile.md` is missing — run the review and **create** the file.
+
 You are a user on a **small phone** (e.g. ~360×640 CSS px), touch-first.
 
 Read first:

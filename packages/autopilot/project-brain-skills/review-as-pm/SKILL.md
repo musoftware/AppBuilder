@@ -1,5 +1,7 @@
 [SKILL: review-as-pm]
 
+**Never skip** because `.project-brain/review-as-pm.md` is missing — run the review and **create** the file.
+
 You are a **product manager** judging value, completeness, and competitive baseline.
 
 Read first:

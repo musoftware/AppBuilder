@@ -1,5 +1,7 @@
 [SKILL: review-as-security]
 
+**Never skip** because `.project-brain/review-as-security.md` is missing — run the review and **create** the file.
+
 You are a **security engineer** reviewing like an attacker and like a defender.
 
 Read first:

@@ -298,9 +298,17 @@ function buildSkillMiniLoop(
   stackInstruction: string,
   date: string,
 ): string[] {
+  const brain = `.project-brain/${skillName}.md`;
+  const brainReport = `.project-brain/${skillName}-report.md`;
+
   const ctx = `
 PROJECT BRAIN:
-Before this step, read the current contents of .project-brain/*.md (files change as earlier steps complete).
+Read .project-brain/*.md when they exist (earlier steps may have created them).
+
+MISSING BRAIN FILES — REQUIRED (applies to every phase of this skill):
+- Never skip or print "SKIPPED" because ${brain} or ${brainReport} is missing.
+- If either file is missing, create it by executing the ${skillName} playbook: read the codebase and docs as needed, write the file(s), then finish the current phase.
+- Forbidden: "no audit report found" / "SKIPPED — file not found" as an excuse to stop.
 
 STACK CONTEXT:
 ${stackInstruction}
@@ -313,8 +321,8 @@ ${stackInstruction}
 
 ${skillContent}
 
-After completing this audit:
-Write findings to: .project-brain/${skillName}.md
+You MUST write ${brain} (create or overwrite). If the file already exists from an earlier run, update it for this pass.
+
 Format:
 # ${skillName} Audit
 Date: ${date}
@@ -324,7 +332,8 @@ Print: ✅ AUDIT DONE: ${skillName} — <N> issues found`,
 
     `${ctx}
 
-Read .project-brain/${skillName}.md
+If ${brain} exists: read it and use it as the audit source.
+If ${brain} does NOT exist: run the full ${skillName} playbook from phase 1 (read the project), write ${brain}, then continue below.
 
 Generate a focused report for this skill only:
 
@@ -344,18 +353,20 @@ High priority (fix soon):
 
 ─────────────────────────────────
 
-Save report section to: .project-brain/${skillName}-report.md
+You MUST write ${brainReport} (create or overwrite).
+
 Print: ✅ REPORT: ${skillName}`,
 
     `${ctx}
 
-Read .project-brain/${skillName}-report.md
-Read .project-brain/${skillName}.md for full details.
+If ${brainReport} or ${brain} is missing: create the missing file(s) by running the ${skillName} audit + report steps (read the codebase as needed), then continue.
+
+If both exist: read ${brainReport} and ${brain}.
 
 Fix every Critical issue now. Then fix High Priority issues.
 
 RULES:
-- Do NOT re-scan source files — read brain files for context
+- Use brain files as the issue list when they are substantive; if they are empty or missing, derive issues from the codebase.
 - Find ONE working example of each fix type in the existing codebase
 - Every fix must follow the same patterns already in this project
 - Actual code changes only — no plans, no descriptions
@@ -376,6 +387,8 @@ Could not fix:  <list + reason>`,
 
     `${ctx}
 
+Ensure ${brain} and ${brainReport} exist; if not, create them (full ${skillName} audit + report) before fixing.
+
 Continue with any remaining fixes from the ${skillName} skill that were not completed.
 Same rules: actual changes, follow existing patterns.
 Print after each: ✅ done [${skillName}]: <one line>
@@ -384,9 +397,11 @@ If all done: print ✅ ${skillName.toUpperCase()} FIXES COMPLETE`,
 
     `${ctx}
 
+Ensure ${brain} exists (create via full ${skillName} run if missing).
+
 Verify that all ${skillName} fixes were actually applied.
 
-Open each source file mentioned in .project-brain/${skillName}.md
+Open each source file mentioned in ${brain}
 and confirm the fix is in place by reading the file.
 
 If any issue is still present:
@@ -396,6 +411,8 @@ If all clear:
 Print: ✅ VERIFIED [${skillName}]: all fixes confirmed`,
 
     `${ctx}
+
+Ensure ${brain} and ${brainReport} exist before closing this skill (create them if still missing).
 
 If the previous check found remaining ${skillName} issues — fix them now.
 Same rules. Actual changes only.

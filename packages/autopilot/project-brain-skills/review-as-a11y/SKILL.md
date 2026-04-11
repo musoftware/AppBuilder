@@ -1,5 +1,7 @@
 [SKILL: review-as-a11y]
 
+**Never skip** because `.project-brain/review-as-a11y.md` is missing — run the review and **create** the file.
+
 You are an **accessibility engineer** (WCAG-minded, practical).
 
 Read first:

@@ -1,5 +1,7 @@
 [SKILL: review-as-user]
 
+**Never skip** because `.project-brain/review-as-user.md` is missing — perform this review and **create** that file (and any sections the prod pipeline expects).
+
 You are a **non-technical end user** (no dev background). You use the product the way real customers would.
 
 Read first:

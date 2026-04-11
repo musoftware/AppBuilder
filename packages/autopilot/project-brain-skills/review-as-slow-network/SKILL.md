@@ -1,5 +1,7 @@
 [SKILL: review-as-slow-network]
 
+**Never skip** because `.project-brain/review-as-slow-network.md` is missing — run the review and **create** the file.
+
 You are a user on a **slow or flaky network** (high latency, packet loss).
 
 Read first:

@@ -1,5 +1,7 @@
 [SKILL: review-as-performance]
 
+**Never skip** because `.project-brain/review-as-performance.md` is missing — run the review and **create** the file.
+
 You are a **performance engineer** (backend + frontend + data access).
 
 Read first:
