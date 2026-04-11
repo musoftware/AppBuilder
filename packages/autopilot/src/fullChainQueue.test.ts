@@ -5,7 +5,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildFullChainQueue } from './fullChainQueue.js';
+import {
+  buildFullChainContinuationPhases,
+  buildFullChainQueue,
+} from './fullChainQueue.js';
 
 describe('buildFullChainQueue', () => {
   it('returns 10 sequential phases in order', () => {
@@ -27,5 +30,12 @@ describe('buildFullChainQueue', () => {
     expect(phases[0]).toBe('---CACHED PHASE 0---');
     expect(phases[1]).not.toContain('.chain-cache.json');
     expect(phases[1]).toContain('[FULL CHAIN 1/9');
+  });
+
+  it('continuation is phases 2–9 only (8 items)', () => {
+    const tail = buildFullChainContinuationPhases();
+    expect(tail).toHaveLength(8);
+    expect(tail[0]).toContain('[FULL CHAIN 2/9');
+    expect(tail[7]).toContain('[FULL CHAIN 9/9');
   });
 });

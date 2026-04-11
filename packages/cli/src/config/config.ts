@@ -409,7 +409,7 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('full-chain', {
           type: 'boolean',
           description:
-            'Run the complete 10-phase BMAD chain: understand project → document it → audit gaps (code + business + UX + roles) → plan → build → complete → write tests → analyze tests → fix → production gate. Loops until PROD_READY.',
+            'Run the complete 10-phase BMAD chain: understand project → document it → audit gaps (code + business + UX + roles) → plan → build → complete → write tests → analyze tests → fix → production gate. Without a TTY, repeats audit→gate passes until the gate prints PROD_READY (max 5 passes; set QWEN_FULL_CHAIN_MAX_PASSES to override).',
           default: false,
         })
         .option('clear-chain-cache', {

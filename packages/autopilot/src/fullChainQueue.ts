@@ -105,13 +105,13 @@ ROLE MAP:
 export function buildCachedPhase0Prompt(cachedContext: string): string {
   return `[FULL CHAIN 0/9 — PROJECT UNDERSTANDER (from cache)]
 
-The project context has already been captured in a previous run.
-No re-analysis needed.
+The project context below is a snapshot from a prior run (same git commit as .ai-docs/.chain-cache.json). It is NOT proof that the repo still matches it.
+
+Before trusting FEATURE / ROLE / STACK lines, spot-check the real files and tests. Later phases must use code and .ai-docs/ as source of truth; update your working view if anything disagrees with this snapshot.
 
 ${cachedContext}
 
-This context is available to all subsequent phases.
-Print: ✅ CACHE HIT — skipping full project scan, using cached context.
+Print: ✅ CACHE HIT — using cached context as starting point (verify against repo).
 Continue immediately to Phase 1.`;
 }
 
@@ -805,7 +805,7 @@ FINAL TEST RESULT: <N> passed / <N> failed
     `[FULL CHAIN 9/9 — PRODUCTION CHECK]
 
 You are a principal engineer doing the final production readiness review.
-Check every item. Mark each: PASS, FAIL, or N/A.
+Check every item by actually inspecting the repository and test output in this session — do not mark PASS from memory, hope, or an optimistic summary from an earlier phase alone. Mark each: PASS, FAIL, or N/A.
 
 CODE QUALITY:
 [ ] No TODOs, FIXMEs, or placeholder code in any file
@@ -861,6 +861,16 @@ If ANY item is FAIL:
   List every failing item with one sentence on what needs to happen to fix it.
   Print: LOOP_REQUIRED — restarting from Phase 2 with all context preserved.`,
   ];
+}
+
+/** Phases 2–9 (audit through production gate) for NOT_READY / LOOP_REQUIRED continuation passes. */
+export function buildFullChainContinuationPhases(
+  options?: Pick<FullChainQueueBuildOptions, 'includePhase1CacheInstructions'>,
+): string[] {
+  return buildFullChainQueue({
+    includePhase1CacheInstructions:
+      options?.includePhase1CacheInstructions ?? false,
+  }).slice(2);
 }
 
 export function buildFullChainRunPlan(

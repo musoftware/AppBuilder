@@ -41,28 +41,72 @@ export async function runBrainstormAutopilot(
   }
 
   if (mode === 'full-chain-only') {
-    const { buildFullChainRunPlan, persistProjectContextFromAssistantOutput } =
-      await import('@qwen-code/autopilot');
+    const {
+      buildFullChainRunPlan,
+      buildFullChainContinuationPhases,
+      clearChainCacheFile,
+      persistProjectContextFromAssistantOutput,
+      getFullChainMaxPasses,
+      fullChainGateRequiresLoop,
+      prependLoopPassNotice,
+    } = await import('@qwen-code/autopilot');
     const workspaceRoot = process.cwd();
-    const plan = buildFullChainRunPlan(workspaceRoot, {
+    const maxPasses = getFullChainMaxPasses();
+    const firstPlan = buildFullChainRunPlan(workspaceRoot, {
       includePhase1CacheInstructions: false,
     });
     const system =
       'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
-    for (let i = 0; i < plan.phases.length; i++) {
-      const phase = plan.phases[i]!;
-      const output = await callModelWithTools(
-        [{ role: 'user', content: phase }],
-        system,
-        true,
-      );
-      if (plan.persistPhase0OutputToCache && i === 0) {
-        if (persistProjectContextFromAssistantOutput(workspaceRoot, output)) {
-          writeStdoutLine(
-            '[full-chain] Project context cached to .ai-docs/.chain-cache.json',
-          );
+
+    let gateOutput = '';
+    for (let pass = 0; pass < maxPasses; pass++) {
+      const phasesThisPass =
+        pass === 0
+          ? firstPlan.phases
+          : prependLoopPassNotice(
+              buildFullChainContinuationPhases(),
+              pass + 1,
+              maxPasses,
+            );
+      const persistPhase0 = pass === 0 && firstPlan.persistPhase0OutputToCache;
+
+      for (let i = 0; i < phasesThisPass.length; i++) {
+        const phase = phasesThisPass[i]!;
+        gateOutput = await callModelWithTools(
+          [{ role: 'user', content: phase }],
+          system,
+          true,
+        );
+        if (persistPhase0 && i === 0) {
+          if (
+            persistProjectContextFromAssistantOutput(workspaceRoot, gateOutput)
+          ) {
+            writeStdoutLine(
+              '[full-chain] Project context cached to .ai-docs/.chain-cache.json',
+            );
+          }
         }
       }
+
+      if (!fullChainGateRequiresLoop(gateOutput)) {
+        writeStdoutLine(
+          `[full-chain] Production gate: done after ${pass + 1} pass(es).`,
+        );
+        return;
+      }
+
+      if (pass + 1 < maxPasses) {
+        writeStdoutLine(
+          `[full-chain] Production gate: NOT_READY / LOOP_REQUIRED — starting pass ${pass + 2}/${maxPasses} (audit → gate).`,
+        );
+      }
+    }
+
+    if (fullChainGateRequiresLoop(gateOutput)) {
+      clearChainCacheFile(workspaceRoot);
+      writeStdoutLine(
+        '[full-chain] Max passes reached while still NOT_READY — cleared .ai-docs/.chain-cache.json so the next run rescans project context.',
+      );
     }
     return;
   }

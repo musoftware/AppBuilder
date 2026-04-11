@@ -5,7 +5,13 @@ export {
   buildFullChainQueue,
   buildFullChainRunPlan,
   buildCachedPhase0Prompt,
+  buildFullChainContinuationPhases,
 } from './fullChainQueue.js';
+export { getFullChainMaxPasses } from './fullChainConstants.js';
+export {
+  fullChainGateRequiresLoop,
+  prependLoopPassNotice,
+} from './fullChainLoop.js';
 export type {
   FullChainRunPlan,
   FullChainQueueBuildOptions,
