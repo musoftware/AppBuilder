@@ -29,6 +29,16 @@ import { buildFrontendAuditQueue } from './frontendAuditQueue.js';
 import { getReadyProductionRounds } from './readyProductionConstants.js';
 import { buildSingleSkillQueue, buildSmartQueue } from './smartSkillsQueue.js';
 
+/** Options for {@link AutopilotDriver.plan}. */
+export interface AutopilotPlanCallOptions {
+  /**
+   * Skip the conversational brainstorm model turn; extract context from the
+   * seed text only, then match skills and plan. Faster and matches “auto”
+   * startup behavior next to pipelines like `prod`.
+   */
+  skipBrainstormChat?: boolean;
+}
+
 // ─── Task system instructions (embedded in user message, no separate system prompt) ───
 
 const SHARED_RULES = `
@@ -497,6 +507,7 @@ export class AutopilotDriver {
     initialIdea?: string,
     forceMode?: 'brownfield' | 'greenfield',
     skillsPath?: string,
+    planCallOptions?: AutopilotPlanCallOptions,
   ): Promise<AutopilotPlan> {
     const workspaceRoot = process.cwd();
     const scan = await scanWorkspace(workspaceRoot);
@@ -522,8 +533,12 @@ export class AutopilotDriver {
         ? 'Improve and fix any issues in the existing project.'
         : 'Build a new project based on my requirements.');
 
-    // One chat turn to capture the idea, then extract structured context.
-    await agent.chat(idea);
+    if (planCallOptions?.skipBrainstormChat) {
+      agent.seedForDirectPlan(idea);
+    } else {
+      // One chat turn to capture the idea, then extract structured context.
+      await agent.chat(idea);
+    }
     const contextSpec = await agent.extractContextSpec();
 
     const context: ContextSpec = {

@@ -28,6 +28,14 @@ describe('BrainstormAgent', () => {
     expect(callModel).not.toHaveBeenCalled();
   });
 
+  it('seedForDirectPlan records the idea without calling the model', () => {
+    const callModel = vi.fn();
+    const agent = new BrainstormAgent(DEFAULT_SETTINGS, callModel);
+    agent.seedForDirectPlan('build a todo app');
+    expect(callModel).not.toHaveBeenCalled();
+    expect(agent.getContextSpec().idea).toBe('build a todo app');
+  });
+
   it('uses merged settings so goTriggers is always iterable', async () => {
     const callModel = vi.fn().mockResolvedValue('ok');
     const agent = new BrainstormAgent(

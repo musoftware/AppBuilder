@@ -740,6 +740,11 @@ export async function parseArguments(): Promise<CliArgs> {
     }
     delete (result as Record<string, unknown>)['prompt'];
     delete (result as Record<string, unknown>)['promptInteractive'];
+    // Positional words live in `query` until mapped to `prompt` above. If we keep
+    // `query` set, loadCliConfig treats the session as one-shot (non-interactive)
+    // and --brainstorm falls back to standalone AutopilotSession instead of the
+    // main TUI (same as --prod with an optional seed).
+    (result as Record<string, unknown>)['query'] = undefined;
   }
 
   // The import format is now only controlled by settings.memoryImportFormat

@@ -1215,7 +1215,9 @@ export const AppContainer = (props: AppContainerProps) => {
         historyManager.addItem(
           {
             type: MessageType.INFO,
-            text: `Autopilot: Planning tasks${idea ? ` for "${idea}"` : ''}…`,
+            text: options?.brainstormAutoPlan
+              ? `Autopilot: Planning from your request${idea ? ` (${idea.slice(0, 80)}${idea.length > 80 ? '…' : ''})` : ''}…`
+              : `Autopilot: Planning tasks${idea ? ` for "${idea}"` : ''}…`,
           },
           Date.now(),
         );
@@ -1226,6 +1228,9 @@ export const AppContainer = (props: AppContainerProps) => {
             idea,
             options?.brainstormForceMode,
             resolvedSkillsPath,
+            options?.brainstormAutoPlan
+              ? { skipBrainstormChat: true }
+              : undefined,
           );
 
           historyManager.addItem(
@@ -1638,13 +1643,12 @@ export const AppContainer = (props: AppContainerProps) => {
     }
     startupBrainstormSubmitted.current = true;
     const seed = startupBrainstormInitialIdea?.trim();
-    handleAutopilotRequest(
-      seed || undefined,
-      undefined,
-      startupBrainstormBrownfield
-        ? { brainstormForceMode: 'brownfield' }
-        : undefined,
-    );
+    handleAutopilotRequest(seed || undefined, undefined, {
+      brainstormAutoPlan: true,
+      ...(startupBrainstormBrownfield
+        ? { brainstormForceMode: 'brownfield' as const }
+        : {}),
+    });
   }, [
     startupBrainstorm,
     startupBrainstormInitialIdea,

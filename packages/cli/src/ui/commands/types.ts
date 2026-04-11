@@ -195,6 +195,11 @@ export interface AutopilotRequestOptions {
    * Set from `mu-pilot --brainstorm --brownfield`.
    */
   brainstormForceMode?: 'brownfield' | 'greenfield';
+  /**
+   * Skip the hidden brainstorm Q&A model turn and go straight to extract + plan + task queue.
+   * Used for `mu-pilot --brainstorm` so startup feels as automatic as `--prod`.
+   */
+  brainstormAutoPlan?: boolean;
 }
 
 /** Modes for slash commands that drive the interactive autopilot hook. */

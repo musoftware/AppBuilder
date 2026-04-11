@@ -99,6 +99,16 @@ export class BrainstormAgent {
     return { reply, ready: false };
   }
 
+  /**
+   * Record the user's request and continue to extract/plan without a
+   * conversational brainstorm model turn. Used when the main CLI UI already
+   * captured intent (e.g. `mu-pilot --brainstorm` with an optional seed).
+   */
+  seedForDirectPlan(userMessage: string): void {
+    this.history.push({ role: 'user', content: userMessage });
+    this.updateContext(userMessage, '');
+  }
+
   private isGoTrigger(message: string): boolean {
     const lower = message.trim().toLowerCase();
     return this.settings.goTriggers.some(

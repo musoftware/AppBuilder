@@ -583,7 +583,7 @@ describe('parseArguments', () => {
     expect(argv.brainstormInitialIdea).toBe('erp system in laravel');
     expect(argv.prompt).toBeUndefined();
     expect(argv.promptInteractive).toBeUndefined();
-    expect(argv.query).toBe('erp system in laravel');
+    expect(argv.query).toBeUndefined();
   });
 
   it('should map brainstorm -b alias with positional idea (autocreator -b erp app)', async () => {
@@ -2190,6 +2190,16 @@ describe('loadCliConfig interactive', () => {
     process.stdin.isTTY = true;
     process.argv = ['node', 'script.js', '--model', 'gemini-1.5-pro'];
     const argv = await parseArguments();
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.isInteractive()).toBe(true);
+  });
+
+  it('should be interactive on TTY when --brainstorm has a positional seed', async () => {
+    process.stdin.isTTY = true;
+    process.argv = ['node', 'script.js', '--brainstorm', 'my', 'app', 'idea'];
+    const argv = await parseArguments();
+    expect(argv.brainstormInitialIdea).toBe('my app idea');
+    expect(argv.query).toBeUndefined();
     const config = await loadCliConfig({}, argv, undefined, []);
     expect(config.isInteractive()).toBe(true);
   });
