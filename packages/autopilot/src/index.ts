@@ -1,6 +1,7 @@
 export { AutopilotSession } from './AutopilotSession.js';
 export { AutopilotDriver } from './AutopilotDriver.js';
 export { buildProdReadyQueue } from './prodReadyQueue.js';
+export { buildProdQueue } from './prodQueue.js';
 export {
   buildFullChainQueue,
   buildFullChainRunPlan,

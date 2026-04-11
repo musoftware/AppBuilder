@@ -616,6 +616,12 @@ describe('parseArguments', () => {
     expect(argv.prompt).toBeUndefined();
   });
 
+  it('should enable --prod flag', async () => {
+    process.argv = ['node', 'script.js', '--prod'];
+    const argv = await parseArguments();
+    expect(argv.prod).toBe(true);
+  });
+
   it('should enable --prod-ready flag', async () => {
     process.argv = ['node', 'script.js', '--prod-ready'];
     const argv = await parseArguments();
@@ -712,6 +718,17 @@ describe('loadCliConfig', () => {
     const argv = await parseArguments();
     vi.mocked(isWorkspaceTrusted).mockReturnValue({
       isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --prod is set (stack-detected production pipeline)', async () => {
+    process.argv = ['node', 'script.js', '--prod'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
       source: 'file',
     });
     const config = await loadCliConfig({}, argv, undefined, []);

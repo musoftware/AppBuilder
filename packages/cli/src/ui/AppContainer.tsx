@@ -159,6 +159,8 @@ interface AppContainerProps {
   initializationResult: InitializationResult;
   /** From `mu-pilot --quality-check`: same UI as plain launch; auto-submits `/quality-check` when ready. */
   startupQualityCheck?: boolean;
+  /** From `mu-pilot --prod`: same UI as plain launch; auto-submits `/prod` when ready. */
+  startupProd?: boolean;
   /** From `mu-pilot --prod-ready`: same UI as plain launch; auto-submits `/prod-ready` when ready. */
   startupProdReady?: boolean;
   /** From `mu-pilot --full-chain`: same UI as plain launch; auto-submits `/full-chain` when ready. */
@@ -191,6 +193,7 @@ export const AppContainer = (props: AppContainerProps) => {
     config,
     initializationResult,
     startupQualityCheck,
+    startupProd,
     startupProdReady,
     startupFullChain,
     startupFrontendAudit,
@@ -825,6 +828,38 @@ export const AppContainer = (props: AppContainerProps) => {
             debugLogger.error('Autopilot quality check failed:', msg);
             historyManager.addItem(
               { type: MessageType.ERROR, text: `Quality check failed: ${msg}` },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'prod') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Production (stack-detected): queuing phases (understand → audit → report → fix → verify → tests → final gate)…',
+            },
+            Date.now(),
+          );
+          try {
+            const phases = driver.prod(process.cwd());
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Production (stack-detected): ${phases.length} phase(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Production (stack-detected) failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Production pipeline failed: ${msg}`,
+              },
               Date.now(),
             );
           }
@@ -1517,6 +1552,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const initialPromptSubmitted = useRef(false);
   const startupQualityCheckSubmitted = useRef(false);
+  const startupProdSubmitted = useRef(false);
   const startupProdReadySubmitted = useRef(false);
   const startupFullChainSubmitted = useRef(false);
   const startupFrontendAuditSubmitted = useRef(false);
@@ -1583,6 +1619,38 @@ export const AppContainer = (props: AppContainerProps) => {
     handleFinalSubmit('/quality-check');
   }, [
     startupQualityCheck,
+    initialPrompt,
+    isConfigInitialized,
+    handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupProd ||
+      !isConfigInitialized ||
+      startupProdSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupProdSubmitted.current = true;
+    handleFinalSubmit('/prod');
+  }, [
+    startupProd,
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,

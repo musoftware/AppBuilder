@@ -191,6 +191,7 @@ export interface SubmitPromptActionReturn {
 /** Modes for slash commands that drive the interactive autopilot hook. */
 export type AutopilotInteractiveMode =
   | 'quality-check'
+  | 'prod'
   | 'prod-ready'
   | 'full-chain'
   | 'frontend-audit'
@@ -207,6 +208,7 @@ export interface AutopilotActionReturn {
   /**
    * - default (no mode): the user's idea/request for brainstorm → plan → execute
    * - 'quality-check': analyze & fix bugs only, no planning phase
+   * - 'prod': stack-detected production pipeline (understand → audit → report → fix → tests)
    * - 'prod-ready': optional focus text; queues 7 production-readiness phases
    * - 'full-chain': queues 10-phase BMAD chain through production gate
    * - 'frontend-audit': queues 4-phase frontend role/screen audit, fix, tests, run

@@ -14,6 +14,7 @@ import { approvalModeCommand } from '../ui/commands/approvalModeCommand.js';
 import { authCommand } from '../ui/commands/authCommand.js';
 import { brainstormCommand } from '../ui/commands/brainstormCommand.js';
 import { qualityCheckCommand } from '../ui/commands/qualityCheckCommand.js';
+import { prodCommand } from '../ui/commands/prodCommand.js';
 import { prodReadyCommand } from '../ui/commands/prodReadyCommand.js';
 import { designCommand } from '../ui/commands/designCommand.js';
 import { projectHardeningCommand } from '../ui/commands/projectHardeningCommand.js';
@@ -101,6 +102,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       authCommand,
       brainstormCommand,
       qualityCheckCommand,
+      prodCommand,
       prodReadyCommand,
       designCommand,
       projectHardeningCommand,

@@ -165,6 +165,7 @@ export interface CliArgs {
   brainstormInitialIdea: string | undefined;
   brownfield: boolean | undefined;
   qualityCheck: boolean | undefined;
+  prod: boolean | undefined;
   prodReady: boolean | undefined;
   fullChain: boolean | undefined;
   clearChainCache: boolean | undefined;
@@ -216,7 +217,7 @@ export async function parseArguments(): Promise<CliArgs> {
         'Run autocreator <command> --help for subcommands.',
         '',
         'Autopilot-style flags (default command): --brainstorm (-b),',
-        '--brownfield (with --brainstorm), --quality-check, --prod-ready, --full-chain, --frontend-audit, --ready-production, --smart, --skill <name>.',
+        '--brownfield (with --brainstorm), --quality-check, --prod, --prod-ready, --full-chain, --frontend-audit, --ready-production, --smart, --skill <name>.',
         '',
         'Interactive TUI: /help lists slash commands. Examples: /quality-check,',
         '/project-hardening (9-phase workspace hardening; optional focus text).',
@@ -402,6 +403,12 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'boolean',
           description:
             'Quality check: in an interactive terminal, same as plain launch but submits /quality-check once the UI is ready (no extra Enter). Without a TTY, runs a standalone loop of 3 verification passes (analyze and fix when needed), then a final automated coverage-gap closure task.',
+          default: false,
+        })
+        .option('prod', {
+          type: 'boolean',
+          description:
+            'Production pipeline with automatic stack detection: understand → audit (backend, database, frontend, roles) → report → fix → tests → final gate. Uses detected tooling (install, build, migrate, test commands) in prompts. Without a TTY, runs as a standalone tool loop.',
           default: false,
         })
         .option('prod-ready', {
@@ -896,12 +903,13 @@ export async function loadCliConfig(
   }
 
   // Unattended CLI entry points: force YOLO so tools run without prompts.
-  // - --brainstorm / --prod-ready / --full-chain / --frontend-audit / --ready-production / --quality-check / --smart / --skill (this block)
+  // - --brainstorm / --prod / --prod-ready / --full-chain / --frontend-audit / --ready-production / --quality-check / --smart / --skill (this block)
   // - Interactive TUI: cron-fired prompts, autopilot queues (/prod-ready, etc.)
   //   set YOLO in useGeminiStream; non-interactive cron in nonInteractiveCli /
   //   ACP Session sets YOLO when a job fires.
   if (
     argv.brainstorm ||
+    argv.prod ||
     argv.prodReady ||
     argv.fullChain ||
     argv.frontendAudit ||

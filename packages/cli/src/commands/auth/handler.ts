@@ -111,6 +111,7 @@ export async function handleQwenAuth(
       brainstormInitialIdea: undefined,
       brownfield: undefined,
       qualityCheck: undefined,
+      prod: undefined,
       prodReady: undefined,
       fullChain: undefined,
       clearChainCache: undefined,

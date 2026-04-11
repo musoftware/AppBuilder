@@ -141,6 +141,8 @@ ${reason.stack}`
 export type InteractiveUiStartupOptions = {
   /** Auto-submit `/quality-check` when the UI is ready (same path as typing it). */
   startupQualityCheck?: boolean;
+  /** Auto-submit `/prod` when the UI is ready (same path as typing it). */
+  startupProd?: boolean;
   /** Auto-submit `/prod-ready` when the UI is ready (same path as typing it). */
   startupProdReady?: boolean;
   /** Auto-submit `/full-chain` when the UI is ready (same path as typing it). */
@@ -190,6 +192,7 @@ export async function startInteractiveUI(
                   version={version}
                   initializationResult={initializationResult}
                   startupQualityCheck={interactiveStartup?.startupQualityCheck}
+                  startupProd={interactiveStartup?.startupProd}
                   startupProdReady={interactiveStartup?.startupProdReady}
                   startupFullChain={interactiveStartup?.startupFullChain}
                   startupFrontendAudit={
@@ -481,6 +484,25 @@ export async function main() {
       process.exit(0);
     }
 
+    if (argv.prod && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'prod-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
     if (argv.prodReady && !config.isInteractive()) {
       await config.initialize();
       if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -655,19 +677,21 @@ export async function main() {
         initializationResult!,
         argv.qualityCheck
           ? { startupQualityCheck: true }
-          : argv.prodReady
-            ? { startupProdReady: true }
-            : argv.fullChain
-              ? { startupFullChain: true }
-              : argv.frontendAudit
-                ? { startupFrontendAudit: true }
-                : argv.readyProduction
-                  ? { startupReadyProduction: true }
-                  : argv.smart
-                    ? { startupSmart: true }
-                    : typeof argv.skill === 'string' && argv.skill.trim()
-                      ? { startupBrainSkill: argv.skill.trim() }
-                      : undefined,
+          : argv.prod
+            ? { startupProd: true }
+            : argv.prodReady
+              ? { startupProdReady: true }
+              : argv.fullChain
+                ? { startupFullChain: true }
+                : argv.frontendAudit
+                  ? { startupFrontendAudit: true }
+                  : argv.readyProduction
+                    ? { startupReadyProduction: true }
+                    : argv.smart
+                      ? { startupSmart: true }
+                      : typeof argv.skill === 'string' && argv.skill.trim()
+                        ? { startupBrainSkill: argv.skill.trim() }
+                        : undefined,
       );
       return;
     }
