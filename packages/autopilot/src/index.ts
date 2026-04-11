@@ -55,6 +55,7 @@ export type {
   ChatMessage,
 } from './types.js';
 export {
+  buildSkillPathsPreamble,
   buildSmartQueue,
   buildSingleSkillQueue,
   PROJECT_BRAIN_SKILL_ORDER,

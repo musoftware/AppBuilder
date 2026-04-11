@@ -12,7 +12,7 @@ PHASE A — UNDERSTAND (runs once, cached after)
 Check .project-brain/understand.md:
 
 - EXISTS and contains current git commit hash → READ IT, skip re-scan
-- MISSING or outdated → run .qwen/skills/understand/SKILL.md fully
+- MISSING or outdated → run the **understand** playbook file (resolve path via **RESOLVED SKILL PATHS** at the top of this message; not limited to the project’s `.qwen/skills/`)
 
 After understand.md is ready, read it and determine:
 
@@ -35,9 +35,10 @@ audit-frontend, test-e2e
 Always include after any test skill:
 test-fix
 
-Scan .qwen/skills/ for any extra skill folders not in the list above
-(exclude: smart-orchestrator, understand).
-For each extra skill found: read its SKILL.md first line.
+Scan for **extra** skill folders not in the list above in **both** places, when they exist:
+(1) project `.qwen/skills/` and (2) the **bundled** root from **RESOLVED SKILL PATHS**.
+Exclude folder names: smart-orchestrator, understand.
+For each extra skill found: read its `SKILL.md` first line (using the same path resolution as above).
 If it applies to this project → insert it after build, before prod-gate.
 
 For each skill in the list, check if .project-brain/<skill>.md exists
@@ -73,7 +74,7 @@ PHASE C — RUN ALL SKILLS IN ORDER
 
 For each skill marked RUN (in order):
 Print: ━━━ [<skill-name>] ━━━
-Execute the full content of .qwen/skills/<skill-name>/SKILL.md
+Execute the full content of the **<skill-name>** playbook file (same path rules as **RESOLVED SKILL PATHS** — do not require `.qwen/skills/` under the project)
 Wait for completion before moving to next skill
 
 For each skill marked SKIP:
@@ -84,7 +85,7 @@ Inject its .project-brain/<skill>.md as context for subsequent skills
 PHASE D — REPORT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-After all skills complete, always run .qwen/skills/report/SKILL.md.
+After all skills complete, always run the **report** playbook (resolve via **RESOLVED SKILL PATHS**).
 This produces the clean summary table.
 Save output to .project-brain/report.md.
 
@@ -142,7 +143,7 @@ Then queue the remaining-fix prompt:
 Then queue the new report prompt:
 
 ┌──────────────────────────────────────────────────────────────────┐
-│ Run .qwen/skills/report/SKILL.md now. │
+│ Run the **report** playbook now (path: RESOLVED SKILL PATHS). │
 │ Print the new report table. │
 │ Save to .project-brain/report.md. │
 │ │
@@ -197,8 +198,8 @@ Queue the deep fix prompt:
 Queue the verification report prompt:
 
 ┌──────────────────────────────────────────────────────────────────┐
-│ Run .qwen/skills/prod-gate/SKILL.md now. │
-│ Then run .qwen/skills/report/SKILL.md. │
+│ Run the **prod-gate** playbook now (path: RESOLVED SKILL PATHS). │
+│ Then run the **report** playbook the same way. │
 │ Print the new report table. │
 │ Save to .project-brain/report.md. │
 │ │

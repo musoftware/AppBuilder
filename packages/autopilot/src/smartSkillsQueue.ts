@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** Built-in project-brain pipeline skills under `.qwen/skills/<name>/SKILL.md`. */
@@ -38,6 +38,50 @@ function getBundledProjectBrainSkillsRoot(): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Prepended to `--smart` / `--skill` prompts so the model uses the CLI-bundled
+ * `project-brain-skills/` tree when the workspace has no `.qwen/skills/`.
+ */
+export function buildSkillPathsPreamble(workspaceRoot: string): string {
+  const bundleRoot = getBundledProjectBrainSkillsRoot();
+  const workspaceSkillsDir = resolve(join(workspaceRoot, '.qwen', 'skills'));
+  const workspaceExists = existsSync(workspaceSkillsDir);
+
+  if (!bundleRoot) {
+    return [
+      '## RESOLVED SKILL PATHS',
+      '',
+      'Bundled `project-brain-skills` was not found on this install. Use workspace paths only:',
+      `- \`${workspaceSkillsDir}\``,
+      '',
+    ].join('\n');
+  }
+
+  const bundleDir = resolve(bundleRoot);
+  const wsPlaybook = join(workspaceSkillsDir, '<skill-name>', 'SKILL.md');
+  const bdPlaybook = join(bundleDir, '<skill-name>', 'SKILL.md');
+
+  const lines = [
+    '## RESOLVED SKILL PATHS',
+    '',
+    'The open project may have **no** `.qwen/skills/` directory. That is expected; playbooks ship **with the CLI**.',
+    '',
+    'Whenever this run refers to `.qwen/skills/<skill-name>/SKILL.md`, open the file in this order:',
+    '',
+    `1. **Project override (if it exists):** \`${wsPlaybook}\` (replace \`<skill-name>\`).`,
+    `2. **Bundled with MU Code / @qwen-code/autopilot:** \`${bdPlaybook}\` (replace \`<skill-name>\`).`,
+    '',
+    workspaceExists
+      ? `Workspace skills dir exists: \`${workspaceSkillsDir}\` — use step 1 when the file is there; otherwise step 2.`
+      : `No workspace skills dir at \`${workspaceSkillsDir}\` — use step 2 for all built-in pipeline skills.`,
+    '',
+    'Do **not** stop with “missing `.qwen/skills`” without reading from the bundled path in step 2.',
+    '',
+  ];
+
+  return lines.join('\n');
 }
 
 function readSkill(skillName: string, workspaceRoot: string): string | null {
@@ -117,24 +161,47 @@ function projectHasBackend(workspaceRoot: string): boolean {
 }
 
 function findCustomSkills(workspaceRoot: string): string[] {
-  const skillsDir = join(workspaceRoot, '.qwen', 'skills');
-  if (!existsSync(skillsDir)) {
-    return [];
+  const reserved = new Set<string>([
+    ...PROJECT_BRAIN_SKILL_ORDER,
+    'smart-orchestrator',
+    'understand',
+  ]);
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  const collect = (skillsDir: string) => {
+    if (!existsSync(skillsDir)) {
+      return;
+    }
+    try {
+      const names = readdirSync(skillsDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name);
+      for (const name of names) {
+        if (reserved.has(name)) {
+          continue;
+        }
+        if (!existsSync(join(skillsDir, name, 'SKILL.md'))) {
+          continue;
+        }
+        if (seen.has(name)) {
+          continue;
+        }
+        seen.add(name);
+        out.push(name);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  collect(join(workspaceRoot, '.qwen', 'skills'));
+  const bundle = getBundledProjectBrainSkillsRoot();
+  if (bundle) {
+    collect(bundle);
   }
-  try {
-    const names = readdirSync(skillsDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name);
-    const ordered = new Set<string>(PROJECT_BRAIN_SKILL_ORDER);
-    return names.filter(
-      (name) =>
-        !ordered.has(name) &&
-        name !== 'smart-orchestrator' &&
-        existsSync(join(skillsDir, name, 'SKILL.md')),
-    );
-  } catch {
-    return [];
-  }
+
+  return out;
 }
 
 /**
@@ -148,7 +215,9 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
 
   const orchestratorSkill = readSkill('smart-orchestrator', workspaceRoot);
   if (orchestratorSkill) {
-    return [orchestratorSkill];
+    return [
+      `${buildSkillPathsPreamble(workspaceRoot)}\n\n---\n\n${orchestratorSkill}`,
+    ];
   }
 
   const queue: string[] = [];
@@ -208,6 +277,7 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
 const KNOWN_SKILLS_LIST = [
   ...PROJECT_BRAIN_SKILL_ORDER,
   'smart-orchestrator',
+  'report',
 ].join(', ');
 
 /**
@@ -230,6 +300,7 @@ export function buildSingleSkillQueue(
   const context = understand
     ? `PROJECT CONTEXT (from .project-brain/understand.md):\n${understand}\n\n---\n\n`
     : '';
+  const preamble = buildSkillPathsPreamble(workspaceRoot);
 
-  return [context + skill];
+  return [`${context}${preamble}\n\n---\n\n${skill}`];
 }

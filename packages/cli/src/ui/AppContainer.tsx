@@ -1044,7 +1044,7 @@ export const AppContainer = (props: AppContainerProps) => {
           historyManager.addItem(
             {
               type: MessageType.INFO,
-              text: 'Smart orchestrator: queuing project-brain skills from `.qwen/skills/` (prefers `smart-orchestrator/SKILL.md` when present)…',
+              text: 'Smart orchestrator: queuing bundled project-brain playbooks (with RESOLVED SKILL PATHS); project `.qwen/skills/` overrides when present…',
             },
             Date.now(),
           );

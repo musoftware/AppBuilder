@@ -31,6 +31,7 @@ describe('smartSkillsQueue', () => {
     expect(q).toHaveLength(1);
     expect(q[0]).toContain('PROJECT CONTEXT');
     expect(q[0]).toContain('HAS FRONTEND: Yes');
+    expect(q[0]).toContain('## RESOLVED SKILL PATHS');
     expect(q[0]).toContain('[SKILL: plan]');
   });
 
@@ -45,13 +46,16 @@ describe('smartSkillsQueue', () => {
       'utf8',
     );
     const q = buildSmartQueue(root);
-    expect(q).toEqual(['[SKILL: smart-orchestrator]\nRun all.\n']);
+    expect(q).toHaveLength(1);
+    expect(q[0]).toContain('## RESOLVED SKILL PATHS');
+    expect(q[0]).toContain('[SKILL: smart-orchestrator]\nRun all.\n');
   });
 
   it('buildSmartQueue uses bundled skills when workspace has no .qwen/skills', () => {
     const root = mkdtempSync(join(tmpdir(), 'pb-bundle-'));
     const q = buildSmartQueue(root);
     expect(q.length).toBeGreaterThan(0);
+    expect(q[0]).toContain('## RESOLVED SKILL PATHS');
     expect(q[0]).toContain('[SKILL: smart-orchestrator]');
   });
 });

@@ -443,7 +443,7 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('skill', {
           type: 'string',
           description:
-            'Run a single project-brain skill by name. Example: --skill audit-frontend, --skill test-e2e, --skill prod-gate. Reads .project-brain/understand.md as context when present. Skills live under .qwen/skills/<name>/SKILL.md.',
+            'Run a single project-brain skill by name. Example: --skill audit-frontend, --skill test-e2e, --skill prod-gate. Reads .project-brain/understand.md as context when present. Playbooks resolve from project .qwen/skills/<name>/SKILL.md when present, otherwise from the CLI-bundled project-brain-skills directory.',
         })
         .option('allowed-mcp-server-names', {
           type: 'array',
