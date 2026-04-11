@@ -90,6 +90,10 @@ import path from 'node:path';
 import { useSessionStats } from '../contexts/SessionContext.js';
 import type { LoadedSettings } from '../../config/settings.js';
 import { t } from '../../i18n/index.js';
+import {
+  looksLikeSmartOrchestratorAwaitingUserNext,
+  SMART_ORCHESTRATOR_AUTO_CONTINUE_CAP,
+} from '../utils/smartOrchestratorAutoContinue.js';
 
 const debugLogger = createDebugLogger('GEMINI_STREAM');
 
@@ -152,6 +156,12 @@ enum StreamProcessingStatus {
   UserCancelled,
   Error,
 }
+
+type GeminiStreamProcessResult = {
+  status: StreamProcessingStatus;
+  streamedAssistantText: string;
+  toolCallsDeferred: boolean;
+};
 
 const EDIT_TOOL_NAMES = new Set(['replace', 'write_file']);
 
@@ -278,6 +288,7 @@ export const useGeminiStream = (
   }, [toolCalls]);
 
   const loopDetectedRef = useRef(false);
+  const smartOrchestratorAutoContinueCountRef = useRef(0);
   const [
     loopDetectionConfirmationRequest,
     setLoopDetectionConfirmationRequest,
@@ -1058,7 +1069,7 @@ export const useGeminiStream = (
       stream: AsyncIterable<GeminiEvent>,
       userMessageTimestamp: number,
       signal: AbortSignal,
-    ): Promise<StreamProcessingStatus> => {
+    ): Promise<GeminiStreamProcessResult> => {
       let geminiMessageBuffer = '';
       let thoughtBuffer = '';
       const toolCallRequests: ToolCallRequestInfo[] = [];
@@ -1164,10 +1175,15 @@ export const useGeminiStream = (
           }
         }
       }
-      if (toolCallRequests.length > 0) {
+      const toolCallsDeferred = toolCallRequests.length > 0;
+      if (toolCallsDeferred) {
         scheduleToolCalls(toolCallRequests, signal);
       }
-      return StreamProcessingStatus.Completed;
+      return {
+        status: StreamProcessingStatus.Completed,
+        streamedAssistantText: geminiMessageBuffer,
+        toolCallsDeferred,
+      };
     },
     [
       handleContentEvent,
@@ -1259,6 +1275,8 @@ export const useGeminiStream = (
       }
 
       return promptIdContext.run(prompt_id, async () => {
+        let cronSmartOrchestratorFollowUp: string | null = null;
+
         const { queryToSend, shouldProceed } =
           submitType === SendMessageType.Retry
             ? { queryToSend: query, shouldProceed: true }
@@ -1294,6 +1312,26 @@ export const useGeminiStream = (
         const finalQueryToSend = queryToSend;
         lastPromptRef.current = finalQueryToSend;
         lastPromptErroredRef.current = false;
+
+        if (submitType === SendMessageType.UserQuery) {
+          smartOrchestratorAutoContinueCountRef.current = 0;
+        }
+
+        const finalQueryText =
+          typeof finalQueryToSend === 'string' ? finalQueryToSend : undefined;
+        const trimmedCronText = finalQueryText?.trimStart() ?? '';
+        const isSmartOrchestratorCronRoot =
+          submitType === SendMessageType.Cron &&
+          !!finalQueryText &&
+          finalQueryText.includes('[SKILL: smart-orchestrator]') &&
+          !trimmedCronText.startsWith('Continue the smart-orchestrator');
+        const isSmartOrchestratorCronContinue =
+          submitType === SendMessageType.Cron &&
+          trimmedCronText.startsWith('Continue the smart-orchestrator');
+
+        if (isSmartOrchestratorCronRoot) {
+          smartOrchestratorAutoContinueCountRef.current = 0;
+        }
 
         if (
           submitType === SendMessageType.UserQuery ||
@@ -1334,13 +1372,13 @@ export const useGeminiStream = (
             { type: submitType },
           );
 
-          const processingStatus = await processGeminiStreamEvents(
+          const streamResult = await processGeminiStreamEvents(
             stream,
             userMessageTimestamp,
             abortSignal,
           );
 
-          if (processingStatus === StreamProcessingStatus.UserCancelled) {
+          if (streamResult.status === StreamProcessingStatus.UserCancelled) {
             isSubmittingQueryRef.current = false;
             return;
           }
@@ -1394,6 +1432,31 @@ export const useGeminiStream = (
               );
             }
           }
+
+          if (
+            submitType === SendMessageType.Cron &&
+            (isSmartOrchestratorCronRoot || isSmartOrchestratorCronContinue) &&
+            !streamResult.toolCallsDeferred &&
+            !streamHadError &&
+            !streamHadLoop &&
+            !turnCancelledRef.current &&
+            looksLikeSmartOrchestratorAwaitingUserNext(
+              streamResult.streamedAssistantText,
+            ) &&
+            smartOrchestratorAutoContinueCountRef.current <
+              SMART_ORCHESTRATOR_AUTO_CONTINUE_CAP
+          ) {
+            smartOrchestratorAutoContinueCountRef.current += 1;
+            addItem(
+              {
+                type: MessageType.INFO,
+                text: 'Smart orchestrator: continuing automatically (no manual "next")…',
+              },
+              userMessageTimestamp,
+            );
+            cronSmartOrchestratorFollowUp =
+              'Continue the smart-orchestrator PHASE C run: execute the next skill in your RUN plan immediately in this same automated session. Do not ask the user to type "next" or "continue". Do not print a `> next` prompt. Proceed with the next skill until prod-gate and report are complete, or stop only for blocking errors.';
+          }
         } catch (error: unknown) {
           if (error instanceof UnauthorizedError) {
             onAuthError('Session expired or is unauthorized.');
@@ -1413,6 +1476,13 @@ export const useGeminiStream = (
         } finally {
           setIsResponding(false);
           isSubmittingQueryRef.current = false;
+        }
+
+        if (cronSmartOrchestratorFollowUp) {
+          const continuation = cronSmartOrchestratorFollowUp;
+          queueMicrotask(() => {
+            void submitQuery(continuation, SendMessageType.Cron);
+          });
         }
       });
     },

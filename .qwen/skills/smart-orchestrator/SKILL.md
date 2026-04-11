@@ -75,7 +75,7 @@ PHASE C — RUN ALL SKILLS IN ORDER
 For each skill marked RUN (in order):
 Print: ━━━ [<skill-name>] ━━━
 Execute the full content of the **<skill-name>** playbook file (same path rules as **RESOLVED SKILL PATHS** — do not require `.qwen/skills/` under the project)
-Wait for completion before moving to next skill
+Immediately continue with the next RUN skill in the same session — **never** wait for the user. Do **not** print `> next`, “type next”, “reply next”, or any prompt that implies the human must send a message before you continue. The CLI runs this playbook in an **automated queue**; pausing for “next” will stall the run.
 
 For each skill marked SKIP:
 Print: ⏭ [<skill-name>] skipped — brain file current
