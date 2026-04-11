@@ -517,6 +517,9 @@ describe('gemini.tsx main function kitty protocol', () => {
       fullChain: undefined,
       clearChainCache: undefined,
       frontendAudit: undefined,
+      readyProduction: undefined,
+      smart: undefined,
+      skill: undefined,
     });
 
     await main();

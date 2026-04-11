@@ -101,7 +101,10 @@ import { migrateTomlCommands } from '../services/command-migration-tool.js';
 import { type UpdateObject } from './utils/updateCheck.js';
 import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { registerCleanup, runExitCleanup } from '../utils/cleanup.js';
-import { AutopilotDriver } from '@qwen-code/autopilot';
+import {
+  AutopilotDriver,
+  getReadyProductionRounds,
+} from '@qwen-code/autopilot';
 import type { AutopilotInteractiveMode } from './commands/types.js';
 import { buildProjectHardeningQueue } from './projectHardeningQueue.js';
 import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
@@ -162,6 +165,12 @@ interface AppContainerProps {
   startupFullChain?: boolean;
   /** From `mu-pilot --frontend-audit`: same UI as plain launch; auto-submits `/frontend-audit` when ready. */
   startupFrontendAudit?: boolean;
+  /** From `mu-pilot --ready-production`: auto-submits `/ready-production` when ready. */
+  startupReadyProduction?: boolean;
+  /** From `mu-pilot --smart`: auto-submits `/smart` when ready. */
+  startupSmart?: boolean;
+  /** From `mu-pilot --skill <name>`: auto-submits `/skill <name>` when ready. */
+  startupBrainSkill?: string;
 }
 
 /**
@@ -185,6 +194,9 @@ export const AppContainer = (props: AppContainerProps) => {
     startupProdReady,
     startupFullChain,
     startupFrontendAudit,
+    startupReadyProduction,
+    startupSmart,
+    startupBrainSkill,
   } = props;
   const historyManager = useHistory();
   useMemoryMonitor(historyManager);
@@ -993,6 +1005,127 @@ export const AppContainer = (props: AppContainerProps) => {
           return;
         }
 
+        if (mode === 'ready-production') {
+          const rounds = getReadyProductionRounds();
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Ready-production: queuing ${rounds} round(s) × (full-chain → frontend-audit → quality-check) — they will run automatically when idle. Headless runs can stop early when gates look green (see QWEN_READY_PRODUCTION_* env vars).`,
+            },
+            Date.now(),
+          );
+          try {
+            const messages = await driver.buildReadyProductionQueue(
+              process.cwd(),
+            );
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Ready-production: ${messages.length} message(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(messages);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Ready-production failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Ready-production failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'smart') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Smart orchestrator: queuing project-brain skills from `.qwen/skills/` (prefers `smart-orchestrator/SKILL.md` when present)…',
+            },
+            Date.now(),
+          );
+          try {
+            const workspaceRoot = process.cwd();
+            const phases = driver.smart(workspaceRoot);
+            if (phases.length === 0) {
+              historyManager.addItem(
+                {
+                  type: MessageType.ERROR,
+                  text: 'Smart orchestrator: no phases loaded. Add `.qwen/skills/smart-orchestrator/SKILL.md` or skill folders under `.qwen/skills/`.',
+                },
+                Date.now(),
+              );
+              return;
+            }
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Smart orchestrator: ${phases.length} message(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Smart orchestrator failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Smart orchestrator failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'brain-skill') {
+          const skillName = idea?.trim() ?? '';
+          if (!skillName) {
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: 'Usage: /skill <name> — example: /skill audit-frontend',
+              },
+              Date.now(),
+            );
+            return;
+          }
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Project-brain skill: queuing \`${skillName}\`…`,
+            },
+            Date.now(),
+          );
+          try {
+            const phases = driver.runSkill(skillName, process.cwd());
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Project-brain skill: ${phases.length} message(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Project-brain skill failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Project-brain skill failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
         if (mode === 'design') {
           const designName = idea?.trim() ?? '';
           historyManager.addItem(
@@ -1387,6 +1520,9 @@ export const AppContainer = (props: AppContainerProps) => {
   const startupProdReadySubmitted = useRef(false);
   const startupFullChainSubmitted = useRef(false);
   const startupFrontendAuditSubmitted = useRef(false);
+  const startupReadyProductionSubmitted = useRef(false);
+  const startupSmartSubmitted = useRef(false);
+  const startupBrainSkillSubmitted = useRef(false);
 
   useEffect(() => {
     if (activePtyId) {
@@ -1543,6 +1679,103 @@ export const AppContainer = (props: AppContainerProps) => {
     handleFinalSubmit('/frontend-audit');
   }, [
     startupFrontendAudit,
+    initialPrompt,
+    isConfigInitialized,
+    handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupReadyProduction ||
+      !isConfigInitialized ||
+      startupReadyProductionSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupReadyProductionSubmitted.current = true;
+    handleFinalSubmit('/ready-production');
+  }, [
+    startupReadyProduction,
+    initialPrompt,
+    isConfigInitialized,
+    handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupSmart ||
+      !isConfigInitialized ||
+      startupSmartSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupSmartSubmitted.current = true;
+    handleFinalSubmit('/smart');
+  }, [
+    startupSmart,
+    initialPrompt,
+    isConfigInitialized,
+    handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    const name = startupBrainSkill?.trim() ?? '';
+    if (
+      !name ||
+      !isConfigInitialized ||
+      startupBrainSkillSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupBrainSkillSubmitted.current = true;
+    handleFinalSubmit(`/skill ${name}`);
+  }, [
+    startupBrainSkill,
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,

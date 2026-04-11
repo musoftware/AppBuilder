@@ -12,6 +12,12 @@ export {
   fullChainGateRequiresLoop,
   prependLoopPassNotice,
 } from './fullChainLoop.js';
+export {
+  DEFAULT_READY_PRODUCTION_ROUNDS,
+  getReadyProductionRounds,
+  getReadyProductionExitWhenRoundGreen,
+} from './readyProductionConstants.js';
+export { readyProductionRoundLooksGreen } from './readyProductionGate.js';
 export { buildFrontendAuditQueue } from './frontendAuditQueue.js';
 export type {
   FullChainRunPlan,
@@ -48,3 +54,8 @@ export type {
   AutopilotSettings,
   ChatMessage,
 } from './types.js';
+export {
+  buildSmartQueue,
+  buildSingleSkillQueue,
+  PROJECT_BRAIN_SKILL_ORDER,
+} from './smartSkillsQueue.js';

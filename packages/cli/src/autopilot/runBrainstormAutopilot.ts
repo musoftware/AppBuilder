@@ -4,6 +4,8 @@ import type { LoadedSettings } from '../config/settings.js';
 import { resolvePath } from '../utils/resolvePath.js';
 import { writeStdoutLine } from '../utils/stdioHelpers.js';
 import { createAutopilotModelAdapters } from './autopilotToolLoop.js';
+import { runStandaloneFullChain } from './runStandaloneFullChain.js';
+import { runStandaloneFrontendAudit } from './runStandaloneFrontendAudit.js';
 import { runStandaloneQualityCheck } from './runStandaloneQualityCheck.js';
 
 export async function runBrainstormAutopilot(
@@ -15,7 +17,10 @@ export async function runBrainstormAutopilot(
     | 'quality-check-only'
     | 'prod-ready-only'
     | 'full-chain-only'
-    | 'frontend-audit-only',
+    | 'frontend-audit-only'
+    | 'ready-production-only'
+    | 'smart-only'
+    | 'skill-only',
 ): Promise<void> {
   const ap = settings.merged.autopilot;
   const { callModel, callModelWithTools } =
@@ -45,81 +50,84 @@ export async function runBrainstormAutopilot(
   }
 
   if (mode === 'full-chain-only') {
+    await runStandaloneFullChain(callModelWithTools, process.cwd());
+    return;
+  }
+
+  if (mode === 'ready-production-only') {
     const {
-      buildFullChainRunPlan,
-      buildFullChainContinuationPhases,
-      clearChainCacheFile,
-      persistProjectContextFromAssistantOutput,
-      getFullChainMaxPasses,
-      fullChainGateRequiresLoop,
-      prependLoopPassNotice,
+      getReadyProductionRounds,
+      getReadyProductionExitWhenRoundGreen,
+      readyProductionRoundLooksGreen,
     } = await import('@qwen-code/autopilot');
     const workspaceRoot = process.cwd();
-    const maxPasses = getFullChainMaxPasses();
-    const firstPlan = buildFullChainRunPlan(workspaceRoot, {
-      includePhase1CacheInstructions: false,
-    });
-    const system =
-      'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
+    const maxRounds = getReadyProductionRounds();
+    const exitWhenGreen = getReadyProductionExitWhenRoundGreen();
 
-    let gateOutput = '';
-    for (let pass = 0; pass < maxPasses; pass++) {
-      const phasesThisPass =
-        pass === 0
-          ? firstPlan.phases
-          : prependLoopPassNotice(
-              buildFullChainContinuationPhases(),
-              pass + 1,
-              maxPasses,
-            );
-      const persistPhase0 = pass === 0 && firstPlan.persistPhase0OutputToCache;
-
-      for (let i = 0; i < phasesThisPass.length; i++) {
-        const phase = phasesThisPass[i]!;
-        gateOutput = await callModelWithTools(
-          [{ role: 'user', content: phase }],
-          system,
-          true,
-        );
-        if (persistPhase0 && i === 0) {
-          if (
-            persistProjectContextFromAssistantOutput(workspaceRoot, gateOutput)
-          ) {
-            writeStdoutLine(
-              '[full-chain] Project context cached to .ai-docs/.chain-cache.json',
-            );
-          }
-        }
-      }
-
-      if (!fullChainGateRequiresLoop(gateOutput)) {
-        writeStdoutLine(
-          `[full-chain] Production gate: done after ${pass + 1} pass(es).`,
-        );
-        return;
-      }
-
-      if (pass + 1 < maxPasses) {
-        writeStdoutLine(
-          `[full-chain] Production gate: NOT_READY / LOOP_REQUIRED — starting pass ${pass + 2}/${maxPasses} (audit → gate).`,
-        );
-      }
-    }
-
-    if (fullChainGateRequiresLoop(gateOutput)) {
-      clearChainCacheFile(workspaceRoot);
+    for (let round = 1; round <= maxRounds; round++) {
       writeStdoutLine(
-        '[full-chain] Max passes reached while still NOT_READY — cleared .ai-docs/.chain-cache.json so the next run rescans project context.',
+        `[ready-production] Round ${round}/${maxRounds}: full-chain…`,
       );
+      const gateOutput = await runStandaloneFullChain(
+        callModelWithTools,
+        workspaceRoot,
+      );
+
+      writeStdoutLine(
+        `[ready-production] Round ${round}/${maxRounds}: frontend-audit…`,
+      );
+      const feOutput = await runStandaloneFrontendAudit(callModelWithTools);
+
+      writeStdoutLine(
+        `[ready-production] Round ${round}/${maxRounds}: quality-check…`,
+      );
+      await runStandaloneQualityCheck(callModelWithTools, {
+        maxTaskRetries: ap?.maxTaskRetries,
+      });
+
+      writeStdoutLine(
+        `[ready-production] Round ${round}/${maxRounds}: trio complete.`,
+      );
+
+      if (
+        exitWhenGreen &&
+        readyProductionRoundLooksGreen(gateOutput, feOutput)
+      ) {
+        writeStdoutLine(
+          `[ready-production] Full-chain + frontend gates look green — stopping after round ${round}/${maxRounds} (set QWEN_READY_PRODUCTION_EXIT_WHEN_READY=0 to always run all rounds).`,
+        );
+        break;
+      }
     }
     return;
   }
 
   if (mode === 'frontend-audit-only') {
-    const { buildFrontendAuditQueue } = await import('@qwen-code/autopilot');
-    const phases = buildFrontendAuditQueue();
+    await runStandaloneFrontendAudit(callModelWithTools);
+    return;
+  }
+
+  if (mode === 'smart-only') {
+    const { buildSmartQueue } = await import('@qwen-code/autopilot');
+    const phases = buildSmartQueue(process.cwd());
     const system =
-      'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
+      'You are an expert autonomous coding agent. Execute the instructions in the user message completely in the current workspace.';
+    for (const phase of phases) {
+      await callModelWithTools(
+        [{ role: 'user', content: phase }],
+        system,
+        true,
+      );
+    }
+    return;
+  }
+
+  if (mode === 'skill-only') {
+    const { buildSingleSkillQueue } = await import('@qwen-code/autopilot');
+    const skillName = initialIdea?.trim() ?? '';
+    const phases = buildSingleSkillQueue(skillName, process.cwd());
+    const system =
+      'You are an expert autonomous coding agent. Execute the instructions in the user message completely in the current workspace.';
     for (const phase of phases) {
       await callModelWithTools(
         [{ role: 'user', content: phase }],

@@ -19,6 +19,11 @@ import { designCommand } from '../ui/commands/designCommand.js';
 import { projectHardeningCommand } from '../ui/commands/projectHardeningCommand.js';
 import { fullChainCommand } from '../ui/commands/fullChainCommand.js';
 import { frontendAuditCommand } from '../ui/commands/frontendAuditCommand.js';
+import { readyProductionCommand } from '../ui/commands/readyProductionCommand.js';
+import {
+  brainSkillCommand,
+  smartCommand,
+} from '../ui/commands/smartCommand.js';
 import { skillWorkflowCommands } from '../ui/commands/skillWorkflowCommands.js';
 import { btwCommand } from '../ui/commands/btwCommand.js';
 import { bugCommand } from '../ui/commands/bugCommand.js';
@@ -101,6 +106,9 @@ export class BuiltinCommandLoader implements ICommandLoader {
       projectHardeningCommand,
       fullChainCommand,
       frontendAuditCommand,
+      readyProductionCommand,
+      smartCommand,
+      brainSkillCommand,
       ...skillWorkflowCommands,
       btwCommand,
       bugCommand,

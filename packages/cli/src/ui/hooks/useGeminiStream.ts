@@ -1846,7 +1846,7 @@ export const useGeminiStream = (
     (messages: string[]) => {
       autopilotQueueRef.current = [...messages];
       if (messages.length > 0) {
-        // Match --brainstorm / --prod-ready / --full-chain / --frontend-audit: drain queued prompts without tool
+        // Match --brainstorm / --prod-ready / --full-chain / --frontend-audit / --ready-production / --smart / --skill: drain queued prompts without tool
         // confirmation dialogs (agent, shell, edits, etc.).
         config.setApprovalMode(ApprovalMode.YOLO);
         void handleApprovalModeChange(ApprovalMode.YOLO);

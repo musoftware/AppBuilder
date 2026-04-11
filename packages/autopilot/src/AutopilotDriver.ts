@@ -25,6 +25,8 @@ import {
   type FullChainRunPlan,
 } from './fullChainQueue.js';
 import { buildFrontendAuditQueue } from './frontendAuditQueue.js';
+import { getReadyProductionRounds } from './readyProductionConstants.js';
+import { buildSingleSkillQueue, buildSmartQueue } from './smartSkillsQueue.js';
 
 // ─── Task system instructions (embedded in user message, no separate system prompt) ───
 
@@ -379,6 +381,53 @@ export class AutopilotDriver {
 
   async frontendAudit(): Promise<string[]> {
     return buildFrontendAuditQueue();
+  }
+
+  /**
+   * Project-brain smart orchestrator: queued prompts from `.qwen/skills/` and
+   * `.project-brain/` (see `buildSmartQueue`).
+   */
+  smart(workspaceRoot?: string): string[] {
+    return buildSmartQueue(workspaceRoot ?? process.cwd());
+  }
+
+  /**
+   * Run a single project-brain skill by folder name under `.qwen/skills/<name>/`.
+   */
+  runSkill(skillName: string, workspaceRoot?: string): string[] {
+    return buildSingleSkillQueue(skillName, workspaceRoot ?? process.cwd());
+  }
+
+  /**
+   * Queue messages for `/ready-production`: for each outer round, full-chain
+   * phases, then frontend-audit phases, then one quality-check message.
+   * Round count: {@link getReadyProductionRounds} (default 5, env override).
+   */
+  async buildReadyProductionQueue(workspaceRoot?: string): Promise<string[]> {
+    const root = workspaceRoot ?? process.cwd();
+    const rounds = getReadyProductionRounds();
+    const out: string[] = [];
+    for (let r = 1; r <= rounds; r++) {
+      const plan = await this.fullChain(root, {
+        includePhase1CacheInstructions: false,
+      });
+      for (const p of plan.phases) {
+        out.push(
+          `[READY-PRODUCTION round ${r}/${rounds} — full-chain]\n\n${p}`,
+        );
+      }
+      const fePhases = await this.frontendAudit();
+      for (const p of fePhases) {
+        out.push(
+          `[READY-PRODUCTION round ${r}/${rounds} — frontend-audit]\n\n${p}`,
+        );
+      }
+      const qc = await this.qualityCheck();
+      out.push(
+        `[READY-PRODUCTION round ${r}/${rounds} — quality-check]\n\n${qc}`,
+      );
+    }
+    return out;
   }
 
   /**

@@ -147,6 +147,12 @@ export type InteractiveUiStartupOptions = {
   startupFullChain?: boolean;
   /** Auto-submit `/frontend-audit` when the UI is ready (same path as typing it). */
   startupFrontendAudit?: boolean;
+  /** Auto-submit `/ready-production` when the UI is ready (same path as typing it). */
+  startupReadyProduction?: boolean;
+  /** Auto-submit `/smart` when the UI is ready. */
+  startupSmart?: boolean;
+  /** Auto-submit `/skill <name>` when the UI is ready. */
+  startupBrainSkill?: string;
 };
 
 export async function startInteractiveUI(
@@ -189,6 +195,11 @@ export async function startInteractiveUI(
                   startupFrontendAudit={
                     interactiveStartup?.startupFrontendAudit
                   }
+                  startupReadyProduction={
+                    interactiveStartup?.startupReadyProduction
+                  }
+                  startupSmart={interactiveStartup?.startupSmart}
+                  startupBrainSkill={interactiveStartup?.startupBrainSkill}
                 />
               </AgentViewProvider>
             </VimModeProvider>
@@ -254,6 +265,16 @@ export async function main() {
       writeStdoutLine('No cache found — nothing to clear.');
     }
     process.exit(0);
+  }
+
+  if (argv.skill !== undefined) {
+    const skillName = typeof argv.skill === 'string' ? argv.skill.trim() : '';
+    if (!skillName) {
+      writeStderrLine(
+        'Error: --skill requires a skill name (e.g. --skill understand).',
+      );
+      process.exit(1);
+    }
   }
 
   const isDebugMode = cliConfig.isDebugMode(argv);
@@ -521,6 +542,68 @@ export async function main() {
       process.exit(0);
     }
 
+    if (argv.readyProduction && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'ready-production-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (argv.smart && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'smart-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (
+      argv.skill !== undefined &&
+      typeof argv.skill === 'string' &&
+      argv.skill.trim() &&
+      !config.isInteractive()
+    ) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          argv.skill.trim(),
+          'brownfield',
+          'skill-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
     if (argv.brainstorm) {
       await config.initialize();
       if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -578,7 +661,13 @@ export async function main() {
               ? { startupFullChain: true }
               : argv.frontendAudit
                 ? { startupFrontendAudit: true }
-                : undefined,
+                : argv.readyProduction
+                  ? { startupReadyProduction: true }
+                  : argv.smart
+                    ? { startupSmart: true }
+                    : typeof argv.skill === 'string' && argv.skill.trim()
+                      ? { startupBrainSkill: argv.skill.trim() }
+                      : undefined,
       );
       return;
     }

@@ -194,8 +194,11 @@ export type AutopilotInteractiveMode =
   | 'prod-ready'
   | 'full-chain'
   | 'frontend-audit'
+  | 'ready-production'
   | 'design'
   | 'skill'
+  | 'brain-skill'
+  | 'smart'
   | 'project-hardening';
 
 /** Run autopilot through the interactive chat pipeline. */
@@ -207,8 +210,11 @@ export interface AutopilotActionReturn {
    * - 'prod-ready': optional focus text; queues 7 production-readiness phases
    * - 'full-chain': queues 10-phase BMAD chain through production gate
    * - 'frontend-audit': queues 4-phase frontend role/screen audit, fix, tests, run
+   * - 'ready-production': queues full-chain + frontend-audit + quality-check per outer round
    * - 'design': initialIdea = design system name (e.g. 'cursor', 'stripe')
    * - 'skill': initialIdea = skill folder name (e.g. 'e2e-testing')
+   * - 'brain-skill': initialIdea = project-brain skill name (e.g. 'audit-frontend')
+   * - 'smart': project-brain smart orchestrator queue
    * - 'project-hardening': optional focus text; queues 9 skill phases
    */
   initialIdea?: string;

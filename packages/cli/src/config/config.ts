@@ -169,6 +169,9 @@ export interface CliArgs {
   fullChain: boolean | undefined;
   clearChainCache: boolean | undefined;
   frontendAudit: boolean | undefined;
+  readyProduction: boolean | undefined;
+  smart: boolean | undefined;
+  skill: string | undefined;
 }
 
 function normalizeOutputFormat(
@@ -213,7 +216,7 @@ export async function parseArguments(): Promise<CliArgs> {
         'Run autocreator <command> --help for subcommands.',
         '',
         'Autopilot-style flags (default command): --brainstorm (-b),',
-        '--brownfield (with --brainstorm), --quality-check, --prod-ready, --full-chain, --frontend-audit.',
+        '--brownfield (with --brainstorm), --quality-check, --prod-ready, --full-chain, --frontend-audit, --ready-production, --smart, --skill <name>.',
         '',
         'Interactive TUI: /help lists slash commands. Examples: /quality-check,',
         '/project-hardening (9-phase workspace hardening; optional focus text).',
@@ -424,6 +427,23 @@ export async function parseArguments(): Promise<CliArgs> {
           description:
             'Audit every frontend file by role: checks what screens exist per role, what is missing, what is broken (dead buttons, missing routes, no auth guards), then generates feature tests to prove each screen works correctly for the right roles.',
           default: false,
+        })
+        .option('ready-production', {
+          type: 'boolean',
+          description:
+            'Run outer rounds of full-chain → frontend-audit → quality-check (default 5 rounds; set QWEN_READY_PRODUCTION_ROUNDS). Without a TTY, stops early when prod + frontend gates look green unless QWEN_READY_PRODUCTION_EXIT_WHEN_READY=0. Interactive mode queues the same sequence through the chat pipeline.',
+          default: false,
+        })
+        .option('smart', {
+          type: 'boolean',
+          description:
+            'Smart orchestrator: reads .project-brain/, understands the project, selects the right skills automatically (backend audit, frontend audit, roles, tests, etc.), runs them in order, and documents every action. Skips skills that already ran and are current.',
+          default: false,
+        })
+        .option('skill', {
+          type: 'string',
+          description:
+            'Run a single project-brain skill by name. Example: --skill audit-frontend, --skill test-e2e, --skill prod-gate. Reads .project-brain/understand.md as context when present. Skills live under .qwen/skills/<name>/SKILL.md.',
         })
         .option('allowed-mcp-server-names', {
           type: 'array',
@@ -876,7 +896,7 @@ export async function loadCliConfig(
   }
 
   // Unattended CLI entry points: force YOLO so tools run without prompts.
-  // - --brainstorm / --prod-ready / --full-chain / --frontend-audit / --quality-check (this block)
+  // - --brainstorm / --prod-ready / --full-chain / --frontend-audit / --ready-production / --quality-check / --smart / --skill (this block)
   // - Interactive TUI: cron-fired prompts, autopilot queues (/prod-ready, etc.)
   //   set YOLO in useGeminiStream; non-interactive cron in nonInteractiveCli /
   //   ACP Session sets YOLO when a job fires.
@@ -885,7 +905,10 @@ export async function loadCliConfig(
     argv.prodReady ||
     argv.fullChain ||
     argv.frontendAudit ||
-    argv.qualityCheck
+    argv.readyProduction ||
+    argv.qualityCheck ||
+    argv.smart ||
+    (typeof argv.skill === 'string' && argv.skill.trim().length > 0)
   ) {
     approvalMode = ApprovalMode.YOLO;
   }

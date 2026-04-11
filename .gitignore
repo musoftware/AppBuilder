@@ -56,6 +56,9 @@ packages/vscode-ide-companion/*.vsix
 # Full-chain BMAD cache (machine-specific; .ai-docs/*.md may be committed)
 .ai-docs/.chain-cache.json
 
+# Project brain — auto-generated skill outputs (machine-specific)
+.project-brain/
+
 # Qwen Code Configs
 
 .qwen/*
