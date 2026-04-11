@@ -12,6 +12,7 @@ export {
   fullChainGateRequiresLoop,
   prependLoopPassNotice,
 } from './fullChainLoop.js';
+export { buildFrontendAuditQueue } from './frontendAuditQueue.js';
 export type {
   FullChainRunPlan,
   FullChainQueueBuildOptions,

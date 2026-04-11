@@ -160,6 +160,8 @@ interface AppContainerProps {
   startupProdReady?: boolean;
   /** From `mu-pilot --full-chain`: same UI as plain launch; auto-submits `/full-chain` when ready. */
   startupFullChain?: boolean;
+  /** From `mu-pilot --frontend-audit`: same UI as plain launch; auto-submits `/frontend-audit` when ready. */
+  startupFrontendAudit?: boolean;
 }
 
 /**
@@ -182,6 +184,7 @@ export const AppContainer = (props: AppContainerProps) => {
     startupQualityCheck,
     startupProdReady,
     startupFullChain,
+    startupFrontendAudit,
   } = props;
   const historyManager = useHistory();
   useMemoryMonitor(historyManager);
@@ -958,6 +961,38 @@ export const AppContainer = (props: AppContainerProps) => {
           return;
         }
 
+        if (mode === 'frontend-audit') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Frontend audit: queuing 4 phases (map roles/screens → fix wiring → write feature tests → run & analyze)…',
+            },
+            Date.now(),
+          );
+          try {
+            const phases = await driver.frontendAudit();
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Frontend audit: ${phases.length} phase(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Frontend audit failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Frontend audit failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
         if (mode === 'design') {
           const designName = idea?.trim() ?? '';
           historyManager.addItem(
@@ -1351,6 +1386,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const startupQualityCheckSubmitted = useRef(false);
   const startupProdReadySubmitted = useRef(false);
   const startupFullChainSubmitted = useRef(false);
+  const startupFrontendAuditSubmitted = useRef(false);
 
   useEffect(() => {
     if (activePtyId) {
@@ -1475,6 +1511,38 @@ export const AppContainer = (props: AppContainerProps) => {
     handleFinalSubmit('/full-chain');
   }, [
     startupFullChain,
+    initialPrompt,
+    isConfigInitialized,
+    handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupFrontendAudit ||
+      !isConfigInitialized ||
+      startupFrontendAuditSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupFrontendAuditSubmitted.current = true;
+    handleFinalSubmit('/frontend-audit');
+  }, [
+    startupFrontendAudit,
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,

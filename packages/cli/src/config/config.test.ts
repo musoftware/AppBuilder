@@ -633,6 +633,12 @@ describe('parseArguments', () => {
     const argv = await parseArguments();
     expect(argv.clearChainCache).toBe(true);
   });
+
+  it('should enable --frontend-audit flag', async () => {
+    process.argv = ['node', 'script.js', '--frontend-audit'];
+    const argv = await parseArguments();
+    expect(argv.frontendAudit).toBe(true);
+  });
 });
 
 describe('loadCliConfig', () => {
@@ -729,6 +735,28 @@ describe('loadCliConfig', () => {
 
   it('should force YOLO for --full-chain even if workspace is marked untrusted', async () => {
     process.argv = ['node', 'script.js', '--full-chain'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --frontend-audit is set (frontend audit unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--frontend-audit'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --frontend-audit even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--frontend-audit'];
     const argv = await parseArguments();
     vi.mocked(isWorkspaceTrusted).mockReturnValue({
       isTrusted: false,

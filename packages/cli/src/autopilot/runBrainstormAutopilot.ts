@@ -11,7 +11,11 @@ export async function runBrainstormAutopilot(
   settings: LoadedSettings,
   initialIdea?: string,
   forceMode?: 'brownfield' | 'greenfield',
-  mode?: 'quality-check-only' | 'prod-ready-only' | 'full-chain-only',
+  mode?:
+    | 'quality-check-only'
+    | 'prod-ready-only'
+    | 'full-chain-only'
+    | 'frontend-audit-only',
 ): Promise<void> {
   const ap = settings.merged.autopilot;
   const { callModel, callModelWithTools } =
@@ -106,6 +110,21 @@ export async function runBrainstormAutopilot(
       clearChainCacheFile(workspaceRoot);
       writeStdoutLine(
         '[full-chain] Max passes reached while still NOT_READY — cleared .ai-docs/.chain-cache.json so the next run rescans project context.',
+      );
+    }
+    return;
+  }
+
+  if (mode === 'frontend-audit-only') {
+    const { buildFrontendAuditQueue } = await import('@qwen-code/autopilot');
+    const phases = buildFrontendAuditQueue();
+    const system =
+      'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
+    for (const phase of phases) {
+      await callModelWithTools(
+        [{ role: 'user', content: phase }],
+        system,
+        true,
       );
     }
     return;

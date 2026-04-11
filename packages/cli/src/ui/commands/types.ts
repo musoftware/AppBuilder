@@ -193,6 +193,7 @@ export type AutopilotInteractiveMode =
   | 'quality-check'
   | 'prod-ready'
   | 'full-chain'
+  | 'frontend-audit'
   | 'design'
   | 'skill'
   | 'project-hardening';
@@ -205,6 +206,7 @@ export interface AutopilotActionReturn {
    * - 'quality-check': analyze & fix bugs only, no planning phase
    * - 'prod-ready': optional focus text; queues 7 production-readiness phases
    * - 'full-chain': queues 10-phase BMAD chain through production gate
+   * - 'frontend-audit': queues 4-phase frontend role/screen audit, fix, tests, run
    * - 'design': initialIdea = design system name (e.g. 'cursor', 'stripe')
    * - 'skill': initialIdea = skill folder name (e.g. 'e2e-testing')
    * - 'project-hardening': optional focus text; queues 9 skill phases

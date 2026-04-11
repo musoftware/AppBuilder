@@ -168,6 +168,7 @@ export interface CliArgs {
   prodReady: boolean | undefined;
   fullChain: boolean | undefined;
   clearChainCache: boolean | undefined;
+  frontendAudit: boolean | undefined;
 }
 
 function normalizeOutputFormat(
@@ -212,7 +213,7 @@ export async function parseArguments(): Promise<CliArgs> {
         'Run autocreator <command> --help for subcommands.',
         '',
         'Autopilot-style flags (default command): --brainstorm (-b),',
-        '--brownfield (with --brainstorm), --quality-check, --prod-ready, --full-chain.',
+        '--brownfield (with --brainstorm), --quality-check, --prod-ready, --full-chain, --frontend-audit.',
         '',
         'Interactive TUI: /help lists slash commands. Examples: /quality-check,',
         '/project-hardening (9-phase workspace hardening; optional focus text).',
@@ -416,6 +417,12 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'boolean',
           description:
             'Clear the cached project context for --full-chain so the next run does a fresh full scan.',
+          default: false,
+        })
+        .option('frontend-audit', {
+          type: 'boolean',
+          description:
+            'Audit every frontend file by role: checks what screens exist per role, what is missing, what is broken (dead buttons, missing routes, no auth guards), then generates feature tests to prove each screen works correctly for the right roles.',
           default: false,
         })
         .option('allowed-mcp-server-names', {
@@ -869,7 +876,7 @@ export async function loadCliConfig(
   }
 
   // Unattended CLI entry points: force YOLO so tools run without prompts.
-  // - --brainstorm / --prod-ready / --full-chain / --quality-check (this block)
+  // - --brainstorm / --prod-ready / --full-chain / --frontend-audit / --quality-check (this block)
   // - Interactive TUI: cron-fired prompts, autopilot queues (/prod-ready, etc.)
   //   set YOLO in useGeminiStream; non-interactive cron in nonInteractiveCli /
   //   ACP Session sets YOLO when a job fires.
@@ -877,6 +884,7 @@ export async function loadCliConfig(
     argv.brainstorm ||
     argv.prodReady ||
     argv.fullChain ||
+    argv.frontendAudit ||
     argv.qualityCheck
   ) {
     approvalMode = ApprovalMode.YOLO;

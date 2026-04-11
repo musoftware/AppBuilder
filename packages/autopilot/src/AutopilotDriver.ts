@@ -24,6 +24,7 @@ import {
   buildFullChainRunPlan,
   type FullChainRunPlan,
 } from './fullChainQueue.js';
+import { buildFrontendAuditQueue } from './frontendAuditQueue.js';
 
 // ─── Task system instructions (embedded in user message, no separate system prompt) ───
 
@@ -374,6 +375,10 @@ export class AutopilotDriver {
     options?: { includePhase1CacheInstructions?: boolean },
   ): Promise<FullChainRunPlan> {
     return buildFullChainRunPlan(workspaceRoot ?? process.cwd(), options);
+  }
+
+  async frontendAudit(): Promise<string[]> {
+    return buildFrontendAuditQueue();
   }
 
   /**

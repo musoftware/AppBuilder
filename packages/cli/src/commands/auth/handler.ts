@@ -114,6 +114,7 @@ export async function handleQwenAuth(
       prodReady: undefined,
       fullChain: undefined,
       clearChainCache: undefined,
+      frontendAudit: undefined,
       systemPrompt: undefined,
       appendSystemPrompt: undefined,
     };

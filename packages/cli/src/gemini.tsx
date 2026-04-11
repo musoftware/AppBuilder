@@ -145,6 +145,8 @@ export type InteractiveUiStartupOptions = {
   startupProdReady?: boolean;
   /** Auto-submit `/full-chain` when the UI is ready (same path as typing it). */
   startupFullChain?: boolean;
+  /** Auto-submit `/frontend-audit` when the UI is ready (same path as typing it). */
+  startupFrontendAudit?: boolean;
 };
 
 export async function startInteractiveUI(
@@ -184,6 +186,9 @@ export async function startInteractiveUI(
                   startupQualityCheck={interactiveStartup?.startupQualityCheck}
                   startupProdReady={interactiveStartup?.startupProdReady}
                   startupFullChain={interactiveStartup?.startupFullChain}
+                  startupFrontendAudit={
+                    interactiveStartup?.startupFrontendAudit
+                  }
                 />
               </AgentViewProvider>
             </VimModeProvider>
@@ -497,6 +502,25 @@ export async function main() {
       process.exit(0);
     }
 
+    if (argv.frontendAudit && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'frontend-audit-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
     if (argv.brainstorm) {
       await config.initialize();
       if (process.stdin.isTTY && process.stdin.isRaw) {
@@ -552,7 +576,9 @@ export async function main() {
             ? { startupProdReady: true }
             : argv.fullChain
               ? { startupFullChain: true }
-              : undefined,
+              : argv.frontendAudit
+                ? { startupFrontendAudit: true }
+                : undefined,
       );
       return;
     }
