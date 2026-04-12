@@ -57,12 +57,12 @@ describe('smartSkillsQueue', () => {
     expect(q[0]).toContain('[SKILL: smart-orchestrator]\nRun all.\n');
   });
 
-  it('buildSmartQueue uses bundled skills when workspace has no .qwen/skills', () => {
+  it('buildSmartQueue (prod-unified) uses bundled playbooks when workspace has no .qwen/skills', () => {
     const root = mkdtempSync(join(tmpdir(), 'pb-bundle-'));
     const q = buildSmartQueue(root);
     expect(q.length).toBeGreaterThan(0);
     expect(q[0]).toContain('## RESOLVED SKILL PATHS');
-    expect(q[0]).toContain('[SKILL: smart-orchestrator]');
+    expect(q[0]).toMatch(/Read the ENTIRE project codebase|BRAIN UPDATED/i);
   });
 
   it('PROJECT_BRAIN_SKILL_ORDER places persona reviews after test-fix and before prod-gate', () => {

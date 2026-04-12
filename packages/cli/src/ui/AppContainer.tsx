@@ -104,6 +104,7 @@ import { registerCleanup, runExitCleanup } from '../utils/cleanup.js';
 import {
   AutopilotDriver,
   getReadyProductionRounds,
+  summarizeAutopilotQueue,
 } from '@qwen-code/autopilot';
 import type {
   AutopilotInteractiveMode,
@@ -178,8 +179,6 @@ interface AppContainerProps {
   startupFrontendAudit?: boolean;
   /** From `mu-pilot --ready-production`: starts ready-production autopilot when ready (no slash). */
   startupReadyProduction?: boolean;
-  /** From `mu-pilot --smart`: starts smart orchestrator autopilot when ready (no slash). */
-  startupSmart?: boolean;
   /** From `mu-pilot --skill <name>`: starts that project-brain skill when ready (no slash). */
   startupBrainSkill?: string;
 }
@@ -210,7 +209,6 @@ export const AppContainer = (props: AppContainerProps) => {
     startupFullChain,
     startupFrontendAudit,
     startupReadyProduction,
-    startupSmart,
     startupBrainSkill,
   } = props;
   const historyManager = useHistory();
@@ -858,16 +856,17 @@ export const AppContainer = (props: AppContainerProps) => {
           historyManager.addItem(
             {
               type: MessageType.INFO,
-              text: 'Production (stack-detected): queuing phases (understand → audit → report → fix → verify → tests → final gate)…',
+              text: 'Production: queuing phases (understand → stack audits → custom skills → NEXT_SKILLS expansion → persona reviews → final gate). Uses bundled skill paths when `.qwen/skills/` is missing; smart-orchestrator is a single prompt when present…',
             },
             Date.now(),
           );
           try {
             const phases = driver.prod(process.cwd());
+            const pre = summarizeAutopilotQueue(phases);
             historyManager.addItem(
               {
                 type: MessageType.INFO,
-                text: `Production (stack-detected): ${phases.length} phase(s) queued — they will run automatically when idle.`,
+                text: `Production: ${pre.messageCount} queued message(s)${pre.labeledPhaseMarkers > 0 ? ` (~${pre.labeledPhaseMarkers} with PHASE x/y markers)` : ''}. Approval mode set to YOLO until the queue drains. Optional JSONL log: set env QWEN_AUTOPILOT_QUEUE_LOG to a file path. They run automatically when idle.`,
               },
               Date.now(),
             );
@@ -1088,49 +1087,6 @@ export const AppContainer = (props: AppContainerProps) => {
               {
                 type: MessageType.ERROR,
                 text: `Ready-production failed: ${msg}`,
-              },
-              Date.now(),
-            );
-          }
-          return;
-        }
-
-        if (mode === 'smart') {
-          historyManager.addItem(
-            {
-              type: MessageType.INFO,
-              text: 'Smart orchestrator: queuing bundled project-brain playbooks (with RESOLVED SKILL PATHS); project `.qwen/skills/` overrides when present…',
-            },
-            Date.now(),
-          );
-          try {
-            const workspaceRoot = process.cwd();
-            const phases = driver.smart(workspaceRoot);
-            if (phases.length === 0) {
-              historyManager.addItem(
-                {
-                  type: MessageType.ERROR,
-                  text: 'Smart orchestrator: no phases loaded. Reinstall or rebuild @qwen-code/autopilot (bundled `project-brain-skills/`), or add `.qwen/skills/` in this workspace.',
-                },
-                Date.now(),
-              );
-              return;
-            }
-            historyManager.addItem(
-              {
-                type: MessageType.INFO,
-                text: `Smart orchestrator: ${phases.length} message(s) queued — they will run automatically when idle.`,
-              },
-              Date.now(),
-            );
-            setAutopilotQueue(phases);
-          } catch (error: unknown) {
-            const msg = error instanceof Error ? error.message : String(error);
-            debugLogger.error('Smart orchestrator failed:', msg);
-            historyManager.addItem(
-              {
-                type: MessageType.ERROR,
-                text: `Smart orchestrator failed: ${msg}`,
               },
               Date.now(),
             );
@@ -1583,7 +1539,6 @@ export const AppContainer = (props: AppContainerProps) => {
   const startupFullChainSubmitted = useRef(false);
   const startupFrontendAuditSubmitted = useRef(false);
   const startupReadyProductionSubmitted = useRef(false);
-  const startupSmartSubmitted = useRef(false);
   const startupBrainSkillSubmitted = useRef(false);
 
   useEffect(() => {
@@ -1845,38 +1800,6 @@ export const AppContainer = (props: AppContainerProps) => {
     handleAutopilotRequest(undefined, 'ready-production');
   }, [
     startupReadyProduction,
-    initialPrompt,
-    isConfigInitialized,
-    handleAutopilotRequest,
-    isAuthenticating,
-    isAuthDialogOpen,
-    isThemeDialogOpen,
-    isEditorDialogOpen,
-    showWelcomeBackDialog,
-    welcomeBackChoice,
-    geminiClient,
-  ]);
-
-  useEffect(() => {
-    if (
-      !startupSmart ||
-      !isConfigInitialized ||
-      startupSmartSubmitted.current ||
-      Boolean(initialPrompt?.trim()) ||
-      isAuthenticating ||
-      isAuthDialogOpen ||
-      isThemeDialogOpen ||
-      isEditorDialogOpen ||
-      showWelcomeBackDialog ||
-      welcomeBackChoice === 'restart' ||
-      !geminiClient?.isInitialized?.()
-    ) {
-      return;
-    }
-    startupSmartSubmitted.current = true;
-    handleAutopilotRequest(undefined, 'smart');
-  }, [
-    startupSmart,
     initialPrompt,
     isConfigInitialized,
     handleAutopilotRequest,

@@ -7,8 +7,39 @@
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+const DEFAULT_PROJECT_BRAIN_DIR = '.project-brain';
+
+/**
+ * Relative directory under the workspace root for project memory (brain files).
+ * Override with `QWEN_PROJECT_BRAIN_DIR` — must be a relative path under the
+ * workspace (no `..`, no Windows drive prefix).
+ */
+export function getProjectBrainDirName(): string {
+  const raw = process.env['QWEN_PROJECT_BRAIN_DIR']?.trim();
+  if (!raw) {
+    return DEFAULT_PROJECT_BRAIN_DIR;
+  }
+  const norm = raw.replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  if (!norm || norm.includes('..')) {
+    return DEFAULT_PROJECT_BRAIN_DIR;
+  }
+  if (/^[a-zA-Z]:/.test(norm)) {
+    return DEFAULT_PROJECT_BRAIN_DIR;
+  }
+  return norm;
+}
+
+function projectBrainRoot(workspaceRoot: string): string {
+  return join(workspaceRoot, getProjectBrainDirName());
+}
+
+/** POSIX-style path segments for prompts (model-facing). */
+function brainPromptRel(...parts: string[]): string {
+  return [getProjectBrainDirName(), ...parts].join('/');
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -25,7 +56,7 @@ function getGitCommit(root: string): string {
 }
 
 function readBrainFile(name: string, root: string): string {
-  const p = join(root, '.project-brain', `${name}.md`);
+  const p = join(projectBrainRoot(root), `${name}.md`);
   return existsSync(p) ? readFileSync(p, 'utf8') : '';
 }
 
@@ -53,6 +84,52 @@ function getBundledProjectBrainSkillsRoot(): string | null {
   return null;
 }
 
+/**
+ * Prepended to the first `/prod` prompt so the model uses the CLI-bundled
+ * `project-brain-skills/` tree when the workspace has no `.qwen/skills/`.
+ */
+export function buildSkillPathsPreamble(workspaceRoot: string): string {
+  const bundleRoot = getBundledProjectBrainSkillsRoot();
+  const workspaceSkillsDir = resolve(join(workspaceRoot, '.qwen', 'skills'));
+  const workspaceExists = existsSync(workspaceSkillsDir);
+
+  if (!bundleRoot) {
+    return [
+      '## RESOLVED SKILL PATHS',
+      '',
+      'Bundled `project-brain-skills` was not found on this install. Use workspace paths only:',
+      `- \`${workspaceSkillsDir}\``,
+      '',
+    ].join('\n');
+  }
+
+  const bundleDir = resolve(bundleRoot);
+  const wsPlaybook = join(workspaceSkillsDir, '<skill-name>', 'SKILL.md');
+  const bdPlaybook = join(bundleDir, '<skill-name>', 'SKILL.md');
+
+  const lines = [
+    '## RESOLVED SKILL PATHS',
+    '',
+    'The open project may have **no** `.qwen/skills/` directory. That is expected; playbooks ship **with the CLI**.',
+    '',
+    'Whenever this run refers to `.qwen/skills/<skill-name>/SKILL.md`, open the file in this order:',
+    '',
+    `1. **Project override (if it exists):** \`${wsPlaybook}\` (replace \`<skill-name>\`).`,
+    `2. **Bundled with MU Code / @qwen-code/autopilot:** \`${bdPlaybook}\` (replace \`<skill-name>\`).`,
+    '',
+    workspaceExists
+      ? `Workspace skills dir exists: \`${workspaceSkillsDir}\` — use step 1 when the file is there; otherwise step 2.`
+      : `No workspace skills dir at \`${workspaceSkillsDir}\` — use step 2 for all built-in pipeline skills.`,
+    '',
+    'Do **not** stop with “missing `.qwen/skills`” without reading from the bundled path in step 2.',
+    '',
+    `**Project governance:** If \`${brainPromptRel('preferences.md')}\` or \`${brainPromptRel('decisions.md')}\` exist, treat them as read-only user or team constraints and past architectural choices. Do not edit them unless the user explicitly asked you to.`,
+    '',
+  ];
+
+  return lines.join('\n');
+}
+
 function readSkillFile(skillName: string, root: string): string | null {
   const workspacePath = join(root, '.qwen', 'skills', skillName, 'SKILL.md');
   if (existsSync(workspacePath)) {
@@ -66,6 +143,74 @@ function readSkillFile(skillName: string, root: string): string | null {
     }
   }
   return null;
+}
+
+/** Workspace-only skill file (no bundle). Used so bundled `smart-orchestrator` does not replace phased `/prod`. */
+function readWorkspaceSkillFile(
+  skillName: string,
+  root: string,
+): string | null {
+  const workspacePath = join(root, '.qwen', 'skills', skillName, 'SKILL.md');
+  if (existsSync(workspacePath)) {
+    return readFileSync(workspacePath, 'utf8');
+  }
+  return null;
+}
+
+const GOVERNANCE_PREFS_MAX = 6000;
+const GOVERNANCE_DECISIONS_MAX = 24000;
+
+function readGovernanceFile(
+  root: string,
+  filename: string,
+  maxChars: number,
+): string {
+  const p = join(projectBrainRoot(root), filename);
+  if (!existsSync(p)) {
+    return '';
+  }
+  try {
+    const raw = readFileSync(p, 'utf8').trim();
+    if (!raw) {
+      return '';
+    }
+    return raw.length > maxChars
+      ? `${raw.slice(0, maxChars)}\n\n[truncated]`
+      : raw;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * User preferences and architectural decision ledger under the project brain dir.
+ * Injected into `/prod` and prepended to context recap so every phase honors them.
+ */
+export function buildGovernanceBlock(workspaceRoot: string): string {
+  const prefs = readGovernanceFile(
+    workspaceRoot,
+    'preferences.md',
+    GOVERNANCE_PREFS_MAX,
+  );
+  const decisions = readGovernanceFile(
+    workspaceRoot,
+    'decisions.md',
+    GOVERNANCE_DECISIONS_MAX,
+  );
+  const blocks: string[] = [];
+  if (prefs) {
+    blocks.push(
+      `## GOVERNING — ${brainPromptRel('preferences.md')} (user-owned; read-only for this run)\n\n` +
+        prefs,
+    );
+  }
+  if (decisions) {
+    blocks.push(
+      `## GOVERNING — ${brainPromptRel('decisions.md')} (append-only decision ledger; read-only for this run)\n\n` +
+        decisions,
+    );
+  }
+  return blocks.join('\n\n');
 }
 
 // ─── NEXT_SKILLS PARSING ─────────────────────────────────────────────────────
@@ -147,7 +292,7 @@ function loadStoredHashes(
   root: string,
   skillName: string,
 ): Record<string, string> {
-  const p = join(root, '.project-brain', `${skillName}-filehashes.json`);
+  const p = join(projectBrainRoot(root), `${skillName}-filehashes.json`);
   if (!existsSync(p)) return {};
   try {
     return JSON.parse(readFileSync(p, 'utf8')) as Record<string, string>;
@@ -166,7 +311,7 @@ function storeFileHashes(root: string, skillName: string, text: string): void {
   }
   if (Object.keys(hashes).length === 0) return;
   try {
-    const brainDir = join(root, '.project-brain');
+    const brainDir = projectBrainRoot(root);
     writeFileSync(
       join(brainDir, `${skillName}-filehashes.json`),
       JSON.stringify(hashes, null, 2),
@@ -237,23 +382,30 @@ function extractBrainSection(text: string, section: string): string {
  * when the limit is exceeded.
  */
 function buildContextRecap(root: string, maxChars = 8000): string {
-  const brainDir = join(root, '.project-brain');
-  if (!existsSync(brainDir)) return '';
-
-  let files: string[];
-  try {
-    files = readdirSync(brainDir)
-      .filter(
-        (f) =>
-          f.endsWith('.md') &&
-          !f.includes('-report') &&
-          !f.includes('-handoff') &&
-          !f.includes('-fix1') &&
-          f !== 'work-log.md',
-      )
-      .sort();
-  } catch {
+  const gov = buildGovernanceBlock(root);
+  const brainDir = projectBrainRoot(root);
+  if (!existsSync(brainDir) && !gov) {
     return '';
+  }
+
+  let files: string[] = [];
+  try {
+    if (existsSync(brainDir)) {
+      files = readdirSync(brainDir)
+        .filter(
+          (f) =>
+            f.endsWith('.md') &&
+            !f.includes('-report') &&
+            !f.includes('-handoff') &&
+            !f.includes('-fix1') &&
+            f !== 'work-log.md' &&
+            f !== 'preferences.md' &&
+            f !== 'decisions.md',
+        )
+        .sort();
+    }
+  } catch {
+    files = [];
   }
 
   type Excerpt = { text: string };
@@ -273,8 +425,6 @@ function buildContextRecap(root: string, maxChars = 8000): string {
     }
   }
 
-  if (excerpts.length === 0) return '';
-
   // Drop oldest entries until total is within limit
   while (
     excerpts.length > 1 &&
@@ -283,15 +433,22 @@ function buildContextRecap(root: string, maxChars = 8000): string {
     excerpts.shift();
   }
 
-  const combined = excerpts.map((e) => e.text).join('\n\n');
-  if (!combined.trim()) return '';
-  return `PRIOR CONTEXT (SUMMARY + STATE from earlier skill reports):\n${combined}\n`;
+  const combined =
+    excerpts.length > 0
+      ? `PRIOR CONTEXT (SUMMARY + STATE from earlier skill reports):\n${excerpts.map((e) => e.text).join('\n\n')}\n`
+      : '';
+
+  const parts = [gov.trim(), combined.trim()].filter(Boolean);
+  if (parts.length === 0) {
+    return '';
+  }
+  return `${parts.join('\n\n')}\n`;
 }
 
 // ─── HANDOFF NOTES ───────────────────────────────────────────────────────────
 
 function readHandoffNote(root: string, skillName: string): string {
-  const p = join(root, '.project-brain', `${skillName}-handoff.md`);
+  const p = join(projectBrainRoot(root), `${skillName}-handoff.md`);
   if (!existsSync(p)) return '';
   try {
     return readFileSync(p, 'utf8').trim();
@@ -317,6 +474,116 @@ export const PROD_FIXED_REVIEW_SKILL_ORDER = [
   'review-as-pm',
   'review-as-data',
 ] as const;
+
+/**
+ * Default bundled pipeline order (for reserving skill dir names so “custom” skills
+ * are only extras under `.qwen/skills/`).
+ */
+export const PROJECT_BRAIN_SKILL_ORDER = [
+  'understand',
+  'audit-backend',
+  'audit-frontend',
+  'audit-roles',
+  'audit-database',
+  'plan',
+  'build',
+  'harden',
+  'test-unit',
+  'test-integration',
+  'test-e2e',
+  'test-fix',
+  ...PROD_FIXED_REVIEW_SKILL_ORDER,
+  'prod-gate',
+] as const;
+
+function readUnderstandForShape(root: string): string {
+  return readBrainFile('understand', root);
+}
+
+function projectHasFrontend(workspaceRoot: string): boolean {
+  const u = readUnderstandForShape(workspaceRoot).toLowerCase();
+  return u.includes('has_frontend: yes') || u.includes('has frontend: yes');
+}
+
+function projectHasBackend(workspaceRoot: string): boolean {
+  const understand = readUnderstandForShape(workspaceRoot);
+  if (!understand.trim()) {
+    return true;
+  }
+  const u = understand.toLowerCase();
+  return u.includes('has_backend: yes') || u.includes('has backend: yes');
+}
+
+/**
+ * Drop audits/tests that do not apply when understand.md already says there is
+ * no frontend or no backend (same rules as the former `--smart` queue).
+ */
+function filterSelectedForProjectShape(
+  selected: string[],
+  root: string,
+): string[] {
+  const hasFrontend = projectHasFrontend(root);
+  const hasBackend = projectHasBackend(root);
+  return selected.filter((skillName) => {
+    if (!hasFrontend && skillName === 'audit-frontend') {
+      return false;
+    }
+    if (
+      !hasBackend &&
+      (skillName === 'audit-backend' ||
+        skillName === 'audit-database' ||
+        skillName === 'test-unit' ||
+        skillName === 'test-integration')
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function findCustomSkills(workspaceRoot: string): string[] {
+  const reserved = new Set<string>([
+    ...PROJECT_BRAIN_SKILL_ORDER,
+    'smart-orchestrator',
+    'understand',
+  ]);
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  const collect = (skillsDir: string) => {
+    if (!existsSync(skillsDir)) {
+      return;
+    }
+    try {
+      const names = readdirSync(skillsDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name);
+      for (const name of names) {
+        if (reserved.has(name)) {
+          continue;
+        }
+        if (!existsSync(join(skillsDir, name, 'SKILL.md'))) {
+          continue;
+        }
+        if (seen.has(name)) {
+          continue;
+        }
+        seen.add(name);
+        out.push(name);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  collect(join(workspaceRoot, '.qwen', 'skills'));
+  const bundle = getBundledProjectBrainSkillsRoot();
+  if (bundle) {
+    collect(bundle);
+  }
+
+  return out;
+}
 
 /** Meta / orchestration playbooks — not run as per-skill mini-loops (prod-gate is the final prompt). */
 const SKILL_EXCLUDE = new Set([
@@ -543,9 +810,10 @@ function skillPhaseIntro(
 Each skill runs in **${SKILL_MINI_LOOP_PHASE_COUNT} separate queue steps**. Finish **only** phase ${phase} in this reply. ${tail}`;
 }
 
-/** Stack line reused by \`buildProdQueue\`, \`--smart\`, and \`--skill\` phased runs. */
+/** Stack line reused by \`buildProdQueue\` and \`--skill\` phased runs. */
 export function getProdStackContextInstruction(): string {
-  return `Re-read .project-brain/understand.md now (do not use any cached reading from earlier in this queue — understand.md may have been updated by a prior skill). Use lines starting with HAS_, DATABASE, ORM, AUTH, TEST_, MIGRATION_, PACKAGE_ as the stack summary for this workspace.`;
+  const u = brainPromptRel('understand.md');
+  return `Re-read ${u} now (do not use any cached reading from earlier in this queue — understand.md may have been updated by a prior skill). Use lines starting with HAS_, DATABASE, ORM, AUTH, TEST_, MIGRATION_, PACKAGE_ as the stack summary for this workspace.`;
 }
 
 export function buildSkillMiniLoop(
@@ -557,10 +825,11 @@ export function buildSkillMiniLoop(
   previousSkillName?: string,
   mode: 'smart' | 'prod' = 'prod',
 ): string[] {
-  const brain = `.project-brain/${skillName}.md`;
-  const brainReport = `.project-brain/${skillName}-report.md`;
-  const fix1File = `.project-brain/${skillName}-fix1.md`;
-  const handoffFile = `.project-brain/${skillName}-handoff.md`;
+  const bd = getProjectBrainDirName();
+  const brain = brainPromptRel(`${skillName}.md`);
+  const brainReport = brainPromptRel(`${skillName}-report.md`);
+  const fix1File = brainPromptRel(`${skillName}-fix1.md`);
+  const handoffFile = brainPromptRel(`${skillName}-handoff.md`);
 
   // Context recap block (empty string when root not provided or no brain files yet)
   const recap = root ? buildContextRecap(root) : '';
@@ -606,7 +875,7 @@ REVIEW-AS-MOBILE — FULL CHECKLIST, NOT A SAMPLE:
 
   const ctx = `
 PROJECT BRAIN:
-Read .project-brain/*.md when they exist (earlier steps may have created them).
+Read ${bd}/*.md when they exist (earlier steps may have created them).
 
 MISSING BRAIN FILES — REQUIRED (applies to every phase of this skill):
 - Never skip or print "SKIPPED" because ${brain} or ${brainReport} is missing.
@@ -619,7 +888,7 @@ ${recapBlock}`.trim();
 
   const failStopCheck = `
 QUEUE FAIL CHECK (do this first, before any other work):
-Scan .project-brain/ for any brain file containing the line \`VERDICT: FAIL\`.
+Scan ${bd}/ for any brain file containing the line \`VERDICT: FAIL\`.
 - If found → print ⛔ QUEUE STOPPED: <filename> reported VERDICT: FAIL — halting queue to avoid running on broken state. Do no further work.
 - If not found → continue normally.
 `;
@@ -627,7 +896,7 @@ Scan .project-brain/ for any brain file containing the line \`VERDICT: FAIL\`.
   return [
     `${ctx}
 
-${skillPhaseIntro(skillName, 1, 'WRITE BRAIN (.project-brain primary output)')}
+${skillPhaseIntro(skillName, 1, `WRITE BRAIN (${bd} primary output)`)}
 ${failStopCheck}${handoffBlock}
 ━━━ SKILL: ${skillName.toUpperCase()} ━━━
 
@@ -662,7 +931,7 @@ Print: ✅ AUDIT DONE: ${skillName} — <N> issues found`,
 
     `${ctx}
 
-${skillPhaseIntro(skillName, 2, 'WRITE REPORT (.project-brain/*-report.md)')}
+${skillPhaseIntro(skillName, 2, `WRITE REPORT (${bd}/*-report.md)`)}
 
 If ${brain} exists: read it and use it as the audit source.
 If ${brain} does NOT exist: run the full ${skillName} playbook from phase 1 (read the project), write ${brain} in the format above, then continue below.
@@ -777,7 +1046,7 @@ If nothing remaining: print ✅ ${skillName.toUpperCase()} COMPLETE — moving t
 }
 
 function readSkillReportMarkdown(root: string, skillName: string): string {
-  const p = join(root, '.project-brain', `${skillName}-report.md`);
+  const p = join(projectBrainRoot(root), `${skillName}-report.md`);
   return existsSync(p) ? readFileSync(p, 'utf8') : '';
 }
 
@@ -804,8 +1073,8 @@ export function buildSkillMiniLoopFixOnly(
   previousSkillName?: string,
   mode: 'smart' | 'prod' = 'prod',
 ): string[] {
-  const brain = `.project-brain/${skillName}.md`;
-  const report = `.project-brain/${skillName}-report.md`;
+  const brain = brainPromptRel(`${skillName}.md`);
+  const report = brainPromptRel(`${skillName}-report.md`);
   const full = buildSkillMiniLoop(
     skillName,
     skillContent,
@@ -917,10 +1186,11 @@ function buildUnderstandPrompt(
   commit: string,
   hasBrain: boolean,
 ): string {
+  const understandPath = brainPromptRel('understand.md');
   if (hasBrain) {
     return `The project brain exists and is current (commit ${commit.slice(0, 7)}).
 
-Read .project-brain/understand.md now.
+Read ${understandPath} now.
 
 Check only files changed since last scan:
 git diff --name-only HEAD~1 HEAD
@@ -964,7 +1234,7 @@ Read in this order:
 
 Detect the stack from files (do not assume a single framework — infer from manifests and entrypoints).
 
-Write to .project-brain/understand.md:
+Write to ${understandPath}:
 # Project Understanding
 Last commit: ${commit}
 Last scan: ${new Date().toISOString().split('T')[0]}
@@ -1011,14 +1281,15 @@ Print: ✅ UNDERSTOOD: <name> — <backend> — <frontend> — <database>`;
 // ─── FINAL PROD-GATE ─────────────────────────────────────────────────────────
 
 function buildFinalGate(date: string): string[] {
+  const bd = getProjectBrainDirName();
   return [
     `PROJECT BRAIN:
-Read the current .project-brain/*.md tree now (all audit and report files).
+Read the current ${bd}/*.md tree now (all audit and report files).
 
 All skills have been audited and fixed.
 Now run a final production readiness check across everything.
 
-Read ALL .project-brain/audit-*.md and .project-brain/*-report.md files.
+Read ALL ${bd}/audit-*.md and ${bd}/*-report.md files.
 
 Check every item:
 CODE: no TODOs, no hardcoded secrets, no dead code, proper error handling
@@ -1047,8 +1318,8 @@ Remaining blockers (if any):
 
 ─────────────────────────────────────────────────────────────────
 
-Save to: .project-brain/report.md
-Append to .project-brain/work-log.md:
+Save to: ${bd}/report.md
+Append to: ${bd}/work-log.md:
 \`[${date}] prod — final gate — <PROD_READY|NOT_READY>\`
 
 If PROD_READY → print: 🎉 PRODUCTION READY
@@ -1060,6 +1331,18 @@ If NOT_READY  → print: ⚠️ REMAINING ISSUES — see blockers above`,
 
 export function buildProdQueue(workspaceRoot?: string): string[] {
   const root = workspaceRoot ?? process.cwd();
+
+  const orchestrator = readWorkspaceSkillFile('smart-orchestrator', root);
+  if (orchestrator) {
+    const gov = buildGovernanceBlock(root);
+    const govSep = gov ? `\n\n---\n\n${gov}` : '';
+    return [
+      `${buildSkillPathsPreamble(root)}${govSep}\n\n---\n\n${orchestrator}`,
+    ];
+  }
+
+  const preamble = buildSkillPathsPreamble(root);
+  const governance = buildGovernanceBlock(root);
   const commit = getGitCommit(root);
   const hasBrain = brainIsCurrent(root);
   const understand = readBrainFile('understand', root);
@@ -1067,14 +1350,19 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
 
   const queue: string[] = [];
 
-  queue.push(buildUnderstandPrompt(root, commit, hasBrain));
+  const govSep = governance ? `\n\n---\n\n${governance}` : '';
+  queue.push(
+    `${preamble}${govSep}\n\n---\n\n${buildUnderstandPrompt(root, commit, hasBrain)}`,
+  );
 
   const available = getAvailableSkills(root);
-  const selected = understand.trim()
+  const selectedRaw = understand.trim()
     ? selectSkills(understand, available)
     : selectAllAvailableOrdered(available);
+  const selected = filterSelectedForProjectShape(selectedRaw, root);
 
   const stackInstruction = getProdStackContextInstruction();
+  const phaseMode = 'smart' as const;
 
   let prevSkill: string | undefined = undefined;
 
@@ -1092,10 +1380,61 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
         stackInstruction,
         date,
         prevSkill,
-        'prod',
+        phaseMode,
       ),
     );
     prevSkill = skillName;
+  }
+
+  const customSkills = findCustomSkills(root);
+  for (const name of customSkills) {
+    const skillContent = readSkillFile(name, root);
+    if (!skillContent) {
+      continue;
+    }
+    queue.push(
+      ...resolveSkillPhaseMessages(
+        root,
+        name,
+        skillContent,
+        stackInstruction,
+        date,
+        prevSkill,
+        phaseMode,
+      ),
+    );
+    prevSkill = name;
+  }
+
+  const skillsSeenBeforeDynamic = new Set<string>([
+    'understand',
+    ...selected,
+    ...customSkills,
+    ...PROD_FIXED_REVIEW_SKILL_ORDER,
+  ]);
+  const nextExpanded = collectNextSkillsDynamic(
+    root,
+    skillsSeenBeforeDynamic,
+    3,
+  ).filter((n) => n !== 'prod-gate');
+
+  for (const name of nextExpanded) {
+    const skillContent = readSkillFile(name, root);
+    if (!skillContent) {
+      continue;
+    }
+    queue.push(
+      ...resolveSkillPhaseMessages(
+        root,
+        name,
+        skillContent,
+        stackInstruction,
+        date,
+        prevSkill,
+        phaseMode,
+      ),
+    );
+    prevSkill = name;
   }
 
   for (const skillName of PROD_FIXED_REVIEW_SKILL_ORDER) {
@@ -1111,7 +1450,7 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
         stackInstruction,
         date,
         prevSkill,
-        'prod',
+        phaseMode,
       ),
     );
     prevSkill = skillName;
@@ -1120,4 +1459,20 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
   queue.push(...buildFinalGate(date));
 
   return queue;
+}
+
+/** Pre-flight stats for UI copy (not a token or wall-clock estimate). */
+export interface AutopilotQueueSummary {
+  messageCount: number;
+  labeledPhaseMarkers: number;
+}
+
+export function summarizeAutopilotQueue(
+  messages: string[],
+): AutopilotQueueSummary {
+  return {
+    messageCount: messages.length,
+    labeledPhaseMarkers: messages.filter((m) => /\bPHASE \d+\/\d+/i.test(m))
+      .length,
+  };
 }

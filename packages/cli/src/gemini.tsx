@@ -157,8 +157,6 @@ export type InteractiveUiStartupOptions = {
   startupFrontendAudit?: boolean;
   /** When the UI is ready, start ready-production autopilot (direct). */
   startupReadyProduction?: boolean;
-  /** When the UI is ready, start smart orchestrator autopilot (direct). */
-  startupSmart?: boolean;
   /** When the UI is ready, start the given project-brain skill (direct). */
   startupBrainSkill?: string;
 };
@@ -214,7 +212,6 @@ export async function startInteractiveUI(
                   startupReadyProduction={
                     interactiveStartup?.startupReadyProduction
                   }
-                  startupSmart={interactiveStartup?.startupSmart}
                   startupBrainSkill={interactiveStartup?.startupBrainSkill}
                 />
               </AgentViewProvider>
@@ -596,25 +593,6 @@ export async function main() {
       process.exit(0);
     }
 
-    if (argv.smart && !config.isInteractive()) {
-      await config.initialize();
-      if (process.stdin.isTTY && process.stdin.isRaw) {
-        process.stdin.setRawMode(false);
-      }
-      try {
-        await runBrainstormAutopilot(
-          config,
-          settings,
-          undefined,
-          'brownfield',
-          'smart-only',
-        );
-      } finally {
-        await runExitCleanup();
-      }
-      process.exit(0);
-    }
-
     if (
       argv.skill !== undefined &&
       typeof argv.skill === 'string' &&
@@ -700,20 +678,18 @@ export async function main() {
                   ? { startupFrontendAudit: true }
                   : argv.readyProduction
                     ? { startupReadyProduction: true }
-                    : argv.smart
-                      ? { startupSmart: true }
-                      : typeof argv.skill === 'string' && argv.skill.trim()
-                        ? { startupBrainSkill: argv.skill.trim() }
-                        : argv.brainstorm
-                          ? {
-                              startupBrainstorm: true,
-                              startupBrainstormInitialIdea:
-                                argv.brainstormInitialIdea,
-                              startupBrainstormBrownfield: Boolean(
-                                argv.brownfield,
-                              ),
-                            }
-                          : undefined,
+                    : typeof argv.skill === 'string' && argv.skill.trim()
+                      ? { startupBrainSkill: argv.skill.trim() }
+                      : argv.brainstorm
+                        ? {
+                            startupBrainstorm: true,
+                            startupBrainstormInitialIdea:
+                              argv.brainstormInitialIdea,
+                            startupBrainstormBrownfield: Boolean(
+                              argv.brownfield,
+                            ),
+                          }
+                        : undefined,
       );
       return;
     }

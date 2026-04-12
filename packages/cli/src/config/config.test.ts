@@ -652,12 +652,6 @@ describe('parseArguments', () => {
     expect(argv.readyProduction).toBe(true);
   });
 
-  it('should enable --smart flag', async () => {
-    process.argv = ['node', 'script.js', '--smart'];
-    const argv = await parseArguments();
-    expect(argv.smart).toBe(true);
-  });
-
   it('should map --skill name', async () => {
     process.argv = ['node', 'script.js', '--skill', 'understand'];
     const argv = await parseArguments();
@@ -795,17 +789,6 @@ describe('loadCliConfig', () => {
     const argv = await parseArguments();
     vi.mocked(isWorkspaceTrusted).mockReturnValue({
       isTrusted: false,
-      source: 'file',
-    });
-    const config = await loadCliConfig({}, argv, undefined, []);
-    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
-  });
-
-  it('should force YOLO when --smart is set (project-brain orchestrator)', async () => {
-    process.argv = ['node', 'script.js', '--smart'];
-    const argv = await parseArguments();
-    vi.mocked(isWorkspaceTrusted).mockReturnValue({
-      isTrusted: true,
       source: 'file',
     });
     const config = await loadCliConfig({}, argv, undefined, []);

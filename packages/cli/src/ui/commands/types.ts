@@ -213,7 +213,6 @@ export type AutopilotInteractiveMode =
   | 'design'
   | 'skill'
   | 'brain-skill'
-  | 'smart'
   | 'project-hardening';
 
 /** Run autopilot through the interactive chat pipeline. */
@@ -222,7 +221,7 @@ export interface AutopilotActionReturn {
   /**
    * - default (no mode): the user's idea/request for brainstorm → plan → execute
    * - 'quality-check': analyze & fix bugs only, no planning phase
-   * - 'prod': stack-detected production pipeline (understand → audit → report → fix → tests)
+   * - 'prod': production pipeline (stack-detected audits, custom skills, NEXT_SKILLS expansion, persona reviews, final gate; smart-orchestrator single prompt when present)
    * - 'prod-ready': optional focus text; queues 7 production-readiness phases
    * - 'full-chain': queues 10-phase BMAD chain through production gate
    * - 'frontend-audit': queues 4-phase frontend role/screen audit, fix, tests, run
@@ -230,7 +229,6 @@ export interface AutopilotActionReturn {
    * - 'design': initialIdea = design system name (e.g. 'cursor', 'stripe')
    * - 'skill': initialIdea = skill folder name (e.g. 'e2e-testing')
    * - 'brain-skill': initialIdea = project-brain skill name (e.g. 'audit-frontend')
-   * - 'smart': project-brain smart orchestrator queue
    * - 'project-hardening': optional focus text; queues 9 skill phases
    */
   initialIdea?: string;

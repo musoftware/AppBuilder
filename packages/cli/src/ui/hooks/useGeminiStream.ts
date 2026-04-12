@@ -51,6 +51,11 @@ import {
   isSupportedImageMimeType,
   getUnsupportedImageFormatWarning,
 } from '@qwen-code/qwen-code-core';
+import {
+  appendAutopilotQueueJsonl,
+  getAutopilotQueueLogPath,
+  logAutopilotQueueTurn,
+} from '../../autopilot/autopilotQueueJsonl.js';
 import { type Part, type PartListUnion, FinishReason } from '@google/genai';
 import type {
   HistoryItem,
@@ -230,6 +235,10 @@ export const useGeminiStream = (
   ] = useStateAndRef<HistoryItemWithoutId | null>(null);
   const retryCountdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
+  );
+  /** Clears the autopilot queue on API/stream errors unless `QWEN_AUTOPILOT_STOP_QUEUE_ON_ERROR=0`. */
+  const haltAutopilotQueueOnErrorRef = useRef<(reason: string) => void>(
+    () => {},
   );
   const processedMemoryToolsRef = useRef<Set<string>>(new Set());
   const {
@@ -852,6 +861,7 @@ export const useGeminiStream = (
         });
       }
       setThought(null); // Reset thought when there's an error
+      haltAutopilotQueueOnErrorRef.current('gemini_error_event');
     },
     [
       addItem,
@@ -1459,6 +1469,7 @@ export const useGeminiStream = (
           }
         } catch (error: unknown) {
           if (error instanceof UnauthorizedError) {
+            haltAutopilotQueueOnErrorRef.current('unauthorized');
             onAuthError('Session expired or is unauthorized.');
           } else if (!isNodeError(error) || error.name !== 'AbortError') {
             lastPromptErroredRef.current = true;
@@ -1472,6 +1483,7 @@ export const useGeminiStream = (
               ),
               hint: retryHint,
             });
+            haltAutopilotQueueOnErrorRef.current('submit_query_throw');
           }
         } finally {
           setIsResponding(false);
@@ -1918,16 +1930,23 @@ export const useGeminiStream = (
   // with a list of task messages after the planning phase completes, then this
   // hook drains them one-by-one through the normal chat pipeline.
   const autopilotQueueRef = useRef<string[]>([]);
+  const autopilotSessionTotalRef = useRef(0);
+  const autopilotTurnSubmittedRef = useRef(0);
   const [autopilotTrigger, setAutopilotTrigger] = useState(0);
 
   const setAutopilotQueue = useCallback(
     (messages: string[]) => {
       autopilotQueueRef.current = [...messages];
       if (messages.length > 0) {
-        // Match --brainstorm / --prod / --prod-ready / --full-chain / --frontend-audit / --ready-production / --smart / --skill: drain queued prompts without tool
+        autopilotSessionTotalRef.current = messages.length;
+        autopilotTurnSubmittedRef.current = 0;
+        // Match --brainstorm / --prod / --prod-ready / --full-chain / --frontend-audit / --ready-production / --skill: drain queued prompts without tool
         // confirmation dialogs (agent, shell, edits, etc.).
         config.setApprovalMode(ApprovalMode.YOLO);
         void handleApprovalModeChange(ApprovalMode.YOLO);
+      } else {
+        autopilotSessionTotalRef.current = 0;
+        autopilotTurnSubmittedRef.current = 0;
       }
       setAutopilotTrigger((n) => n + 1);
     },
@@ -1940,9 +1959,39 @@ export const useGeminiStream = (
       autopilotQueueRef.current.length > 0
     ) {
       const prompt = autopilotQueueRef.current.shift()!;
+      autopilotTurnSubmittedRef.current += 1;
+      logAutopilotQueueTurn(getAutopilotQueueLogPath(), {
+        kind: 'autopilot_queue',
+        index: autopilotTurnSubmittedRef.current,
+        total: autopilotSessionTotalRef.current,
+        prompt,
+        extra: { source: 'interactive_tui' },
+      });
       submitQuery(prompt, SendMessageType.Cron);
     }
   }, [streamingState, submitQuery, autopilotTrigger]);
+
+  haltAutopilotQueueOnErrorRef.current = (reason: string) => {
+    if (process.env['QWEN_AUTOPILOT_STOP_QUEUE_ON_ERROR'] === '0') {
+      return;
+    }
+    const dropped = autopilotQueueRef.current.length;
+    if (dropped === 0) {
+      return;
+    }
+    autopilotQueueRef.current = [];
+    autopilotSessionTotalRef.current = 0;
+    autopilotTurnSubmittedRef.current = 0;
+    setAutopilotTrigger((n) => n + 1);
+    const logPath = getAutopilotQueueLogPath();
+    if (logPath) {
+      appendAutopilotQueueJsonl(logPath, {
+        kind: 'autopilot_queue_halted',
+        reason,
+        droppedRemaining: dropped,
+      });
+    }
+  };
 
   return {
     streamingState,

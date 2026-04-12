@@ -171,7 +171,6 @@ export interface CliArgs {
   clearChainCache: boolean | undefined;
   frontendAudit: boolean | undefined;
   readyProduction: boolean | undefined;
-  smart: boolean | undefined;
   skill: string | undefined;
 }
 
@@ -217,7 +216,7 @@ export async function parseArguments(): Promise<CliArgs> {
         'Run autocreator <command> --help for subcommands.',
         '',
         'Autopilot-style flags (default command): --brainstorm (-b),',
-        '--brownfield (with --brainstorm), --quality-check, --prod, --prod-ready, --full-chain, --frontend-audit, --ready-production, --smart, --skill <name>.',
+        '--brownfield (with --brainstorm), --quality-check, --prod, --prod-ready, --full-chain, --frontend-audit, --ready-production, --skill <name>.',
         '',
         'Interactive TUI: /help lists slash commands. Examples: /quality-check,',
         '/project-hardening (9-phase workspace hardening; optional focus text).',
@@ -408,7 +407,7 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('prod', {
           type: 'boolean',
           description:
-            'Production pipeline with automatic stack detection: understand → audit (backend, database, frontend, roles) → report → fix → tests → final gate. Uses detected tooling (install, build, migrate, test commands) in prompts. Without a TTY, runs as a standalone tool loop.',
+            'Production pipeline: stack-detected audits, custom `.qwen/skills/` playbooks, NEXT_SKILLS expansion (up to 3 hops), persona reviews, then final gate. If the **workspace** (not the CLI bundle) defines `.qwen/skills/smart-orchestrator/SKILL.md`, runs that single orchestrator prompt instead. Prepends bundled skill-path resolution when the workspace has no `.qwen/skills/`. Without a TTY, runs as a standalone tool loop.',
           default: false,
         })
         .option('prod-ready', {
@@ -439,12 +438,6 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'boolean',
           description:
             'Run outer rounds of full-chain → frontend-audit → quality-check (default 5 rounds; set QWEN_READY_PRODUCTION_ROUNDS). Without a TTY, stops early when prod + frontend gates look green unless QWEN_READY_PRODUCTION_EXIT_WHEN_READY=0. Interactive mode queues the same sequence through the chat pipeline.',
-          default: false,
-        })
-        .option('smart', {
-          type: 'boolean',
-          description:
-            'Smart orchestrator: reads .project-brain/, runs the pipeline in order. With bundled smart-orchestrator this is one prompt; otherwise each skill uses the same six-phase pattern as --prod: missing brain file → full scan+fix; saved NOT_READY/NEEDS_WORK → fix phases only; clean PROD_READY → full scan again.',
           default: false,
         })
         .option('skill', {
@@ -908,7 +901,7 @@ export async function loadCliConfig(
   }
 
   // Unattended CLI entry points: force YOLO so tools run without prompts.
-  // - --brainstorm / --prod / --prod-ready / --full-chain / --frontend-audit / --ready-production / --quality-check / --smart / --skill (this block)
+  // - --brainstorm / --prod / --prod-ready / --full-chain / --frontend-audit / --ready-production / --quality-check / --skill (this block)
   // - Interactive TUI: cron-fired prompts, autopilot queues (/prod-ready, etc.)
   //   set YOLO in useGeminiStream; non-interactive cron in nonInteractiveCli /
   //   ACP Session sets YOLO when a job fires.
@@ -920,7 +913,6 @@ export async function loadCliConfig(
     argv.frontendAudit ||
     argv.readyProduction ||
     argv.qualityCheck ||
-    argv.smart ||
     (typeof argv.skill === 'string' && argv.skill.trim().length > 0)
   ) {
     approvalMode = ApprovalMode.YOLO;

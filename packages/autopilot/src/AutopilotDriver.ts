@@ -27,7 +27,7 @@ import {
 } from './fullChainQueue.js';
 import { buildFrontendAuditQueue } from './frontendAuditQueue.js';
 import { getReadyProductionRounds } from './readyProductionConstants.js';
-import { buildSingleSkillQueue, buildSmartQueue } from './smartSkillsQueue.js';
+import { buildSingleSkillQueue } from './smartSkillsQueue.js';
 
 /** Options for {@link AutopilotDriver.plan}. */
 export interface AutopilotPlanCallOptions {
@@ -400,14 +400,6 @@ export class AutopilotDriver {
 
   async frontendAudit(): Promise<string[]> {
     return buildFrontendAuditQueue();
-  }
-
-  /**
-   * Project-brain smart queue: bundled `smart-orchestrator` is one prompt; otherwise
-   * each skill is expanded to **six phased** prompts (same as prod mini-loop).
-   */
-  smart(workspaceRoot?: string): string[] {
-    return buildSmartQueue(workspaceRoot ?? process.cwd());
   }
 
   /**

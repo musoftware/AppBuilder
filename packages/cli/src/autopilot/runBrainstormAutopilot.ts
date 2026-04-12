@@ -1,4 +1,4 @@
-import { AutopilotSession } from '@qwen-code/autopilot';
+import { AutopilotSession, type ChatMessage } from '@qwen-code/autopilot';
 import type { Config } from '@qwen-code/qwen-code-core';
 import type { LoadedSettings } from '../config/settings.js';
 import { resolvePath } from '../utils/resolvePath.js';
@@ -7,6 +7,34 @@ import { createAutopilotModelAdapters } from './autopilotToolLoop.js';
 import { runStandaloneFullChain } from './runStandaloneFullChain.js';
 import { runStandaloneFrontendAudit } from './runStandaloneFrontendAudit.js';
 import { runStandaloneQualityCheck } from './runStandaloneQualityCheck.js';
+import {
+  getAutopilotQueueLogPath,
+  logAutopilotQueueTurn,
+} from './autopilotQueueJsonl.js';
+
+async function runHeadlessAutopilotPhaseLoop(
+  phases: string[],
+  callModelWithTools: (
+    messages: ChatMessage[],
+    system: string,
+    yolo: boolean,
+  ) => Promise<string>,
+  system: string,
+  source: string,
+): Promise<void> {
+  const logPath = getAutopilotQueueLogPath();
+  for (let i = 0; i < phases.length; i++) {
+    const phase = phases[i]!;
+    logAutopilotQueueTurn(logPath, {
+      kind: 'autopilot_queue',
+      index: i + 1,
+      total: phases.length,
+      prompt: phase,
+      extra: { source },
+    });
+    await callModelWithTools([{ role: 'user', content: phase }], system, true);
+  }
+}
 
 export async function runBrainstormAutopilot(
   config: Config,
@@ -20,7 +48,6 @@ export async function runBrainstormAutopilot(
     | 'full-chain-only'
     | 'frontend-audit-only'
     | 'ready-production-only'
-    | 'smart-only'
     | 'skill-only',
 ): Promise<void> {
   const ap = settings.merged.autopilot;
@@ -39,13 +66,12 @@ export async function runBrainstormAutopilot(
     const phases = buildProdQueue(process.cwd());
     const system =
       'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
-    for (const phase of phases) {
-      await callModelWithTools(
-        [{ role: 'user', content: phase }],
-        system,
-        true,
-      );
-    }
+    await runHeadlessAutopilotPhaseLoop(
+      phases,
+      callModelWithTools,
+      system,
+      'prod-only',
+    );
     return;
   }
 
@@ -55,13 +81,12 @@ export async function runBrainstormAutopilot(
     const phases = buildProdReadyQueue(focus ? focus : undefined);
     const system =
       'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
-    for (const phase of phases) {
-      await callModelWithTools(
-        [{ role: 'user', content: phase }],
-        system,
-        true,
-      );
-    }
+    await runHeadlessAutopilotPhaseLoop(
+      phases,
+      callModelWithTools,
+      system,
+      'prod-ready-only',
+    );
     return;
   }
 
@@ -123,34 +148,18 @@ export async function runBrainstormAutopilot(
     return;
   }
 
-  if (mode === 'smart-only') {
-    const { buildSmartQueue } = await import('@qwen-code/autopilot');
-    const phases = buildSmartQueue(process.cwd());
-    const system =
-      'You are an expert autonomous coding agent. Execute the instructions in the user message completely in the current workspace.';
-    for (const phase of phases) {
-      await callModelWithTools(
-        [{ role: 'user', content: phase }],
-        system,
-        true,
-      );
-    }
-    return;
-  }
-
   if (mode === 'skill-only') {
     const { buildSingleSkillQueue } = await import('@qwen-code/autopilot');
     const skillName = initialIdea?.trim() ?? '';
     const phases = buildSingleSkillQueue(skillName, process.cwd());
     const system =
       'You are an expert autonomous coding agent. Execute the instructions in the user message completely in the current workspace.';
-    for (const phase of phases) {
-      await callModelWithTools(
-        [{ role: 'user', content: phase }],
-        system,
-        true,
-      );
-    }
+    await runHeadlessAutopilotPhaseLoop(
+      phases,
+      callModelWithTools,
+      system,
+      'skill-only',
+    );
     return;
   }
 

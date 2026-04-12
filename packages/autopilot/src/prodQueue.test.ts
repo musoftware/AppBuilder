@@ -7,12 +7,14 @@
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildProdQueue,
   getProdStackContextInstruction,
+  getProjectBrainDirName,
   resolveSkillPhaseMessages,
   SKILL_MINI_LOOP_PHASE_COUNT,
+  summarizeAutopilotQueue,
 } from './prodQueue.js';
 
 function tempWorkspace(): string {
@@ -97,12 +99,52 @@ describe('resolveSkillPhaseMessages', () => {
   });
 });
 
+describe('getProjectBrainDirName', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('defaults to .project-brain when unset', () => {
+    vi.stubEnv('QWEN_PROJECT_BRAIN_DIR', '');
+    expect(getProjectBrainDirName()).toBe('.project-brain');
+  });
+
+  it('uses a safe custom relative directory from the env', () => {
+    vi.stubEnv('QWEN_PROJECT_BRAIN_DIR', 'custom-brain');
+    expect(getProjectBrainDirName()).toBe('custom-brain');
+  });
+
+  it('rejects path traversal and drive-prefixed values', () => {
+    vi.stubEnv('QWEN_PROJECT_BRAIN_DIR', '../etc');
+    expect(getProjectBrainDirName()).toBe('.project-brain');
+    vi.stubEnv('QWEN_PROJECT_BRAIN_DIR', 'C:/brain');
+    expect(getProjectBrainDirName()).toBe('.project-brain');
+  });
+});
+
+describe('summarizeAutopilotQueue', () => {
+  it('counts messages and PHASE markers', () => {
+    const s = summarizeAutopilotQueue([
+      'a',
+      '━━━ `x` — PHASE 1/6 — y ━━━',
+      'PHASE 2/6',
+    ]);
+    expect(s.messageCount).toBe(3);
+    expect(s.labeledPhaseMarkers).toBe(2);
+  });
+});
+
 describe('buildProdQueue', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('starts with UNDERSTAND / brain flow and ends with final prod report gate', () => {
     const root = tempWorkspace();
     const phases = buildProdQueue(root);
     expect(phases.length).toBeGreaterThan(0);
     const first = phases[0] ?? '';
+    expect(first).toMatch(/RESOLVED SKILL PATHS/);
     expect(first).toMatch(/project codebase|BRAIN UPDATED/i);
     const last = phases[phases.length - 1] ?? '';
     expect(last).toMatch(/FINAL PROD REPORT/i);
@@ -160,6 +202,42 @@ describe('buildProdQueue', () => {
     expect(joined).not.toMatch(/SKILL: AUDIT-ROLES/i);
     expect(joined).toMatch(/SKILL: TEST-E2E/i);
     expect(joined).toMatch(/SKILL: AUDIT-BACKEND/i);
+  });
+
+  it('prepends governance files to the first queued message when present', () => {
+    const root = tempWorkspace();
+    mkdirSync(join(root, '.project-brain'), { recursive: true });
+    writeFileSync(
+      join(root, '.project-brain', 'preferences.md'),
+      'Prefer Vitest over Jest.\n',
+      'utf8',
+    );
+    writeFileSync(
+      join(root, '.project-brain', 'decisions.md'),
+      '2026-04-01 — Chose PostgreSQL for primary store.\n',
+      'utf8',
+    );
+    const phases = buildProdQueue(root);
+    const first = phases[0] ?? '';
+    expect(first).toMatch(/preferences\.md/);
+    expect(first).toMatch(/Prefer Vitest/);
+    expect(first).toMatch(/decisions\.md/);
+    expect(first).toMatch(/PostgreSQL/);
+  });
+
+  it('reads governance from QWEN_PROJECT_BRAIN_DIR when set', () => {
+    vi.stubEnv('QWEN_PROJECT_BRAIN_DIR', 'alt-brain');
+    const root = tempWorkspace();
+    mkdirSync(join(root, 'alt-brain'), { recursive: true });
+    writeFileSync(
+      join(root, 'alt-brain', 'preferences.md'),
+      'Use pnpm.\n',
+      'utf8',
+    );
+    const phases = buildProdQueue(root);
+    const first = phases[0] ?? '';
+    expect(first).toMatch(/alt-brain\/preferences\.md/);
+    expect(first).toMatch(/Use pnpm/);
   });
 
   it('selects multi-tenant and billing when understand mentions SaaS', () => {

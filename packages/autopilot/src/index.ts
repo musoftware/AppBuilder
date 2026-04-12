@@ -2,14 +2,21 @@ export { AutopilotSession } from './AutopilotSession.js';
 export { AutopilotDriver } from './AutopilotDriver.js';
 export { buildProdReadyQueue } from './prodReadyQueue.js';
 export {
+  buildGovernanceBlock,
   buildProdQueue,
   buildSkillMiniLoop,
   buildSkillMiniLoopFixOnly,
+  buildSkillPathsPreamble,
+  collectNextSkillsDynamic,
   getProdStackContextInstruction,
+  getProjectBrainDirName,
+  PROJECT_BRAIN_SKILL_ORDER,
   PROD_FIXED_REVIEW_SKILL_ORDER,
   resolveSkillPhaseMessages,
   SKILL_MINI_LOOP_PHASE_COUNT,
+  summarizeAutopilotQueue,
 } from './prodQueue.js';
+export type { AutopilotQueueSummary } from './prodQueue.js';
 export {
   buildFullChainQueue,
   buildFullChainRunPlan,
@@ -63,9 +70,4 @@ export type {
   AutopilotSettings,
   ChatMessage,
 } from './types.js';
-export {
-  buildSkillPathsPreamble,
-  buildSmartQueue,
-  buildSingleSkillQueue,
-  PROJECT_BRAIN_SKILL_ORDER,
-} from './smartSkillsQueue.js';
+export { buildSmartQueue, buildSingleSkillQueue } from './smartSkillsQueue.js';
