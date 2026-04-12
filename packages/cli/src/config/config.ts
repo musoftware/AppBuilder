@@ -444,13 +444,13 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('smart', {
           type: 'boolean',
           description:
-            'Smart orchestrator: reads .project-brain/, understands the project, selects the right skills automatically (backend audit, frontend audit, roles, tests, etc.), runs them in order, and documents every action. Skips skills that already ran and are current.',
+            'Smart orchestrator: reads .project-brain/, runs the pipeline in order, documents actions. With bundled smart-orchestrator playbook this is one prompt; otherwise each skill is queued as six phases (brain → report → fix → verify → complete), same as --prod. Skips skills already current vs git.',
           default: false,
         })
         .option('skill', {
           type: 'string',
           description:
-            'Run a single project-brain skill by name. Example: --skill audit-frontend, --skill test-e2e, --skill prod-gate. Reads .project-brain/understand.md as context when present. Playbooks resolve from project .qwen/skills/<name>/SKILL.md when present, otherwise from the CLI-bundled project-brain-skills directory.',
+            'Run one project-brain skill by name (six queued phases by default: brain, report, fixes, verify, complete — except understand and smart-orchestrator). Example: --skill audit-frontend, --skill test-e2e. Playbooks: .qwen/skills/<name>/SKILL.md or bundled project-brain-skills.',
         })
         .option('allowed-mcp-server-names', {
           type: 'array',

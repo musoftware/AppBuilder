@@ -1,7 +1,13 @@
 export { AutopilotSession } from './AutopilotSession.js';
 export { AutopilotDriver } from './AutopilotDriver.js';
 export { buildProdReadyQueue } from './prodReadyQueue.js';
-export { buildProdQueue, PROD_FIXED_REVIEW_SKILL_ORDER } from './prodQueue.js';
+export {
+  buildProdQueue,
+  buildSkillMiniLoop,
+  getProdStackContextInstruction,
+  PROD_FIXED_REVIEW_SKILL_ORDER,
+  SKILL_MINI_LOOP_PHASE_COUNT,
+} from './prodQueue.js';
 export {
   buildFullChainQueue,
   buildFullChainRunPlan,

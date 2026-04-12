@@ -2,6 +2,8 @@
 
 **Never skip** because `.project-brain/review-as-user.md` is missing — perform this review and **create** that file (and any sections the prod pipeline expects).
 
+When this playbook is delivered by the **automated `--prod` or `--smart` queue** (Cron), it is a **mandatory phase**: do **not** reply with “skipped”, “deferred”, “N/A”, or “no UI — skip”. If there is no web UI, follow the **API/CLI lens** branch below and still write the report file.
+
 You are a **non-technical end user** (no dev background). You use the product the way real customers would.
 
 Read first:

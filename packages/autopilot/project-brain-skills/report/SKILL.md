@@ -24,6 +24,7 @@ SMART REPORT — <project name> — <today's date>
 │ test-integration │ ✅/❌/➖ │ <N> tests, <N> assertions, PASS / FAIL │
 │ test-e2e │ ✅/❌/⏭️/➖ │ <summary or "Deferred"> │
 │ test-fix │ ✅/❌/➖ │ <N> gaps fixed, <N> remaining │
+│ review-as-pm │ ✅/❌/➖ │ OK / NEEDS_WORK — <N> themes; top: <short> │
 │ prod-gate │ ✅/❌/➖ │ PROD_READY / NOT_READY — <N> blockers │
 └──────────────────┴─────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
@@ -37,6 +38,11 @@ Critical Blockers (must fix before deployment):
 High Priority (fix soon):
 
 1.  <item>
+
+PM / product follow-through (required when `.project-brain/review-as-pm.md` exists):
+
+- If that file says **NEEDS_WORK**, copy **at least one** concrete, code- or doc-anchored row from its **Issues** list into **Critical** or **High** above (whichever severity fits). Do **not** leave PM output only in the table row — the orchestrator **Fix:** loop reads Critical/High here, not `review-as-pm.md` alone.
+- If Issues are empty but Themes show gaps, add one **High** item pointing to the best file or doc to change.
 
 Test Summary:
 

@@ -26,6 +26,19 @@ describe('buildProdQueue', () => {
     expect(last).toMatch(/PRODUCTION READY|REMAINING ISSUES/i);
   });
 
+  it('queues six phased prompts per stacked skill with visible PHASE labels', () => {
+    const root = tempWorkspace();
+    mkdirSync(join(root, '.project-brain'), { recursive: true });
+    writeFileSync(
+      join(root, '.project-brain', 'understand.md'),
+      ['HAS_BACKEND: Yes', 'HAS_FRONTEND: No', 'REST API', ''].join('\n'),
+    );
+    const phases = buildProdQueue(root);
+    const joined = phases.join('\n');
+    expect(joined).toMatch(/PHASE 1\/6/);
+    expect(joined).toMatch(/PHASE 6\/6/);
+  });
+
   it('includes bundled audit-backend mini-loop when workspace has no .qwen/skills', () => {
     const root = tempWorkspace();
     const phases = buildProdQueue(root);
@@ -51,7 +64,7 @@ describe('buildProdQueue', () => {
     expect(gateIdx).toBeGreaterThan(userIdx);
   });
 
-  it('skips frontend and e2e when understand has no frontend', () => {
+  it('skips frontend audits but still runs test-e2e when understand has no frontend', () => {
     const root = tempWorkspace();
     mkdirSync(join(root, '.project-brain'), { recursive: true });
     writeFileSync(
@@ -62,7 +75,7 @@ describe('buildProdQueue', () => {
     const joined = phases.join('\n');
     expect(joined).not.toMatch(/SKILL: AUDIT-FRONTEND/i);
     expect(joined).not.toMatch(/SKILL: AUDIT-ROLES/i);
-    expect(joined).not.toMatch(/SKILL: TEST-E2E/i);
+    expect(joined).toMatch(/SKILL: TEST-E2E/i);
     expect(joined).toMatch(/SKILL: AUDIT-BACKEND/i);
   });
 

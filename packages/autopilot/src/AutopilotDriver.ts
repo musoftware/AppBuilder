@@ -403,15 +403,16 @@ export class AutopilotDriver {
   }
 
   /**
-   * Project-brain smart orchestrator: queued prompts from `.qwen/skills/` and
-   * `.project-brain/` (see `buildSmartQueue`).
+   * Project-brain smart queue: bundled `smart-orchestrator` is one prompt; otherwise
+   * each skill is expanded to **six phased** prompts (same as prod mini-loop).
    */
   smart(workspaceRoot?: string): string[] {
     return buildSmartQueue(workspaceRoot ?? process.cwd());
   }
 
   /**
-   * Run a single project-brain skill by folder name under `.qwen/skills/<name>/`.
+   * Run one skill by name: six phased prompts by default (`buildSingleSkillQueue`),
+   * except `understand` and `smart-orchestrator` (single message each).
    */
   runSkill(skillName: string, workspaceRoot?: string): string[] {
     return buildSingleSkillQueue(skillName, workspaceRoot ?? process.cwd());

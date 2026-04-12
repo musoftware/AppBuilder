@@ -94,6 +94,8 @@ const SKILL_EXCLUDE = new Set([
   'harden',
   'prod-gate',
   'report',
+  /** Large meta-playbook: run via `--skill user-stories` or smart list, not auto “run all” prod. */
+  'user-stories',
   ...PROD_FIXED_REVIEW_SKILL_ORDER,
 ]);
 
@@ -264,7 +266,7 @@ function selectSkills(understand: string, availableSkills: string[]): string[] {
   if (availableSkills.includes('test-integration')) {
     selected.push('test-integration');
   }
-  if (has('has_frontend: yes') && availableSkills.includes('test-e2e')) {
+  if (availableSkills.includes('test-e2e')) {
     selected.push('test-e2e');
   }
   if (availableSkills.includes('test-fix')) {
@@ -292,7 +294,28 @@ function selectAllAvailableOrdered(availableSkills: string[]): string[] {
 
 // ─── MINI LOOP BUILDER ───────────────────────────────────────────────────────
 
-function buildSkillMiniLoop(
+/** Six queued steps per skill: brain → report → fix → continue fix → verify → complete. */
+export const SKILL_MINI_LOOP_PHASE_COUNT = 6;
+
+function skillPhaseIntro(
+  skillName: string,
+  phase: 1 | 2 | 3 | 4 | 5 | 6,
+  title: string,
+): string {
+  const tail =
+    phase < SKILL_MINI_LOOP_PHASE_COUNT
+      ? `The next queued message is **phase ${phase + 1}/${SKILL_MINI_LOOP_PHASE_COUNT}** for the same skill.`
+      : `This is the **final phase** for this skill; print COMPLETE when done.`;
+  return `━━━ \`${skillName}\` — PHASE ${phase}/${SKILL_MINI_LOOP_PHASE_COUNT} — ${title} ━━━
+Each skill runs in **${SKILL_MINI_LOOP_PHASE_COUNT} separate queue steps**. Finish **only** phase ${phase} in this reply. ${tail}`;
+}
+
+/** Stack line reused by \`buildProdQueue\`, \`--smart\`, and \`--skill\` phased runs. */
+export function getProdStackContextInstruction(): string {
+  return `Read .project-brain/understand.md and use lines starting with HAS_, DATABASE, ORM, AUTH, TEST_, MIGRATION_, PACKAGE_ as the stack summary for this workspace.`;
+}
+
+export function buildSkillMiniLoop(
   skillName: string,
   skillContent: string,
   stackInstruction: string,
@@ -300,6 +323,35 @@ function buildSkillMiniLoop(
 ): string[] {
   const brain = `.project-brain/${skillName}.md`;
   const brainReport = `.project-brain/${skillName}-report.md`;
+
+  const personaPhase1Note = skillName.startsWith('review-as-')
+    ? `
+
+PLAYBOOK + BRAIN FILE (persona / lens skill):
+- Follow your playbook’s headings (e.g. Themes, Flows) **and** add a mandatory **Issues** section: numbered rows with **severity** (critical|high|medium), **file path or route** (or \`docs\` / \`README\` if no code anchor), and **one-line fix**. Without anchors, later automated fix phases cannot edit the repo.
+`
+    : '';
+
+  const personaFixBlock = skillName.startsWith('review-as-')
+    ? `
+
+PERSONA / PM / LENS — THIS PHASE MUST PRODUCE REPO CHANGES WHEN POSSIBLE:
+- Read ${brain} and ${brainReport}. If either is missing, recreate them (full audit + report), then continue.
+- For **every** Critical/High item that names a file, URL path, component, API, schema, env key, or stub: apply a **minimal real patch** now (match existing project patterns). Do **not** reply that the skill is “complete” with only analysis if VERDICT was NEEDS_WORK or NOT_READY and anchors exist.
+- If themes are **strategic only** (no code hook): add a concise **Product / PM note** to README.md or \`docs/product-notes.md\` (create if needed), then list that under **High fixed** or **Manual needed** — do not use “no action” as the only outcome when NEEDS_WORK.
+`
+    : '';
+
+  const mobileFixBlock =
+    skillName === 'review-as-mobile'
+      ? `
+
+REVIEW-AS-MOBILE — FULL CHECKLIST, NOT A SAMPLE:
+- Treat ${brainReport} **Critical** and **High** lists as an **ordered checklist**. You must attempt **every** item in this phase (and the next fix phase if any remain) — **not** one or two “example” files then stop.
+- For each issue: either **patch** the named file(s), print ⚠️ **MANUAL** with a concrete step, or move to **Could not fix** with one line per row. **No orphaned issues** left unmentioned in the FIX SUMMARY.
+- Prefer **small, correct** edits per file over skipping; if many files need the same token tweak, apply the pattern across **all** listed files before ending this phase.
+`
+      : '';
 
   const ctx = `
 PROJECT BRAIN:
@@ -317,10 +369,12 @@ ${stackInstruction}
   return [
     `${ctx}
 
+${skillPhaseIntro(skillName, 1, 'WRITE BRAIN (.project-brain primary output)')}
+
 ━━━ SKILL: ${skillName.toUpperCase()} ━━━
 
 ${skillContent}
-
+${personaPhase1Note}
 You MUST write ${brain} (create or overwrite). If the file already exists from an earlier run, update it for this pass.
 
 Format:
@@ -331,6 +385,8 @@ VERDICT: PROD_READY | NOT_READY — <N> issues
 Print: ✅ AUDIT DONE: ${skillName} — <N> issues found`,
 
     `${ctx}
+
+${skillPhaseIntro(skillName, 2, 'WRITE REPORT (.project-brain/*-report.md)')}
 
 If ${brain} exists: read it and use it as the audit source.
 If ${brain} does NOT exist: run the full ${skillName} playbook from phase 1 (read the project), write ${brain}, then continue below.
@@ -359,10 +415,12 @@ Print: ✅ REPORT: ${skillName}`,
 
     `${ctx}
 
+${skillPhaseIntro(skillName, 3, 'FIX — CRITICAL + HIGH')}
+
 If ${brainReport} or ${brain} is missing: create the missing file(s) by running the ${skillName} audit + report steps (read the codebase as needed), then continue.
 
 If both exist: read ${brainReport} and ${brain}.
-
+${personaFixBlock}${mobileFixBlock}
 Fix every Critical issue now. Then fix High Priority issues.
 
 RULES:
@@ -387,8 +445,10 @@ Could not fix:  <list + reason>`,
 
     `${ctx}
 
-Ensure ${brain} and ${brainReport} exist; if not, create them (full ${skillName} audit + report) before fixing.
+${skillPhaseIntro(skillName, 4, 'FIX — REMAINING ITEMS')}
 
+Ensure ${brain} and ${brainReport} exist; if not, create them (full ${skillName} audit + report) before fixing.
+${skillName.startsWith('review-as-') ? '\nPersona skill: finish every remaining Critical/High item with a code, config, or doc-file edit — not summary text only.\n' : ''}${skillName === 'review-as-mobile' ? '\nMobile: if any Critical/High row from the report is still open, continue fixing until each row is resolved or explicitly listed under Could not fix.\n' : ''}
 Continue with any remaining fixes from the ${skillName} skill that were not completed.
 Same rules: actual changes, follow existing patterns.
 Print after each: ✅ done [${skillName}]: <one line>
@@ -397,10 +457,12 @@ If all done: print ✅ ${skillName.toUpperCase()} FIXES COMPLETE`,
 
     `${ctx}
 
+${skillPhaseIntro(skillName, 5, 'VERIFY — CONFIRM FIXES IN FILES')}
+
 Ensure ${brain} exists (create via full ${skillName} run if missing).
 
 Verify that all ${skillName} fixes were actually applied.
-
+${skillName === 'review-as-mobile' ? `\nMobile: re-read ${brainReport} and treat **every** Critical/High row as a gate — open each cited file; do not print VERIFIED if any row is still broken or unaddressed.\n` : ''}
 Open each source file mentioned in ${brain}
 and confirm the fix is in place by reading the file.
 
@@ -411,6 +473,8 @@ If all clear:
 Print: ✅ VERIFIED [${skillName}]: all fixes confirmed`,
 
     `${ctx}
+
+${skillPhaseIntro(skillName, 6, 'FINAL PASS — CLOSE SKILL')}
 
 Ensure ${brain} and ${brainReport} exist before closing this skill (create them if still missing).
 
@@ -555,10 +619,6 @@ If NOT_READY  → print: ⚠️ REMAINING ISSUES — see blockers above`,
   ];
 }
 
-function stackContextInstruction(): string {
-  return `Read .project-brain/understand.md and use lines starting with HAS_, DATABASE, ORM, AUTH, TEST_, MIGRATION_, PACKAGE_ as the stack summary for this workspace.`;
-}
-
 // ─── MAIN BUILDER ────────────────────────────────────────────────────────────
 
 export function buildProdQueue(workspaceRoot?: string): string[] {
@@ -577,7 +637,7 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
     ? selectSkills(understand, available)
     : selectAllAvailableOrdered(available);
 
-  const stackInstruction = stackContextInstruction();
+  const stackInstruction = getProdStackContextInstruction();
 
   for (const skillName of selected) {
     const skillContent = readSkillFile(skillName, root);

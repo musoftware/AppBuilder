@@ -1,26 +1,40 @@
 [SKILL: test-e2e]
 
+**Never skip this skill** because there is “no frontend” or “no E2E yet.” Always produce **runnable** automated checks and record what ran in `.project-brain/test-e2e.md`. If the stack has no browser UI, run **API / contract / CLI** end-to-end tests instead.
+
 Read first:
 
 - .project-brain/understand.md
-- .project-brain/audit-frontend.md
-- If HAS FRONTEND is No → print "No frontend — skill skipped" and stop
+- .project-brain/audit-frontend.md (if present)
 
-Use existing E2E framework (Playwright, Cypress). If none: install Playwright.
+## Branch by project shape (must pick at least one)
 
-For every role in understand.md:
-For every screen that role can access: - Login as that role - Navigate to the screen - Assert screen loads (not redirected) - Test every button that should exist (create, edit, delete, export...) - Test form validation (submit empty → errors shown) - Test loading state, error state, empty state
+### A) HAS FRONTEND: Yes (or UI routes exist in code)
 
-For every screen that role should NOT access:
+Use **Playwright** or **Cypress** (whichever the repo already uses). If neither exists: **add Playwright** (`npm init playwright@latest` or project-standard command) and commit config.
 
-- Login as wrong role
-- Navigate to screen
-- Assert redirected (not the protected content)
+For every role in `understand.md`:
 
-Unauthenticated access:
+- For every screen that role can access: login → navigate → assert load → exercise critical buttons/forms → validation, loading, error, empty states.
+- For screens that role must **not** access: assert redirect / 403, not protected content.
+- Unauthenticated: protected routes redirect to login.
 
-- Navigate to every protected route
-- Assert redirect to login
+### B) HAS FRONTEND: No but HAS BACKEND / API (REST, GraphQL, tRPC, etc.)
+
+Do **not** stop. Add or extend **API E2E** (e.g. supertest, vitest against running server, or Playwright `request` API):
+
+- Happy paths for main endpoints per role / auth header.
+- 401/403 for protected routes without auth or wrong role.
+- Invalid payload → 4xx with stable error shape.
+
+### C) CLI / library only (no HTTP server)
+
+E2E = **integration-style** black-box tests: CLI entry with subprocess, golden stderr/stdout, exit codes, temp dirs. Use the project’s test runner.
+
+## Execution (mandatory)
+
+- **Run** the test suite you added or extended (`npx playwright test`, `npm run test:e2e`, etc.) and capture **pass/fail** in `test-e2e.md`.
+- If a run fails, **fix** code or tests until green, or document **one** blocking external dependency with exact repro — do not mark the skill “skipped.”
 
 After writing each file: print ✅ E2E TEST: <filename> (<N> tests)
 

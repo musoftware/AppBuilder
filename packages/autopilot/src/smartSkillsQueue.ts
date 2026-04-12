@@ -2,7 +2,11 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PROD_FIXED_REVIEW_SKILL_ORDER } from './prodQueue.js';
+import {
+  buildSkillMiniLoop,
+  getProdStackContextInstruction,
+  PROD_FIXED_REVIEW_SKILL_ORDER,
+} from './prodQueue.js';
 
 /** Built-in project-brain pipeline skills under `.qwen/skills/<name>/SKILL.md`. */
 export const PROJECT_BRAIN_SKILL_ORDER = [
@@ -18,6 +22,8 @@ export const PROJECT_BRAIN_SKILL_ORDER = [
   'test-integration',
   'test-e2e',
   'test-fix',
+  /** Same persona pass as `--prod` (`buildProdQueue`); must not rely on “extra skill” discovery. */
+  ...PROD_FIXED_REVIEW_SKILL_ORDER,
   'prod-gate',
 ] as const;
 
@@ -149,16 +155,17 @@ function readUnderstand(workspaceRoot: string): string {
 }
 
 function projectHasFrontend(workspaceRoot: string): boolean {
-  const understand = readUnderstand(workspaceRoot);
-  return understand.includes('HAS FRONTEND: Yes');
+  const u = readUnderstand(workspaceRoot).toLowerCase();
+  return u.includes('has_frontend: yes') || u.includes('has frontend: yes');
 }
 
 function projectHasBackend(workspaceRoot: string): boolean {
   const understand = readUnderstand(workspaceRoot);
-  if (!understand) {
+  if (!understand.trim()) {
     return true;
   }
-  return understand.includes('HAS BACKEND: Yes');
+  const u = understand.toLowerCase();
+  return u.includes('has_backend: yes') || u.includes('has backend: yes');
 }
 
 function findCustomSkills(workspaceRoot: string): string[] {
@@ -207,7 +214,8 @@ function findCustomSkills(workspaceRoot: string): string[] {
 
 /**
  * Build queued user messages for `--smart`: prefer the smart-orchestrator
- * playbook when present; otherwise deterministic skill prompts with skip hints.
+ * playbook when present; otherwise the same **six-phase** cycle per skill as
+ * `buildProdQueue` (brain → report → fix ×2 → verify → complete).
  */
 export function buildSmartQueue(workspaceRoot: string): string[] {
   const currentCommit = getLastCommit(workspaceRoot);
@@ -221,13 +229,38 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
     ];
   }
 
+  const preamble = buildSkillPathsPreamble(workspaceRoot);
+  const date = new Date().toISOString().split('T')[0] ?? '';
+  const stackInstruction = getProdStackContextInstruction();
   const queue: string[] = [];
+  let firstQueued = false;
 
-  for (const skillName of PROJECT_BRAIN_SKILL_ORDER) {
-    if (
-      !hasFrontend &&
-      (skillName === 'audit-frontend' || skillName === 'test-e2e')
-    ) {
+  const enqueue = (text: string) => {
+    if (!firstQueued) {
+      queue.push(`${preamble}\n\n---\n\n${text}`);
+      firstQueued = true;
+    } else {
+      queue.push(text);
+    }
+  };
+
+  const enqueuePhasedSkill = (skillName: string, skillContent: string) => {
+    for (const phase of buildSkillMiniLoop(
+      skillName,
+      skillContent,
+      stackInstruction,
+      date,
+    )) {
+      enqueue(phase);
+    }
+  };
+
+  const skillsBeforeProdGate = PROJECT_BRAIN_SKILL_ORDER.filter(
+    (n) => n !== 'prod-gate',
+  );
+
+  for (const skillName of skillsBeforeProdGate) {
+    if (!hasFrontend && skillName === 'audit-frontend') {
       continue;
     }
     if (
@@ -252,11 +285,13 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
     );
     if (isCurrent) {
       const short = currentCommit.slice(0, 7);
-      queue.push(
+      enqueue(
         `[SKILL: ${skillName}]\nPrevious output is current (matches git commit ${short}).\nRead .project-brain/${skillName}.md and use it as context. Skip re-running. Print: ✅ SKIP: ${skillName} (current)`,
       );
+    } else if (skillName === 'understand') {
+      enqueue(skill);
     } else {
-      queue.push(skill);
+      enqueuePhasedSkill(skillName, skill);
     }
   }
 
@@ -264,12 +299,13 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
   for (const name of customSkills) {
     const skill = readSkill(name, workspaceRoot);
     if (skill) {
-      if (queue.length > 0) {
-        queue.splice(queue.length - 1, 0, skill);
-      } else {
-        queue.push(skill);
-      }
+      enqueuePhasedSkill(name, skill);
     }
+  }
+
+  const prodGateSkill = readSkill('prod-gate', workspaceRoot);
+  if (prodGateSkill) {
+    enqueuePhasedSkill('prod-gate', prodGateSkill);
   }
 
   return queue;
@@ -277,14 +313,18 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
 
 const KNOWN_SKILLS_LIST = [
   ...PROJECT_BRAIN_SKILL_ORDER,
-  ...PROD_FIXED_REVIEW_SKILL_ORDER,
+  'user-stories',
   'smart-orchestrator',
   'report',
 ].join(', ');
 
+/** One-shot queue entries (orchestrator is self-phasing; understand matches prod’s first prompt style). */
+const SINGLE_PHASE_SKILL_NAMES = new Set(['smart-orchestrator', 'understand']);
+
 /**
- * Build queued messages for `--skill <name>`: one playbook plus optional
- * `.project-brain/understand.md` preamble.
+ * Build queued messages for `--skill <name>`: by default the same **six phases**
+ * as `--prod` / `--smart` (brain → report → fix → verify → complete), except
+ * `understand` and `smart-orchestrator` which stay a single message.
  */
 export function buildSingleSkillQueue(
   skillName: string,
@@ -303,6 +343,18 @@ export function buildSingleSkillQueue(
     ? `PROJECT CONTEXT (from .project-brain/understand.md):\n${understand}\n\n---\n\n`
     : '';
   const preamble = buildSkillPathsPreamble(workspaceRoot);
+  const head = `${context}${preamble}\n\n---\n\n`;
 
-  return [`${context}${preamble}\n\n---\n\n${skill}`];
+  if (SINGLE_PHASE_SKILL_NAMES.has(trimmed)) {
+    return [`${head}${skill}`];
+  }
+
+  const date = new Date().toISOString().split('T')[0] ?? '';
+  const phases = buildSkillMiniLoop(
+    trimmed,
+    skill,
+    getProdStackContextInstruction(),
+    date,
+  );
+  return phases.map((p, i) => (i === 0 ? `${head}${p}` : p));
 }

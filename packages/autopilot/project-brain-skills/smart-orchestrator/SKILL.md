@@ -24,16 +24,24 @@ PHASE B — BUILD THE SKILL RUN LIST
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Always include:
-audit-roles, plan, build, harden, prod-gate, report
+audit-roles, plan, build, harden, prod-gate, report, test-e2e
 
 If HAS_BACKEND is Yes → also include:
 audit-backend, audit-database, test-unit, test-integration
 
 If HAS_FRONTEND is Yes → also include:
-audit-frontend, test-e2e
+audit-frontend
 
 Always include after any test skill:
 test-fix
+
+**Persona / lens reviews (mandatory — same order as `--prod`; do not drop because there is “no UI” or they seem redundant):**
+Run **after** `test-fix`, **before** `prod-gate`, in this order:
+review-as-user, review-as-security, review-as-a11y, review-as-mobile, review-as-slow-network, review-as-developer, review-as-performance, review-as-qa, review-as-pm, review-as-data
+
+Each must **RUN** unless `.project-brain/<skill>.md` exists **and** embeds the current git commit **and** you are certain nothing material changed — when unsure, **RUN**.
+
+**review-as-mobile** in particular: cover **all** main screens/routes (see playbook), list them under **Screens reviewed**, then in fix phases work through **every** Critical/High row — not one sample file.
 
 Scan for **extra** skill folders not in the list above in **both** places, when they exist:
 (1) project `.qwen/skills/` and (2) the **bundled** root from **RESOLVED SKILL PATHS**.
@@ -63,6 +71,16 @@ test-unit:          SKIP / RUN
 test-integration:   SKIP / RUN
 test-e2e:           SKIP / RUN
 test-fix:           SKIP / RUN
+review-as-user:     SKIP / RUN
+review-as-security: SKIP / RUN
+review-as-a11y:     SKIP / RUN
+review-as-mobile:   SKIP / RUN
+review-as-slow-network: SKIP / RUN
+review-as-developer: SKIP / RUN
+review-as-performance: SKIP / RUN
+review-as-qa:       SKIP / RUN
+review-as-pm:       SKIP / RUN
+review-as-data:     SKIP / RUN
 prod-gate:          RUN (always)
 report:             RUN (always)
 ━━━━━━━━━━━━━━━━━
@@ -77,6 +95,8 @@ Print: ━━━ [<skill-name>] ━━━
 Execute the full content of the **<skill-name>** playbook file (same path rules as **RESOLVED SKILL PATHS** — do not require `.qwen/skills/` under the project)
 Immediately continue with the next RUN skill in the same session — **never** wait for the user. Do **not** print `> next`, “type next”, “reply next”, or any prompt that implies the human must send a message before you continue. The CLI runs this playbook in an **automated queue**; pausing for “next” will stall the run.
 
+**Note:** When the CLI runs **discrete** skills (no smart-orchestrator), each skill is queued as **six separate messages** (PHASE 1/6 … 6/6: brain → report → fix → continue fix → verify → complete). Inside this orchestrator playbook you should still **fully** execute each skill’s intent in one continuous run unless a phase is marked SKIP.
+
 For each skill marked SKIP:
 Print: ⏭ [<skill-name>] skipped — brain file current
 Inject its .project-brain/<skill>.md as context for subsequent skills
@@ -88,6 +108,8 @@ PHASE D — REPORT
 After all skills complete, always run the **report** playbook (resolve via **RESOLVED SKILL PATHS**).
 This produces the clean summary table.
 Save output to .project-brain/report.md.
+
+When generating **report.md**, if `.project-brain/review-as-pm.md` (or `review-as-pm-report.md`) exists with **NEEDS_WORK**, you **must** lift concrete items from the PM **Issues** list into **Critical Blockers** and/or **High Priority** in that report. PHASE E’s **Fix:** prompts only use those sections — PM themes left only in the table row will **never** get fixes.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE E — DECISION LOOP
