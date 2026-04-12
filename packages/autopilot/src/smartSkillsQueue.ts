@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  collectNextSkillsDynamic,
   getProdStackContextInstruction,
   PROD_FIXED_REVIEW_SKILL_ORDER,
   resolveSkillPhaseMessages,
@@ -226,6 +227,7 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
       stackInstruction,
       date,
       prevSmartSkill,
+      'smart',
     )) {
       enqueue(phase);
     }
@@ -264,6 +266,26 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
 
   const customSkills = findCustomSkills(workspaceRoot);
   for (const name of customSkills) {
+    const skill = readSkill(name, workspaceRoot);
+    if (skill) {
+      enqueuePhasedSkill(name, skill);
+    }
+  }
+
+  // Expand NEXT_SKILLS from existing brain files (smart mode only, max depth 3, no duplicates)
+  const allQueuedSmart = new Set<string>([
+    'understand',
+    ...skillsBeforeProdGate,
+    ...customSkills,
+    ...PROD_FIXED_REVIEW_SKILL_ORDER,
+    'prod-gate',
+  ]);
+  const nextSkillsExpanded = collectNextSkillsDynamic(
+    workspaceRoot,
+    allQueuedSmart,
+    3,
+  );
+  for (const name of nextSkillsExpanded) {
     const skill = readSkill(name, workspaceRoot);
     if (skill) {
       enqueuePhasedSkill(name, skill);

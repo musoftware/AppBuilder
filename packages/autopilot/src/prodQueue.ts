@@ -87,7 +87,7 @@ function parseNextSkills(text: string): string[] {
  * any skills named in NEXT_SKILLS: lines that are not already in `allSeen`.
  * Returns newly discovered skill names in discovery order.
  */
-function collectNextSkillsDynamic(
+export function collectNextSkillsDynamic(
   root: string,
   initialSkills: Set<string>,
   maxDepth: number,
@@ -555,6 +555,7 @@ export function buildSkillMiniLoop(
   date: string,
   root?: string,
   previousSkillName?: string,
+  mode: 'smart' | 'prod' = 'prod',
 ): string[] {
   const brain = `.project-brain/${skillName}.md`;
   const brainReport = `.project-brain/${skillName}-report.md`;
@@ -565,9 +566,11 @@ export function buildSkillMiniLoop(
   const recap = root ? buildContextRecap(root) : '';
   const recapBlock = recap ? `\n${recap}\n` : '';
 
-  // Handoff note from the previous skill (if any)
+  // Handoff note from the previous skill (smart mode only)
   const handoffNote =
-    root && previousSkillName ? readHandoffNote(root, previousSkillName) : '';
+    mode === 'smart' && root && previousSkillName
+      ? readHandoffNote(root, previousSkillName)
+      : '';
   const handoffBlock = handoffNote
     ? `\nHANDOFF FROM PREVIOUS SKILL (${previousSkillName}):\n${handoffNote}\n`
     : '';
@@ -749,11 +752,15 @@ Print: ❌ STILL BROKEN [${skillName}]: <file> — <exact issue>
 If all clear:
 Print: ✅ VERIFIED [${skillName}]: all fixes confirmed
 
-After verifying, write a one-paragraph handoff note to ${handoffFile}:
+${
+  mode === 'smart'
+    ? `After verifying, write a one-paragraph handoff note to ${handoffFile}:
 - What was audited and fixed
 - What issues remain (if any)
 - What the NEXT skill should focus on or be aware of
-(This note will be injected into the next skill's phase 1 prompt.)`,
+(This note will be injected into the next skill's phase 1 prompt.)`
+    : ''
+}`,
 
     `${ctx}
 
@@ -795,6 +802,7 @@ export function buildSkillMiniLoopFixOnly(
   date: string,
   root?: string,
   previousSkillName?: string,
+  mode: 'smart' | 'prod' = 'prod',
 ): string[] {
   const brain = `.project-brain/${skillName}.md`;
   const report = `.project-brain/${skillName}-report.md`;
@@ -805,6 +813,7 @@ export function buildSkillMiniLoopFixOnly(
     date,
     root,
     previousSkillName,
+    mode,
   );
   const tail = full.slice(2);
   if (tail.length === 0) {
@@ -830,6 +839,7 @@ export function resolveSkillPhaseMessages(
   stackInstruction: string,
   date: string,
   previousSkillName?: string,
+  mode: 'smart' | 'prod' = 'prod',
 ): string[] {
   const brainText = readBrainFile(skillName, root);
   if (!brainText.trim()) {
@@ -840,11 +850,12 @@ export function resolveSkillPhaseMessages(
       date,
       root,
       previousSkillName,
+      mode,
     );
   }
 
-  // If brain file doesn't match the new report format, treat as stale → full run
-  if (!isValidReportFormat(brainText)) {
+  // Smart mode only: if brain file doesn't match the new report format, treat as stale → full run
+  if (mode === 'smart' && !isValidReportFormat(brainText)) {
     return buildSkillMiniLoop(
       skillName,
       skillContent,
@@ -852,6 +863,7 @@ export function resolveSkillPhaseMessages(
       date,
       root,
       previousSkillName,
+      mode,
     );
   }
 
@@ -859,9 +871,9 @@ export function resolveSkillPhaseMessages(
   const combined = `${brainText}\n${reportText}`;
 
   if (combinedSkillTextHasOpenIssues(combined)) {
-    // If any file mentioned in the old report has changed since it was written,
-    // run a full re-audit instead of fix-only to avoid patching stale findings.
-    if (mentionedFilesChanged(root, skillName, combined)) {
+    // Smart mode only: if any file mentioned in the old report has changed since
+    // it was written, run a full re-audit instead of fix-only.
+    if (mode === 'smart' && mentionedFilesChanged(root, skillName, combined)) {
       return buildSkillMiniLoop(
         skillName,
         skillContent,
@@ -869,10 +881,13 @@ export function resolveSkillPhaseMessages(
         date,
         root,
         previousSkillName,
+        mode,
       );
     }
-    // Snapshot current file hashes so the next run can detect drift
-    storeFileHashes(root, skillName, combined);
+    // Smart mode only: snapshot current file hashes so the next run can detect drift
+    if (mode === 'smart') {
+      storeFileHashes(root, skillName, combined);
+    }
     return buildSkillMiniLoopFixOnly(
       skillName,
       skillContent,
@@ -880,6 +895,7 @@ export function resolveSkillPhaseMessages(
       date,
       root,
       previousSkillName,
+      mode,
     );
   }
 
@@ -890,6 +906,7 @@ export function resolveSkillPhaseMessages(
     date,
     root,
     previousSkillName,
+    mode,
   );
 }
 
@@ -1057,18 +1074,6 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
     ? selectSkills(understand, available)
     : selectAllAvailableOrdered(available);
 
-  // Expand NEXT_SKILLS from existing brain files (max depth 3, no duplicates)
-  const allQueued = new Set<string>([
-    'understand',
-    ...selected,
-    ...PROD_FIXED_REVIEW_SKILL_ORDER,
-  ]);
-  const nextSkillsExpanded = collectNextSkillsDynamic(root, allQueued, 3);
-  // Only add skills that have a SKILL.md available
-  const additionalSkills = nextSkillsExpanded.filter(
-    (s) => readSkillFile(s, root) !== null,
-  );
-
   const stackInstruction = getProdStackContextInstruction();
 
   let prevSkill: string | undefined = undefined;
@@ -1087,23 +1092,7 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
         stackInstruction,
         date,
         prevSkill,
-      ),
-    );
-    prevSkill = skillName;
-  }
-
-  // Append dynamically-discovered NEXT_SKILLS skills (after static selection)
-  for (const skillName of additionalSkills) {
-    const skillContent = readSkillFile(skillName, root);
-    if (!skillContent) continue;
-    queue.push(
-      ...resolveSkillPhaseMessages(
-        root,
-        skillName,
-        skillContent,
-        stackInstruction,
-        date,
-        prevSkill,
+        'prod',
       ),
     );
     prevSkill = skillName;
@@ -1122,6 +1111,7 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
         stackInstruction,
         date,
         prevSkill,
+        'prod',
       ),
     );
     prevSkill = skillName;
