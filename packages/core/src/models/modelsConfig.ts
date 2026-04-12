@@ -98,8 +98,9 @@ export class ModelsConfig {
   // Callback for notifying Config of model changes
   private onModelChange?: OnModelChangeCallback;
 
-  // Flag indicating whether authType was explicitly provided (not defaulted)
-  private readonly authTypeWasExplicitlyProvided: boolean;
+  // Flag indicating whether authType was explicitly provided (not defaulted).
+  // Mutable so logout can reset session state to match “no auth selected”.
+  private authTypeWasExplicitlyProvided: boolean;
 
   /**
    * Runtime model snapshot storage.

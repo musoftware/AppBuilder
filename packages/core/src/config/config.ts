@@ -1087,10 +1087,9 @@ export class Config {
         authType: undefined,
       };
     }
-    this.contentGeneratorConfigSources = {
-      ...this.contentGeneratorConfigSources,
-      authType: undefined,
-    };
+    const clearedSources = { ...this.contentGeneratorConfigSources };
+    delete (clearedSources as Record<string, unknown>)['authType'];
+    this.contentGeneratorConfigSources = clearedSources;
   }
 
   async refreshAuth(authMethod: AuthType, isInitialAuth?: boolean) {
