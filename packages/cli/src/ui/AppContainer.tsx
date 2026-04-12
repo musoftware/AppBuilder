@@ -104,6 +104,8 @@ import { registerCleanup, runExitCleanup } from '../utils/cleanup.js';
 import {
   AutopilotDriver,
   getReadyProductionRounds,
+  mergeAutopilotPartialSettings,
+  messageMatchesGoTrigger,
   summarizeAutopilotQueue,
 } from '@qwen-code/autopilot';
 import type {
@@ -768,6 +770,8 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const cancelHandlerRef = useRef<() => void>(() => {});
   const midTurnDrainRef = useRef<(() => string[]) | null>(null);
+  /** CLI `--brainstorm`: planned tasks wait for a go-trigger before YOLO drain. */
+  const pendingBrainstormAutopilotQueueRef = useRef<string[] | null>(null);
 
   const {
     streamingState,
@@ -1197,10 +1201,32 @@ export const AppContainer = (props: AppContainerProps) => {
             { type: MessageType.INFO, text: planSummary },
             Date.now(),
           );
-          setAutopilotQueue(taskMessages);
+          if (options?.brainstormDeferTasksUntilGo && taskMessages.length > 0) {
+            pendingBrainstormAutopilotQueueRef.current = taskMessages;
+            const triggers = mergeAutopilotPartialSettings({
+              goTriggers: ap?.goTriggers,
+            }).goTriggers;
+            const triggerHint = triggers
+              .slice(0, 4)
+              .map((t) => `\`${t}\``)
+              .join(', ');
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text:
+                  `Autopilot: ${taskMessages.length} task(s) planned — not started yet. ` +
+                  `Chat to refine, or send a go trigger (${triggerHint}, … — settings: autopilot goTriggers) to run the queue (YOLO until it finishes).`,
+              },
+              Date.now(),
+            );
+          } else {
+            pendingBrainstormAutopilotQueueRef.current = null;
+            setAutopilotQueue(taskMessages);
+          }
         } catch (error: unknown) {
           const msg = error instanceof Error ? error.message : String(error);
           debugLogger.error('Autopilot planning failed:', msg);
+          pendingBrainstormAutopilotQueueRef.current = null;
           historyManager.addItem(
             {
               type: MessageType.ERROR,
@@ -1278,6 +1304,25 @@ export const AppContainer = (props: AppContainerProps) => {
       ) {
         void submitQuery(submittedValue);
         return;
+      }
+
+      const pendingBrainstorm = pendingBrainstormAutopilotQueueRef.current;
+      if (pendingBrainstorm && pendingBrainstorm.length > 0) {
+        const triggers = mergeAutopilotPartialSettings({
+          goTriggers: settings.merged.autopilot?.goTriggers,
+        }).goTriggers;
+        if (messageMatchesGoTrigger(submittedValue, triggers)) {
+          pendingBrainstormAutopilotQueueRef.current = null;
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Autopilot: starting ${pendingBrainstorm.length} queued task(s)…`,
+            },
+            Date.now(),
+          );
+          setAutopilotQueue(pendingBrainstorm);
+          return;
+        }
       }
 
       // Check if speculation has results for this submission
@@ -1408,6 +1453,8 @@ export const AppContainer = (props: AppContainerProps) => {
       config,
       geminiClient,
       historyManager,
+      settings.merged.autopilot?.goTriggers,
+      setAutopilotQueue,
     ],
   );
 
@@ -1604,6 +1651,7 @@ export const AppContainer = (props: AppContainerProps) => {
     const seed = startupBrainstormInitialIdea?.trim();
     handleAutopilotRequest(seed || undefined, undefined, {
       brainstormAutoPlan: true,
+      brainstormDeferTasksUntilGo: true,
       ...(startupBrainstormBrownfield
         ? { brainstormForceMode: 'brownfield' as const }
         : {}),

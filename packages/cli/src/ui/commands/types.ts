@@ -200,6 +200,12 @@ export interface AutopilotRequestOptions {
    * Used for `mu-pilot --brainstorm` so startup feels as automatic as `--prod`.
    */
   brainstormAutoPlan?: boolean;
+  /**
+   * After planning, hold tasks off the autopilot drain until the user sends a
+   * go trigger (see autopilot `goTriggers` in settings). Other messages are
+   * normal chat. Used for interactive `mu-pilot --brainstorm` startup.
+   */
+  brainstormDeferTasksUntilGo?: boolean;
 }
 
 /** Modes for slash commands that drive the interactive autopilot hook. */

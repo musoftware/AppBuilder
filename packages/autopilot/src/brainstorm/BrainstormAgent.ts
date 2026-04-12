@@ -1,3 +1,4 @@
+import { messageMatchesGoTrigger } from '../goTriggerMatch.js';
 import type { ChatMessage, ContextSpec, AutopilotSettings } from '../types.js';
 
 const GREENFIELD_SYSTEM_PROMPT = `
@@ -84,7 +85,7 @@ export class BrainstormAgent {
   }
 
   async chat(userMessage: string): Promise<BrainstormResult> {
-    if (this.isGoTrigger(userMessage)) {
+    if (messageMatchesGoTrigger(userMessage, this.settings.goTriggers)) {
       return { reply: '', ready: true };
     }
 
@@ -107,14 +108,6 @@ export class BrainstormAgent {
   seedForDirectPlan(userMessage: string): void {
     this.history.push({ role: 'user', content: userMessage });
     this.updateContext(userMessage, '');
-  }
-
-  private isGoTrigger(message: string): boolean {
-    const lower = message.trim().toLowerCase();
-    return this.settings.goTriggers.some(
-      (t) =>
-        lower === t || lower.startsWith(t + ' ') || lower.startsWith(t + ','),
-    );
   }
 
   private updateContext(userMsg: string, _assistantMsg: string): void {

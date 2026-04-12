@@ -389,7 +389,7 @@ export async function parseArguments(): Promise<CliArgs> {
           alias: 'b',
           type: 'boolean',
           description:
-            'Autopilot brainstorm mode: plan with skills, then execute tasks in YOLO mode. With a TTY, uses the main chat UI (same as /brainstorm); without a TTY, runs standalone autopilot.',
+            'Autopilot brainstorm mode: with a TTY, auto-plans from your seed then waits for a go trigger (go, start, proceed, … — see autopilot goTriggers) or normal chat for questions before tasks run in YOLO; same UI as /brainstorm. Without a TTY, runs standalone autopilot.',
           default: false,
         })
         .option('brownfield', {

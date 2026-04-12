@@ -77,4 +77,6 @@ export type {
   AutopilotSettings,
   ChatMessage,
 } from './types.js';
+export { mergeAutopilotPartialSettings } from './types.js';
+export { messageMatchesGoTrigger } from './goTriggerMatch.js';
 export { buildSmartQueue, buildSingleSkillQueue } from './smartSkillsQueue.js';
