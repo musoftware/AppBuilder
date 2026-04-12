@@ -40,7 +40,20 @@ describe('resolveSkillPhaseMessages', () => {
     mkdirSync(join(root, '.project-brain'), { recursive: true });
     writeFileSync(
       join(root, '.project-brain', 'audit-backend.md'),
-      'VERDICT: NOT_READY\n',
+      [
+        'SUMMARY:',
+        'Audited backend endpoints.',
+        '3 critical gaps found.',
+        'VERDICT: NOT_READY — 3 issues',
+        '',
+        'FINDINGS:',
+        '- src/routes/users.ts:42 — missing auth guard — unauthenticated access',
+        '',
+        'STATE:',
+        'Auth guard missing on /users route; build must add middleware.',
+        '',
+        'NEXT_SKILLS: none',
+      ].join('\n'),
     );
     const phases = resolveSkillPhaseMessages(
       root,
@@ -58,7 +71,20 @@ describe('resolveSkillPhaseMessages', () => {
     mkdirSync(join(root, '.project-brain'), { recursive: true });
     writeFileSync(
       join(root, '.project-brain', 'audit-backend.md'),
-      'VERDICT: PROD_READY\n',
+      [
+        'SUMMARY:',
+        'Audited backend endpoints.',
+        'All endpoints have auth guards.',
+        'VERDICT: PROD_READY',
+        '',
+        'FINDINGS:',
+        '- src/routes/users.ts:1 — all endpoints — guards in place',
+        '',
+        'STATE:',
+        'Backend is clean; no action needed.',
+        '',
+        'NEXT_SKILLS: none',
+      ].join('\n'),
     );
     const phases = resolveSkillPhaseMessages(
       root,

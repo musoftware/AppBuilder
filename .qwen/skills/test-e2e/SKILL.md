@@ -40,7 +40,27 @@ After writing each file: print ✅ E2E TEST: <filename> (<N> tests)
 
 ---
 
-Write output to: .project-brain/test-e2e.md
+Write output to: .project-brain/test-e2e.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — N e2e test files, N scenarios>
+<one line — roles covered, flows exercised>
+<one line — PASS | FAIL | DEFERRED — N failures> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <scenario: role + flow> — <PASS|FAIL|BLOCKED>
+  (references only — never embed raw code blocks)
+
+STATE:
+<1–3 sentences: which role/flow combos remain untested, any blocking external deps, what test-fix should address>
+
+NEXT_SKILLS: test-fix
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:test-e2e — <N> test files`

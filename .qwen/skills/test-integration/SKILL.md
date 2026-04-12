@@ -17,18 +17,27 @@ After writing each file: print ✅ INTEGRATION TEST: <filename> (<N> tests)
 
 ---
 
-Write output to: .project-brain/test-integration.md
-Format:
+Write output to: .project-brain/test-integration.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
 
-# Integration Test Log
+SUMMARY:
+<one line — N integration test files created/updated>
+<one line — flows covered: auth, CRUD, role-access, error paths>
+<one line — PASS | FAIL — N failures> (3 lines max)
 
-## Files Created
+FINDINGS:
 
-- <filename>: <N> tests
+- <file:line> — <flow tested> — <PASS|FAIL|MISSING>
+  (references only — never embed raw code blocks)
 
-## Flows Covered
+STATE:
+<1–3 sentences: flows not yet covered, failures needing fixes, what test-e2e or test-fix should handle>
 
-- <flow name>: covered
+NEXT_SKILLS: test-e2e, test-fix
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:test-integration — <N> test files`

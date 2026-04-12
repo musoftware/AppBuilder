@@ -4,8 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -67,9 +68,241 @@ function readSkillFile(skillName: string, root: string): string | null {
   return null;
 }
 
+// ─── NEXT_SKILLS PARSING ─────────────────────────────────────────────────────
+
+/** Extract skill names from a `NEXT_SKILLS: a, b, c` line in any brain file. */
+function parseNextSkills(text: string): string[] {
+  const match = text.match(/^NEXT_SKILLS:\s*(.+)$/im);
+  if (!match?.[1]) return [];
+  const val = match[1].trim();
+  if (!val || /^none$/i.test(val)) return [];
+  return val
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Walk existing `.project-brain/` reports up to `maxDepth` hops, collecting
+ * any skills named in NEXT_SKILLS: lines that are not already in `allSeen`.
+ * Returns newly discovered skill names in discovery order.
+ */
+function collectNextSkillsDynamic(
+  root: string,
+  initialSkills: Set<string>,
+  maxDepth: number,
+): string[] {
+  const allSeen = new Set(initialSkills);
+  const added: string[] = [];
+  let frontier = [...initialSkills];
+
+  for (let depth = 0; depth < maxDepth && frontier.length > 0; depth++) {
+    const nextFrontier: string[] = [];
+    for (const skillName of frontier) {
+      const brainText = readBrainFile(skillName, root);
+      if (!brainText) continue;
+      for (const next of parseNextSkills(brainText)) {
+        if (!allSeen.has(next)) {
+          allSeen.add(next);
+          added.push(next);
+          nextFrontier.push(next);
+        }
+      }
+    }
+    frontier = nextFrontier;
+  }
+
+  return added;
+}
+
+// ─── FILE HASH HELPERS ───────────────────────────────────────────────────────
+
+/** Extract file-path tokens from brain/report text (e.g. `src/foo.ts:42`). */
+function extractFileMentions(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  // Match: path-like token with at least one slash or a dot-extension
+  const re = /(?:^|\s|`|'|"|\()([a-zA-Z0-9_./-]+\.[a-zA-Z]{1,10})(?::\d+)?/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const p = m[1];
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+function hashFileSha1(absPath: string): string | null {
+  try {
+    const buf = readFileSync(absPath);
+    return createHash('sha1').update(buf).digest('hex').slice(0, 10);
+  } catch {
+    return null;
+  }
+}
+
+function loadStoredHashes(
+  root: string,
+  skillName: string,
+): Record<string, string> {
+  const p = join(root, '.project-brain', `${skillName}-filehashes.json`);
+  if (!existsSync(p)) return {};
+  try {
+    return JSON.parse(readFileSync(p, 'utf8')) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function storeFileHashes(root: string, skillName: string, text: string): void {
+  const paths = extractFileMentions(text);
+  if (paths.length === 0) return;
+  const hashes: Record<string, string> = {};
+  for (const rel of paths) {
+    const h = hashFileSha1(join(root, rel));
+    if (h) hashes[rel] = h;
+  }
+  if (Object.keys(hashes).length === 0) return;
+  try {
+    const brainDir = join(root, '.project-brain');
+    writeFileSync(
+      join(brainDir, `${skillName}-filehashes.json`),
+      JSON.stringify(hashes, null, 2),
+    );
+  } catch {
+    /* ignore write errors */
+  }
+}
+
+/**
+ * Returns true if any file mentioned in `text` has changed since the last
+ * stored hash snapshot for this skill. When no snapshot exists, returns false
+ * (no baseline → cannot detect change → stay on fix-only path).
+ */
+function mentionedFilesChanged(
+  root: string,
+  skillName: string,
+  text: string,
+): boolean {
+  const stored = loadStoredHashes(root, skillName);
+  if (Object.keys(stored).length === 0) return false;
+  for (const rel of extractFileMentions(text)) {
+    if (!(rel in stored)) continue;
+    const current = hashFileSha1(join(root, rel));
+    if (current !== null && stored[rel] !== current) return true;
+  }
+  return false;
+}
+
+// ─── REPORT FORMAT VALIDATION ────────────────────────────────────────────────
+
+/**
+ * Returns true only when all four required sections are present in the correct
+ * order: SUMMARY → FINDINGS → STATE → NEXT_SKILLS.
+ */
+function isValidReportFormat(text: string): boolean {
+  const order = ['SUMMARY', 'FINDINGS', 'STATE', 'NEXT_SKILLS'];
+  let lastIdx = -1;
+  for (const section of order) {
+    const re = new RegExp(`^${section}:`, 'im');
+    const m = text.match(re);
+    if (!m || m.index === undefined) return false;
+    if (m.index < lastIdx) return false;
+    lastIdx = m.index;
+  }
+  return true;
+}
+
+// ─── CONTEXT RECAP ───────────────────────────────────────────────────────────
+
+function extractBrainSection(text: string, section: string): string {
+  // Multi-line: "SECTION:\nlines\n" until next ALL_CAPS: label or end
+  const re = new RegExp(
+    `^${section}:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z_]{2,}:|$)`,
+    'im',
+  );
+  const m = text.match(re);
+  if (m?.[1]?.trim()) return m[1].trim().slice(0, 400);
+  // Inline: "SECTION: value on same line"
+  const il = text.match(new RegExp(`^${section}:\\s*(.+)$`, 'im'));
+  if (il?.[1]?.trim()) return il[1].trim().slice(0, 400);
+  return '';
+}
+
+/**
+ * Build a ≤2000-token (≈8 000 char) recap from SUMMARY and STATE sections of
+ * every skill brain file in `.project-brain/`. Oldest entries are dropped first
+ * when the limit is exceeded.
+ */
+function buildContextRecap(root: string, maxChars = 8000): string {
+  const brainDir = join(root, '.project-brain');
+  if (!existsSync(brainDir)) return '';
+
+  let files: string[];
+  try {
+    files = readdirSync(brainDir)
+      .filter(
+        (f) =>
+          f.endsWith('.md') &&
+          !f.includes('-report') &&
+          !f.includes('-handoff') &&
+          !f.includes('-fix1') &&
+          f !== 'work-log.md',
+      )
+      .sort();
+  } catch {
+    return '';
+  }
+
+  type Excerpt = { text: string };
+  const excerpts: Excerpt[] = [];
+  for (const f of files) {
+    try {
+      const raw = readFileSync(join(brainDir, f), 'utf8');
+      const sum = extractBrainSection(raw, 'SUMMARY');
+      const state = extractBrainSection(raw, 'STATE');
+      if (!sum && !state) continue;
+      const lines: string[] = [`[${f}]`];
+      if (sum) lines.push(`SUMMARY: ${sum}`);
+      if (state) lines.push(`STATE: ${state}`);
+      excerpts.push({ text: lines.join('\n') });
+    } catch {
+      /* skip unreadable files */
+    }
+  }
+
+  if (excerpts.length === 0) return '';
+
+  // Drop oldest entries until total is within limit
+  while (
+    excerpts.length > 1 &&
+    excerpts.map((e) => e.text).join('\n\n').length > maxChars
+  ) {
+    excerpts.shift();
+  }
+
+  const combined = excerpts.map((e) => e.text).join('\n\n');
+  if (!combined.trim()) return '';
+  return `PRIOR CONTEXT (SUMMARY + STATE from earlier skill reports):\n${combined}\n`;
+}
+
+// ─── HANDOFF NOTES ───────────────────────────────────────────────────────────
+
+function readHandoffNote(root: string, skillName: string): string {
+  const p = join(root, '.project-brain', `${skillName}-handoff.md`);
+  if (!existsSync(p)) return '';
+  try {
+    return readFileSync(p, 'utf8').trim();
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Persona / lens reviews — always appended in `buildProdQueue` after stack-selected
- * skills. Excluded from `getAvailableSkills` so empty-understand “run all” does not
+ * skills. Excluded from `getAvailableSkills` so empty-understand "run all" does not
  * duplicate them.
  */
 export const PROD_FIXED_REVIEW_SKILL_ORDER = [
@@ -94,7 +327,7 @@ const SKILL_EXCLUDE = new Set([
   'harden',
   'prod-gate',
   'report',
-  /** Large meta-playbook: run via `--skill user-stories` or smart list, not auto “run all” prod. */
+  /** Large meta-playbook: run via `--skill user-stories` or smart list, not auto "run all" prod. */
   'user-stories',
   ...PROD_FIXED_REVIEW_SKILL_ORDER,
 ]);
@@ -312,7 +545,7 @@ Each skill runs in **${SKILL_MINI_LOOP_PHASE_COUNT} separate queue steps**. Fini
 
 /** Stack line reused by \`buildProdQueue\`, \`--smart\`, and \`--skill\` phased runs. */
 export function getProdStackContextInstruction(): string {
-  return `Read .project-brain/understand.md and use lines starting with HAS_, DATABASE, ORM, AUTH, TEST_, MIGRATION_, PACKAGE_ as the stack summary for this workspace.`;
+  return `Re-read .project-brain/understand.md now (do not use any cached reading from earlier in this queue — understand.md may have been updated by a prior skill). Use lines starting with HAS_, DATABASE, ORM, AUTH, TEST_, MIGRATION_, PACKAGE_ as the stack summary for this workspace.`;
 }
 
 export function buildSkillMiniLoop(
@@ -320,15 +553,30 @@ export function buildSkillMiniLoop(
   skillContent: string,
   stackInstruction: string,
   date: string,
+  root?: string,
+  previousSkillName?: string,
 ): string[] {
   const brain = `.project-brain/${skillName}.md`;
   const brainReport = `.project-brain/${skillName}-report.md`;
+  const fix1File = `.project-brain/${skillName}-fix1.md`;
+  const handoffFile = `.project-brain/${skillName}-handoff.md`;
+
+  // Context recap block (empty string when root not provided or no brain files yet)
+  const recap = root ? buildContextRecap(root) : '';
+  const recapBlock = recap ? `\n${recap}\n` : '';
+
+  // Handoff note from the previous skill (if any)
+  const handoffNote =
+    root && previousSkillName ? readHandoffNote(root, previousSkillName) : '';
+  const handoffBlock = handoffNote
+    ? `\nHANDOFF FROM PREVIOUS SKILL (${previousSkillName}):\n${handoffNote}\n`
+    : '';
 
   const personaPhase1Note = skillName.startsWith('review-as-')
     ? `
 
 PLAYBOOK + BRAIN FILE (persona / lens skill):
-- Follow your playbook’s headings (e.g. Themes, Flows) **and** add a mandatory **Issues** section: numbered rows with **severity** (critical|high|medium), **file path or route** (or \`docs\` / \`README\` if no code anchor), and **one-line fix**. Without anchors, later automated fix phases cannot edit the repo.
+- Follow your playbook's headings (e.g. Themes, Flows) **and** add a mandatory **Issues** section: numbered rows with **severity** (critical|high|medium), **file path or route** (or \`docs\` / \`README\` if no code anchor), and **one-line fix**. Without anchors, later automated fix phases cannot edit the repo.
 `
     : '';
 
@@ -337,8 +585,8 @@ PLAYBOOK + BRAIN FILE (persona / lens skill):
 
 PERSONA / PM / LENS — THIS PHASE MUST PRODUCE REPO CHANGES WHEN POSSIBLE:
 - Read ${brain} and ${brainReport}. If either is missing, recreate them (full audit + report), then continue.
-- For **every** Critical/High item that names a file, URL path, component, API, schema, env key, or stub: apply a **minimal real patch** now (match existing project patterns). Do **not** reply that the skill is “complete” with only analysis if VERDICT was NEEDS_WORK or NOT_READY and anchors exist.
-- If themes are **strategic only** (no code hook): add a concise **Product / PM note** to README.md or \`docs/product-notes.md\` (create if needed), then list that under **High fixed** or **Manual needed** — do not use “no action” as the only outcome when NEEDS_WORK.
+- For **every** Critical/High item that names a file, URL path, component, API, schema, env key, or stub: apply a **minimal real patch** now (match existing project patterns). Do **not** reply that the skill is "complete" with only analysis if VERDICT was NEEDS_WORK or NOT_READY and anchors exist.
+- If themes are **strategic only** (no code hook): add a concise **Product / PM note** to README.md or \`docs/product-notes.md\` (create if needed), then list that under **High fixed** or **Manual needed** — do not use "no action" as the only outcome when NEEDS_WORK.
 `
     : '';
 
@@ -347,7 +595,7 @@ PERSONA / PM / LENS — THIS PHASE MUST PRODUCE REPO CHANGES WHEN POSSIBLE:
       ? `
 
 REVIEW-AS-MOBILE — FULL CHECKLIST, NOT A SAMPLE:
-- Treat ${brainReport} **Critical** and **High** lists as an **ordered checklist**. You must attempt **every** item in this phase (and the next fix phase if any remain) — **not** one or two “example” files then stop.
+- Treat ${brainReport} **Critical** and **High** lists as an **ordered checklist**. You must attempt **every** item in this phase (and the next fix phase if any remain) — **not** one or two "example" files then stop.
 - For each issue: either **patch** the named file(s), print ⚠️ **MANUAL** with a concrete step, or move to **Could not fix** with one line per row. **No orphaned issues** left unmentioned in the FIX SUMMARY.
 - Prefer **small, correct** edits per file over skipping; if many files need the same token tweak, apply the pattern across **all** listed files before ending this phase.
 `
@@ -364,23 +612,48 @@ MISSING BRAIN FILES — REQUIRED (applies to every phase of this skill):
 
 STACK CONTEXT:
 ${stackInstruction}
-`.trim();
+${recapBlock}`.trim();
+
+  const failStopCheck = `
+QUEUE FAIL CHECK (do this first, before any other work):
+Scan .project-brain/ for any brain file containing the line \`VERDICT: FAIL\`.
+- If found → print ⛔ QUEUE STOPPED: <filename> reported VERDICT: FAIL — halting queue to avoid running on broken state. Do no further work.
+- If not found → continue normally.
+`;
 
   return [
     `${ctx}
 
 ${skillPhaseIntro(skillName, 1, 'WRITE BRAIN (.project-brain primary output)')}
-
+${failStopCheck}${handoffBlock}
 ━━━ SKILL: ${skillName.toUpperCase()} ━━━
 
 ${skillContent}
 ${personaPhase1Note}
 You MUST write ${brain} (create or overwrite). If the file already exists from an earlier run, update it for this pass.
 
-Format:
-# ${skillName} Audit
-Date: ${date}
-VERDICT: PROD_READY | NOT_READY — <N> issues
+REPORT FORMAT — mandatory for ${brain} (reject and rewrite if any section is missing or out of order):
+
+\`\`\`
+SUMMARY:
+<one line — what was scanned>
+<one line — key finding>
+<one line — verdict: PROD_READY | NOT_READY | NEEDS_WORK — N issues> (3 lines max)
+
+FINDINGS:
+- <file:line> — <what> — <why>
+(references only — never embed raw code blocks; next skill reads files fresh)
+
+STATE:
+<1–3 sentences: what the next skill needs to know about current codebase state>
+
+NEXT_SKILLS: <comma-separated skill names> | none
+\`\`\`
+
+Rules:
+- Never embed raw code blocks. Use file:line references only.
+- VERDICT: FAIL (not NOT_READY) only for unrecoverable errors.
+- All four sections must be present in the order above or the report is INVALID.
 
 Print: ✅ AUDIT DONE: ${skillName} — <N> issues found`,
 
@@ -389,7 +662,7 @@ Print: ✅ AUDIT DONE: ${skillName} — <N> issues found`,
 ${skillPhaseIntro(skillName, 2, 'WRITE REPORT (.project-brain/*-report.md)')}
 
 If ${brain} exists: read it and use it as the audit source.
-If ${brain} does NOT exist: run the full ${skillName} playbook from phase 1 (read the project), write ${brain}, then continue below.
+If ${brain} does NOT exist: run the full ${skillName} playbook from phase 1 (read the project), write ${brain} in the format above, then continue below.
 
 Generate a focused report for this skill only:
 
@@ -398,7 +671,7 @@ Generate a focused report for this skill only:
 VERDICT: PROD_READY / NOT_READY
 
 Issues found:
- 1. <issue> — <file> — <severity: critical|high|medium>
+ 1. <issue> — <file:line> — <severity: critical|high|medium>
  2. ...
 
 Critical (fix now):
@@ -436,20 +709,24 @@ Print: ✅ FIXED [${skillName}]: <file> — <one line what changed>
 
 If migration needed: print ⚠️ MANUAL: <migration command>
 
-End with:
+End with this summary AND write it to ${fix1File}:
 ── ${skillName} FIX SUMMARY ──
 Critical fixed: <N>
 High fixed:     <N>
 Manual needed:  <list>
-Could not fix:  <list + reason>`,
+Could not fix:  <list + reason>
+
+(Write the above summary block verbatim to ${fix1File} so the next fix phase can read it.)`,
 
     `${ctx}
 
 ${skillPhaseIntro(skillName, 4, 'FIX — REMAINING ITEMS')}
 
+Read ${fix1File} first (written by the previous fix phase) to see what was already done.
+
 Ensure ${brain} and ${brainReport} exist; if not, create them (full ${skillName} audit + report) before fixing.
 ${skillName.startsWith('review-as-') ? '\nPersona skill: finish every remaining Critical/High item with a code, config, or doc-file edit — not summary text only.\n' : ''}${skillName === 'review-as-mobile' ? '\nMobile: if any Critical/High row from the report is still open, continue fixing until each row is resolved or explicitly listed under Could not fix.\n' : ''}
-Continue with any remaining fixes from the ${skillName} skill that were not completed.
+Continue with any remaining fixes from the ${skillName} skill that were not completed in phase 3.
 Same rules: actual changes, follow existing patterns.
 Print after each: ✅ done [${skillName}]: <one line>
 
@@ -470,7 +747,13 @@ If any issue is still present:
 Print: ❌ STILL BROKEN [${skillName}]: <file> — <exact issue>
 
 If all clear:
-Print: ✅ VERIFIED [${skillName}]: all fixes confirmed`,
+Print: ✅ VERIFIED [${skillName}]: all fixes confirmed
+
+After verifying, write a one-paragraph handoff note to ${handoffFile}:
+- What was audited and fixed
+- What issues remain (if any)
+- What the NEXT skill should focus on or be aware of
+(This note will be injected into the next skill's phase 1 prompt.)`,
 
     `${ctx}
 
@@ -510,6 +793,8 @@ export function buildSkillMiniLoopFixOnly(
   skillContent: string,
   stackInstruction: string,
   date: string,
+  root?: string,
+  previousSkillName?: string,
 ): string[] {
   const brain = `.project-brain/${skillName}.md`;
   const report = `.project-brain/${skillName}-report.md`;
@@ -518,6 +803,8 @@ export function buildSkillMiniLoopFixOnly(
     skillContent,
     stackInstruction,
     date,
+    root,
+    previousSkillName,
   );
   const tail = full.slice(2);
   if (tail.length === 0) {
@@ -532,8 +819,9 @@ export function buildSkillMiniLoopFixOnly(
 
 /**
  * Per-skill queue: missing brain → full 6 phases (scan/write then fix); open
- * issues in saved brain/report → fix-only (phases 3–6); clean → full 6 phases
- * again (re-scan).
+ * issues in saved brain/report → fix-only (phases 3–6) unless mentioned files
+ * have changed (in which case full re-audit); clean → full 6 phases again
+ * (re-scan).
  */
 export function resolveSkillPhaseMessages(
   root: string,
@@ -541,21 +829,68 @@ export function resolveSkillPhaseMessages(
   skillContent: string,
   stackInstruction: string,
   date: string,
+  previousSkillName?: string,
 ): string[] {
   const brainText = readBrainFile(skillName, root);
   if (!brainText.trim()) {
-    return buildSkillMiniLoop(skillName, skillContent, stackInstruction, date);
+    return buildSkillMiniLoop(
+      skillName,
+      skillContent,
+      stackInstruction,
+      date,
+      root,
+      previousSkillName,
+    );
   }
-  const combined = `${brainText}\n${readSkillReportMarkdown(root, skillName)}`;
+
+  // If brain file doesn't match the new report format, treat as stale → full run
+  if (!isValidReportFormat(brainText)) {
+    return buildSkillMiniLoop(
+      skillName,
+      skillContent,
+      stackInstruction,
+      date,
+      root,
+      previousSkillName,
+    );
+  }
+
+  const reportText = readSkillReportMarkdown(root, skillName);
+  const combined = `${brainText}\n${reportText}`;
+
   if (combinedSkillTextHasOpenIssues(combined)) {
+    // If any file mentioned in the old report has changed since it was written,
+    // run a full re-audit instead of fix-only to avoid patching stale findings.
+    if (mentionedFilesChanged(root, skillName, combined)) {
+      return buildSkillMiniLoop(
+        skillName,
+        skillContent,
+        stackInstruction,
+        date,
+        root,
+        previousSkillName,
+      );
+    }
+    // Snapshot current file hashes so the next run can detect drift
+    storeFileHashes(root, skillName, combined);
     return buildSkillMiniLoopFixOnly(
       skillName,
       skillContent,
       stackInstruction,
       date,
+      root,
+      previousSkillName,
     );
   }
-  return buildSkillMiniLoop(skillName, skillContent, stackInstruction, date);
+
+  return buildSkillMiniLoop(
+    skillName,
+    skillContent,
+    stackInstruction,
+    date,
+    root,
+    previousSkillName,
+  );
 }
 
 // ─── UNDERSTAND PROMPT ───────────────────────────────────────────────────────
@@ -640,6 +975,19 @@ SEARCH: Yes | No
 FOLDER MAP:
 <folder>: <what lives here>
 
+SUMMARY:
+<app name> — <one-sentence description>
+Stack: <frontend> + <backend> + <database>
+Layers found: <comma-separated list>
+
+FINDINGS:
+- <file:line> — <layer> — <what it is>
+
+STATE:
+HAS_FRONTEND: Yes|No | HAS_BACKEND: Yes|No | DATABASE: <name> | AUTH: <method> | ROLES: <list>
+
+NEXT_SKILLS: <comma-separated skills matching layers found>
+
 Print: ✅ UNDERSTOOD: <name> — <backend> — <frontend> — <database>`;
 }
 
@@ -709,7 +1057,21 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
     ? selectSkills(understand, available)
     : selectAllAvailableOrdered(available);
 
+  // Expand NEXT_SKILLS from existing brain files (max depth 3, no duplicates)
+  const allQueued = new Set<string>([
+    'understand',
+    ...selected,
+    ...PROD_FIXED_REVIEW_SKILL_ORDER,
+  ]);
+  const nextSkillsExpanded = collectNextSkillsDynamic(root, allQueued, 3);
+  // Only add skills that have a SKILL.md available
+  const additionalSkills = nextSkillsExpanded.filter(
+    (s) => readSkillFile(s, root) !== null,
+  );
+
   const stackInstruction = getProdStackContextInstruction();
+
+  let prevSkill: string | undefined = undefined;
 
   for (const skillName of selected) {
     const skillContent = readSkillFile(skillName, root);
@@ -724,8 +1086,27 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
         skillContent,
         stackInstruction,
         date,
+        prevSkill,
       ),
     );
+    prevSkill = skillName;
+  }
+
+  // Append dynamically-discovered NEXT_SKILLS skills (after static selection)
+  for (const skillName of additionalSkills) {
+    const skillContent = readSkillFile(skillName, root);
+    if (!skillContent) continue;
+    queue.push(
+      ...resolveSkillPhaseMessages(
+        root,
+        skillName,
+        skillContent,
+        stackInstruction,
+        date,
+        prevSkill,
+      ),
+    );
+    prevSkill = skillName;
   }
 
   for (const skillName of PROD_FIXED_REVIEW_SKILL_ORDER) {
@@ -740,8 +1121,10 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
         skillContent,
         stackInstruction,
         date,
+        prevSkill,
       ),
     );
+    prevSkill = skillName;
   }
 
   queue.push(...buildFinalGate(date));

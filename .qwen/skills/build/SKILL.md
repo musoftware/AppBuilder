@@ -23,22 +23,27 @@ Do NOT touch working code unless the task explicitly requires it.
 
 ---
 
-Write output to: .project-brain/build.md
-Format:
+Write output to: .project-brain/build.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
 
-# Build Log
+SUMMARY:
+<one line — N tasks completed>
+<one line — N tasks deferred or blocked>
+<one line — PROD_READY | NOT_READY | NEEDS_WORK> (3 lines max)
 
-## Done
+FINDINGS:
 
-- Task <N>: <name> — <files created/modified>
+- <file:line> — <task name: done|deferred> — <reason if deferred>
+  (references only — never embed raw code blocks)
 
-## Skipped (already done in previous run)
+STATE:
+<1–3 sentences: what was built, what is still stub/deferred, what harden/test should focus on>
 
-- Task <N>: <name>
+NEXT_SKILLS: harden, test-unit
 
-## Deferred (blocked)
+Rules:
 
-- Task <N>: <name> — blocked by: <reason> — placeholder added at <file>
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:build — <N> tasks completed, <N> deferred`

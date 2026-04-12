@@ -39,7 +39,27 @@ The exact sequence respecting dependencies — numbered list.
 
 ---
 
-Write output to: .project-brain/plan.md
+Write output to: .project-brain/plan.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — N tasks planned>
+<one line — N critical, N high, N medium, N low>
+<one line — estimated total effort> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <task name> — <why it is needed>
+  (references only — never embed raw code blocks)
+
+STATE:
+<1–3 sentences: implementation order and key dependencies the build skill must respect>
+
+NEXT_SKILLS: build
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:plan — <N> tasks planned`

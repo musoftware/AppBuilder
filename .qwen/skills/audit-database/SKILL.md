@@ -34,7 +34,27 @@ INDEX & CONSTRAINT GAPS:
 
 ---
 
-Write output to: .project-brain/audit-database.md
+Write output to: .project-brain/audit-database.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — entities audited>
+<one line — schema/relation gaps found>
+<one line — PROD_READY | NOT_READY — N issues total> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <what> — <why>
+  (references only — never embed raw code blocks; next skill reads files fresh from disk)
+
+STATE:
+<1–3 sentences: which entities have critical missing fields/relations, what migrations are needed>
+
+NEXT_SKILLS: <comma-separated skill names, or none>
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:audit-database — <N> schema gaps found`

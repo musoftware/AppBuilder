@@ -30,18 +30,27 @@ For each fix: print ✅ HARDENED: <file> — <what was added>
 
 ---
 
-Write output to: .project-brain/harden.md
-Format:
+Write output to: .project-brain/harden.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
 
-# Harden Log
+SUMMARY:
+<one line — N files hardened>
+<one line — N already hardened, N still need work>
+<one line — PROD_READY | NOT_READY — N issues remaining> (3 lines max)
 
-## Fixed
+FINDINGS:
 
-- <file>: <what was added>
+- <file:line> — <what was added or found missing> — <why it matters>
+  (references only — never embed raw code blocks)
 
-## Already hardened (no change needed)
+STATE:
+<1–3 sentences: which hardening gaps remain, what test-unit/test-integration should verify>
 
-- <file>
+NEXT_SKILLS: test-unit, test-integration
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:harden — <N> files hardened`

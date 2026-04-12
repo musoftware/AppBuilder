@@ -217,6 +217,7 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
     }
   };
 
+  let prevSmartSkill: string | undefined = undefined;
   const enqueuePhasedSkill = (skillName: string, skillContent: string) => {
     for (const phase of resolveSkillPhaseMessages(
       workspaceRoot,
@@ -224,9 +225,11 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
       skillContent,
       stackInstruction,
       date,
+      prevSmartSkill,
     )) {
       enqueue(phase);
     }
+    prevSmartSkill = skillName;
   };
 
   const skillsBeforeProdGate = PROJECT_BRAIN_SKILL_ORDER.filter(
@@ -320,6 +323,7 @@ export function buildSingleSkillQueue(
     skill,
     getProdStackContextInstruction(),
     date,
+    undefined,
   );
   return phases.map((p, i) => (i === 0 ? `${head}${p}` : p));
 }

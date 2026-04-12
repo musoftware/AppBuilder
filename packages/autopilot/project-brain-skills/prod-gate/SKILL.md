@@ -47,7 +47,27 @@ If ANY FAIL → print NOT_READY + list every failing item
 
 ---
 
-Write output to: .project-brain/prod-gate.md
+Write output to: .project-brain/prod-gate.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — N checks passed, N failed, N N/A>
+<one line — top blocker if NOT_READY>
+<one line — PROD_READY | NOT_READY> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <check name: PASS|FAIL|N/A> — <why it failed>
+  (references only — never embed raw code blocks)
+
+STATE:
+<1–3 sentences: what blocks deployment, what can be deferred to post-launch, overall confidence>
+
+NEXT_SKILLS: none
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors that prevent the gate from running.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:prod-gate — PROD_READY | NOT_READY`

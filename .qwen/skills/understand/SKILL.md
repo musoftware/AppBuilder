@@ -1,67 +1,76 @@
 [SKILL: understand]
 
-Read the brain first:
+This is a LISTING PASS ONLY.
 
-- If .project-brain/understand.md EXISTS → read it, then run a DELTA SCAN:
-  check only files changed since the "Last scan" date written in that file.
-  Update only the sections that changed. Do not re-scan the whole project.
-- If .project-brain/understand.md DOES NOT EXIST → run a full scan (once only).
+Do not analyze, judge, recommend, or say anything is missing. Your only job is to enumerate what is present in the codebase.
 
-FULL SCAN (only when understand.md is missing):
+WHAT TO LIST:
 
-Read in this order:
+1. All source files grouped by layer (routes, controllers, models, migrations, views, components, config, tests, scripts)
+2. All HTTP endpoints: METHOD /path — controller file:line
+3. All frontend pages/screens: route path — component file
+4. All database entities: entity name — model/migration file
+5. All environment variables found in .env.example or config files
+6. All authentication roles found in code: role name — file:line where defined
+7. Top-level folder map: folder — what lives there
 
-1. package.json / composer.json / requirements.txt — dependencies, scripts, type
-2. README.md and any docs/ folder
-3. Main entry file — how the app starts
-4. All route files — what endpoints or pages exist
-5. All model/schema/migration files — what data exists
-6. Auth and role files — what roles and permissions exist
-7. Frontend component/screen files (if any)
-8. Config and .env.example files
-
-Answer all of the following:
-
-APP IDENTITY:
-
-- Name and one-sentence description
-- App type: ERP | CRM | SaaS | e-commerce | API | CLI | marketplace | other
-- Business domain: inventory | HR | billing | logistics | etc.
-
-HAS FRONTEND: Yes | No
-HAS BACKEND: Yes | No
-FRONTEND STACK: React | Vue | Angular | Blade | Livewire | other | N/A
-BACKEND STACK: Laravel | Express | NestJS | Django | Rails | other | N/A
-DATABASE: MySQL | PostgreSQL | SQLite | MongoDB | other | N/A
-AUTH METHOD: JWT | Session | OAuth | API key | none
-TEST FRAMEWORK: Jest | Vitest | PHPUnit | pytest | none
-
-ROLES FOUND IN CODE:
-
-- <role>: defined in <file>, enforced in <middleware/guard>
-
-FEATURES CONFIRMED IN CODE:
-
-- <feature>: COMPLETE | PARTIAL | STUB — located in <file(s)>
-
-TOP-LEVEL FOLDER MAP:
-
-- <folder>: <what lives here>
-
-ENTRY POINT: <file path>
+No analysis. No "this is missing." No "this should be." No judgments of any kind. Just list what is there.
 
 ---
 
 Write output to: .project-brain/understand.md
 
-Use this exact format at the top of the file:
+Use EXACTLY this format:
 
 # Project Understanding
 
 Last scan: <today's date>
 Last git commit: <git rev-parse HEAD output>
 
-Then write all findings under the sections above.
+APP: <name — one sentence>
+TYPE: <ERP|CRM|SaaS|API|CLI|Web app|Mobile backend|other>
+HAS_FRONTEND: Yes | No — <framework>
+HAS_BACKEND: Yes | No — <framework>
+DATABASE: <name>
+ORM: <name>
+AUTH: <method>
+TEST_FRAMEWORK: <name>
+TEST_COMMAND: <command>
+TEST_FOLDER: <folder>
+MIGRATION_COMMAND: <command>
+MIGRATION_FOLDER: <folder>
+PACKAGE_MANAGER: <name>
+
+ROLES: <list each with file:line where defined>
+KEY FEATURES: <list each as COMPLETE|PARTIAL|STUB — file:line>
+
+FOLDER MAP:
+<folder>: <what lives there>
+
+SUMMARY:
+<app name> — <one-sentence description>
+Stack: <frontend framework> + <backend framework> + <database>
+Layers found: <comma-separated: routes, frontend, backend, db, auth, tests, ...>
+
+FINDINGS:
+
+- <file:line> — <layer> — <what it is>
+  (one entry per significant file; references only, no code)
+
+STATE:
+HAS_FRONTEND: Yes|No | HAS_BACKEND: Yes|No | DATABASE: <name> | AUTH: <method> | ROLES: <comma-separated list>
+
+NEXT_SKILLS: <comma-separated skills — one per layer found>
+
+NEXT_SKILLS rules:
+
+- HAS_FRONTEND: Yes → include audit-frontend, audit-roles
+- HAS_BACKEND: Yes → include audit-backend, audit-database
+- Always append: plan, prod-gate
+- Never include: understand, smart-orchestrator, report
+- Add specialized audits only for layers that actually exist (e.g. audit-queue if jobs found)
+
+---
 
 Then append to: .project-brain/work-log.md
-Add one line: `[<date>] skill:understand — full scan | delta scan — <N files read>`
+Add one line: `[<date>] skill:understand — listing pass — <N> files enumerated`

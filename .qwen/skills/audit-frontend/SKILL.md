@@ -76,7 +76,27 @@ Based on what data the screen shows and what the user role needs:
 
 ---
 
-Write output to: .project-brain/audit-frontend.md
+Write output to: .project-brain/audit-frontend.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — what was audited>
+<one line — number of UI gaps found>
+<one line — PROD_READY | NOT_READY — N issues total> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <what> — <why>
+  (references only — never embed raw code blocks; next skill reads files fresh from disk)
+
+STATE:
+<1–3 sentences: which screens/components have critical gaps, what audit-roles or build should focus on>
+
+NEXT_SKILLS: <comma-separated skill names, or none>
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:audit-frontend — found <N> gaps`

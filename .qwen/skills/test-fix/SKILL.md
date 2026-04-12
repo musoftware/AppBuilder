@@ -25,22 +25,27 @@ Run full suite one final time. Print results.
 
 ---
 
-Write output to: .project-brain/test-fix.md
-Format:
+Write output to: .project-brain/test-fix.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
 
-# Test Fix Log
+SUMMARY:
+<one line — N tests fixed, N still failing>
+<one line — fix categories applied: SELECTOR|MOCK|ROUTE|TIMING|ENV|BUG>
+<one line — PASS | FAIL — final suite result> (3 lines max)
 
-## Fixed
+FINDINGS:
 
-- <test>: <category> — <what changed>
+- <file:line> — <test name: fix category applied> — <what changed>
+  (references only — never embed raw code blocks)
 
-## Still Failing
+STATE:
+<1–3 sentences: which failures need human decision, any real bugs found in implementation, prod-gate readiness>
 
-- <test>: <reason — needs human decision>
+NEXT_SKILLS: prod-gate
 
-## Final Result
+Rules:
 
-PASSED: <N> | FAILED: <N>
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:test-fix — <N> fixed, <N> still failing`

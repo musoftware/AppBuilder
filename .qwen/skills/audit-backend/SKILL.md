@@ -46,8 +46,27 @@ AUDIT EVERY BACKEND FILE:
 
 ---
 
-Write output to: .project-brain/audit-backend.md
-Format: use the section headers above, list every gap with file path and line.
+Write output to: .project-brain/audit-backend.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — what was audited>
+<one line — number of gaps found by category>
+<one line — PROD_READY | NOT_READY — N issues total> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <what> — <why>
+  (references only — never embed raw code blocks; next skill reads files fresh from disk)
+
+STATE:
+<1–3 sentences: which endpoint categories are complete vs missing, what the plan/build skills should prioritize>
+
+NEXT_SKILLS: <comma-separated skill names, or none>
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL (not NOT_READY) only for unrecoverable errors (e.g. cannot read source files).
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:audit-backend — found <N> gaps`

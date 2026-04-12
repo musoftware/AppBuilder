@@ -45,3 +45,22 @@ VERDICT: OK | NEEDS_WORK — <N> issues
 
 Append one line to .project-brain/work-log.md:
 `[<date>] review-as-user — <VERDICT>`
+
+---
+
+REPORT FORMAT — mandatory (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — persona, what was reviewed>
+<one line — number and severity of issues found>
+<one line — OK | NEEDS_WORK — N issues> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <what> — <why>
+  (references only — never embed raw code blocks; next skill reads files fresh from disk)
+
+STATE:
+<1–3 sentences: top issues for the build/harden/fix skill to address>
+
+NEXT_SKILLS: none

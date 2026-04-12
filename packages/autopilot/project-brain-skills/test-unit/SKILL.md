@@ -19,18 +19,27 @@ After writing each file: print ✅ TEST FILE: <filename> (<N> tests)
 
 ---
 
-Write output to: .project-brain/test-unit.md
-Format:
+Write output to: .project-brain/test-unit.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
 
-# Unit Test Log
+SUMMARY:
+<one line — N test files created/updated>
+<one line — N tests total, estimated coverage %>
+<one line — PASS | FAIL — N failures> (3 lines max)
 
-## Files Created
+FINDINGS:
 
-- <filename>: <N> tests — covers <what>
+- <file:line> — <test file: what it covers> — <PASS|FAIL|MISSING>
+  (references only — never embed raw code blocks)
 
-## Coverage Estimate
+STATE:
+<1–3 sentences: coverage gaps, functions not yet tested, what test-fix should address>
 
-- <N>% of exported functions covered
+NEXT_SKILLS: test-integration, test-fix
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
 
 Append to: .project-brain/work-log.md
 Add: `[<date>] skill:test-unit — <N> test files, <N> tests total`
