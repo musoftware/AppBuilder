@@ -407,7 +407,7 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('prod', {
           type: 'boolean',
           description:
-            'Production pipeline: stack-detected audits, custom `.qwen/skills/` playbooks, NEXT_SKILLS expansion (up to 3 hops), persona reviews, then final gate. If the **workspace** (not the CLI bundle) defines `.qwen/skills/smart-orchestrator/SKILL.md`, runs that single orchestrator prompt instead. Prepends bundled skill-path resolution when the workspace has no `.qwen/skills/`. Without a TTY, runs as a standalone tool loop.',
+            'Production pipeline: stack-detected audits, custom `.qwen/skills/` playbooks, NEXT_SKILLS expansion (up to 3 hops), persona reviews, then final gate. **Interactive TTY:** always queues phased messages (ignores workspace smart-orchestrator) unless QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR=1. **Headless:** if the workspace defines `.qwen/skills/smart-orchestrator/SKILL.md`, uses that single orchestrator prompt instead of phased queue. Prepends bundled skill paths when the workspace has no `.qwen/skills/`.',
           default: false,
         })
         .option('prod-ready', {

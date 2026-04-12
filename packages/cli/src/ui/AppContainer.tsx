@@ -856,12 +856,15 @@ export const AppContainer = (props: AppContainerProps) => {
           historyManager.addItem(
             {
               type: MessageType.INFO,
-              text: 'Production: queuing phases (understand → stack audits → custom skills → NEXT_SKILLS expansion → persona reviews → final gate). Uses bundled skill paths when `.qwen/skills/` is missing; smart-orchestrator is a single prompt when present…',
+              text: 'Production: queuing phased runs (understand → stack audits → custom skills → NEXT_SKILLS expansion → persona reviews → final gate). Interactive `/prod` always uses this multi-message queue even if `.qwen/skills/smart-orchestrator/SKILL.md` exists (set QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR=1 to use one orchestrator prompt instead).',
             },
             Date.now(),
           );
           try {
-            const phases = driver.prod(process.cwd());
+            const phases = driver.prod(process.cwd(), {
+              useWorkspaceOrchestrator:
+                process.env['QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR'] === '1',
+            });
             const pre = summarizeAutopilotQueue(phases);
             historyManager.addItem(
               {

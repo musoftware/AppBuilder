@@ -16,7 +16,10 @@ export {
   SKILL_MINI_LOOP_PHASE_COUNT,
   summarizeAutopilotQueue,
 } from './prodQueue.js';
-export type { AutopilotQueueSummary } from './prodQueue.js';
+export type {
+  AutopilotQueueSummary,
+  BuildProdQueueOptions,
+} from './prodQueue.js';
 export {
   buildFullChainQueue,
   buildFullChainRunPlan,

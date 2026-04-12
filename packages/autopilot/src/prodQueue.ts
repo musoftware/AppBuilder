@@ -1329,11 +1329,26 @@ If NOT_READY  → print: ⚠️ REMAINING ISSUES — see blockers above`,
 
 // ─── MAIN BUILDER ────────────────────────────────────────────────────────────
 
-export function buildProdQueue(workspaceRoot?: string): string[] {
+export type BuildProdQueueOptions = {
+  /**
+   * When `true` (default), a workspace `.qwen/skills/smart-orchestrator/SKILL.md`
+   * replaces the phased queue with **one** user message (model must run all phases
+   * in that turn — often stops early with a chatty reply). When `false`, always
+   * build the phased queue (understand → skills → …) for reliable multi-turn
+   * drains (e.g. interactive `/prod`).
+   */
+  useWorkspaceOrchestrator?: boolean;
+};
+
+export function buildProdQueue(
+  workspaceRoot?: string,
+  options?: BuildProdQueueOptions,
+): string[] {
   const root = workspaceRoot ?? process.cwd();
+  const useOrchestrator = options?.useWorkspaceOrchestrator !== false;
 
   const orchestrator = readWorkspaceSkillFile('smart-orchestrator', root);
-  if (orchestrator) {
+  if (orchestrator && useOrchestrator) {
     const gov = buildGovernanceBlock(root);
     const govSep = gov ? `\n\n---\n\n${gov}` : '';
     return [

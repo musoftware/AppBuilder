@@ -172,6 +172,34 @@ describe('buildProdQueue', () => {
     expect(joined).toMatch(/AUDIT DONE: audit-backend/i);
   });
 
+  it('uses workspace smart-orchestrator as one message when present (default)', () => {
+    const root = tempWorkspace();
+    mkdirSync(join(root, '.qwen', 'skills', 'smart-orchestrator'), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(root, '.qwen', 'skills', 'smart-orchestrator', 'SKILL.md'),
+      '[SKILL: smart-orchestrator]\nRun all phases.\n',
+    );
+    const phases = buildProdQueue(root);
+    expect(phases).toHaveLength(1);
+    expect(phases[0]).toContain('Run all phases');
+  });
+
+  it('builds phased queue when workspace orchestrator exists but useWorkspaceOrchestrator is false', () => {
+    const root = tempWorkspace();
+    mkdirSync(join(root, '.qwen', 'skills', 'smart-orchestrator'), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(root, '.qwen', 'skills', 'smart-orchestrator', 'SKILL.md'),
+      '[SKILL: smart-orchestrator]\nRun all phases.\n',
+    );
+    const phases = buildProdQueue(root, { useWorkspaceOrchestrator: false });
+    expect(phases.length).toBeGreaterThan(1);
+    expect(phases.join('\n')).toMatch(/PHASE 1\/6/);
+  });
+
   it('always appends fixed persona review skills before final gate', () => {
     const root = tempWorkspace();
     mkdirSync(join(root, '.project-brain'), { recursive: true });

@@ -66,6 +66,7 @@ cd integration-tests && cross-env QWEN_SANDBOX=false npx vitest run cli interact
 - **`QWEN_AUTOPILOT_QUEUE_LOG`** — file path (absolute or cwd-relative) for JSONL records of queued autopilot phases (interactive TUI and headless modes that drain a queue).
 - **`QWEN_AUTOPILOT_STOP_QUEUE_ON_ERROR`** — default: remaining interactive autopilot messages are dropped after an API/stream error. Set to `0` to keep draining the queue after errors.
 - **`QWEN_PROJECT_BRAIN_DIR`** — safe relative path under the workspace for brain files (default `.project-brain`). Rejects `..` and drive-prefixed values.
+- **`QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR`** — set to `1` so **interactive** `/prod` uses a single workspace `smart-orchestrator` prompt when present (default: phased queue so the run does not stop after “understand” with a chatty model).
 
 JSONL `kind` values you may see include `autopilot_queue`, `autopilot_queue_halted`, `autopilot_queue_stream_retry` (rate-limit / transport retry while an interactive autopilot queue still has items), `quality_check_pass`, and `autopilot_ready_production_round`.
 

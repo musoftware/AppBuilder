@@ -19,7 +19,7 @@ import { findDesignSystem } from './designSystemsData.js';
 import { QC_COVERAGE_GAP_CLOSURE_TASK_DESCRIPTION } from './qualityCheckCoverageClosure.js';
 import { DEFAULT_QUALITY_CHECK_MAX_PASSES } from './qualityCheckConstants.js';
 import { QC_TESTING_TAXONOMY } from './qualityCheckTestingTaxonomy.js';
-import { buildProdQueue } from './prodQueue.js';
+import { buildProdQueue, type BuildProdQueueOptions } from './prodQueue.js';
 import { buildProdReadyQueue } from './prodReadyQueue.js';
 import {
   buildFullChainRunPlan,
@@ -387,8 +387,8 @@ export class AutopilotDriver {
    * Stack-detected production pipeline: understand → audit → report → fix →
    * verify → tests → final gate (see `buildProdQueue`).
    */
-  prod(workspaceRoot?: string): string[] {
-    return buildProdQueue(workspaceRoot ?? process.cwd());
+  prod(workspaceRoot?: string, options?: BuildProdQueueOptions): string[] {
+    return buildProdQueue(workspaceRoot ?? process.cwd(), options);
   }
 
   async fullChain(
