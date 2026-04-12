@@ -87,6 +87,9 @@ describe('showAuthStatus', () => {
     expect(writeStdoutLine).toHaveBeenCalledWith(
       expect.stringContaining('1,000 requests/day'),
     );
+    expect(writeStdoutLine).toHaveBeenCalledWith(
+      expect.stringContaining('auth logout'),
+    );
     expect(process.exit).toHaveBeenCalledWith(0);
   });
 

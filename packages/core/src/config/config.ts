@@ -33,6 +33,7 @@ import {
   createContentGenerator,
   resolveContentGeneratorConfigWithSources,
 } from '../core/contentGenerator.js';
+import { SharedTokenManager } from '../qwen/sharedTokenManager.js';
 
 // Services
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
@@ -1066,6 +1067,32 @@ export class Config {
   /**
    * Refresh authentication and rebuild ContentGenerator.
    */
+  /**
+   * Clear MU OAuth (Qwen OAuth) tokens on disk and in memory, and drop the
+   * current auth selection in ModelsConfig / content generator config. Call after
+   * removing `security.auth.selectedType` from settings when the user logs out.
+   */
+  async clearQwenOAuthLoginSession(): Promise<void> {
+    await SharedTokenManager.getInstance().clearPersistedCredentials();
+    const gen = this.contentGenerator as
+      | { clearToken?: () => void }
+      | undefined;
+    if (gen && typeof gen.clearToken === 'function') {
+      gen.clearToken();
+    }
+    this.modelsConfig.clearCurrentAuthSelection();
+    if (this.contentGeneratorConfig) {
+      this.contentGeneratorConfig = {
+        ...this.contentGeneratorConfig,
+        authType: undefined,
+      };
+    }
+    this.contentGeneratorConfigSources = {
+      ...this.contentGeneratorConfigSources,
+      authType: undefined,
+    };
+  }
+
   async refreshAuth(authMethod: AuthType, isInitialAuth?: boolean) {
     // Sync modelsConfig state for this auth refresh
     const modelId = this.modelsConfig.getModel();

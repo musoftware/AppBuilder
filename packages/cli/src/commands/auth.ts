@@ -6,6 +6,7 @@
 
 import type { CommandModule, Argv } from 'yargs';
 import {
+  handleLogoutMuOAuth,
   handleQwenAuth,
   runInteractiveAuth,
   showAuthStatus,
@@ -58,6 +59,14 @@ const statusCommand = {
   },
 };
 
+const logoutCommand = {
+  command: 'logout',
+  describe: t('Log out of MU OAuth (clear saved session and auth choice)'),
+  handler: async () => {
+    await handleLogoutMuOAuth();
+  },
+};
+
 export const authCommand: CommandModule = {
   command: 'auth',
   describe: t(
@@ -68,6 +77,7 @@ export const authCommand: CommandModule = {
       .command(qwenOauthCommand)
       .command(codePlanCommand)
       .command(statusCommand)
+      .command(logoutCommand)
       .demandCommand(0) // Don't require a subcommand
       .version(false),
   handler: async () => {

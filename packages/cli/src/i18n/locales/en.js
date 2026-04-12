@@ -1305,6 +1305,20 @@ export default {
     'Paid \u00B7 Up to 6,000 requests/5 hrs \u00B7 All Alibaba Cloud Coding Plan Models',
   'Alibaba Cloud Coding Plan': 'Alibaba Cloud Coding Plan',
   'Bring your own API key': 'Bring your own API key',
+  'Log out of MU OAuth': 'Log out of MU OAuth',
+  'Remove saved MU OAuth session and stored sign-in choice':
+    'Remove saved MU OAuth session and stored sign-in choice',
+  'Logged out of MU OAuth. Choose a sign-in method to continue.':
+    'Logged out of MU OAuth. Choose a sign-in method to continue.',
+  'Failed to log out of MU OAuth: {{message}}':
+    'Failed to log out of MU OAuth: {{message}}',
+  'Logged out of MU OAuth.': 'Logged out of MU OAuth.',
+  'Not signed in with MU OAuth. Use /auth in the app or `autocreator auth` to change method.':
+    'Not signed in with MU OAuth. Use /auth in the app or `autocreator auth` to change method.',
+  'Log out of MU OAuth (clear saved session and auth choice)':
+    'Log out of MU OAuth (clear saved session and auth choice)',
+  '  Log out: autocreator auth logout  (or /auth → Log out of MU OAuth)\n':
+    '  Log out: autocreator auth logout  (or /auth → Log out of MU OAuth)\n',
   'API-KEY': 'API-KEY',
   'Use coding plan credentials or your own api-keys/providers.':
     'Use coding plan credentials or your own api-keys/providers.',

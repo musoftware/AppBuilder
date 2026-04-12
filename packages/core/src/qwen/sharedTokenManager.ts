@@ -822,6 +822,27 @@ export class SharedTokenManager {
   }
 
   /**
+   * Clear memory cache and delete persisted OAuth credentials at
+   * `~/.qwen/oauth_creds.json` (no-op if the file is missing).
+   */
+  async clearPersistedCredentials(): Promise<void> {
+    this.clearCache();
+    const filePath = this.getCredentialFilePath();
+    try {
+      await this.withTimeout(fs.unlink(filePath), 3000, 'File operation');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOENT') {
+        debugLogger.warn(
+          `Failed to remove OAuth credentials file: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+  }
+
+  /**
    * Get the current cached credentials (may be expired)
    *
    * @returns The currently cached credentials or null

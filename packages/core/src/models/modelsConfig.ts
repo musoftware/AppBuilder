@@ -223,6 +223,15 @@ export class ModelsConfig {
   }
 
   /**
+   * Clear in-memory auth selection (e.g. user logged out). Does not modify
+   * settings.json — callers should remove persisted `security.auth` fields.
+   */
+  clearCurrentAuthSelection(): void {
+    this.currentAuthType = undefined;
+    this.authTypeWasExplicitlyProvided = false;
+  }
+
+  /**
    * Check if authType was explicitly provided (via CLI or settings).
    * If false, no authType was provided yet (fresh user).
    */

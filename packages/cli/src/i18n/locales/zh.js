@@ -1233,6 +1233,20 @@ export default {
     '付费 \u00B7 每 5 小时最多 6,000 次请求 \u00B7 支持阿里云百炼 Coding Plan 全部模型',
   'Alibaba Cloud Coding Plan': '阿里云百炼 Coding Plan',
   'Bring your own API key': '使用自己的 API 密钥',
+  'Log out of MU OAuth': '退出 MU OAuth 登录',
+  'Remove saved MU OAuth session and stored sign-in choice':
+    '清除已保存的 MU OAuth 会话与登录方式选择',
+  'Logged out of MU OAuth. Choose a sign-in method to continue.':
+    '已退出 MU OAuth。请选择一种登录方式以继续。',
+  'Failed to log out of MU OAuth: {{message}}':
+    '退出 MU OAuth 失败：{{message}}',
+  'Logged out of MU OAuth.': '已退出 MU OAuth。',
+  'Not signed in with MU OAuth. Use /auth in the app or `autocreator auth` to change method.':
+    '当前未使用 MU OAuth 登录。请在应用中使用 /auth 或运行 `autocreator auth` 更改登录方式。',
+  'Log out of MU OAuth (clear saved session and auth choice)':
+    '退出 MU OAuth（清除已保存的会话与登录选择）',
+  '  Log out: autocreator auth logout  (or /auth → Log out of MU OAuth)\n':
+    '  退出登录：autocreator auth logout（或在 /auth 中选择「退出 MU OAuth」）\n',
   'Use coding plan credentials or your own api-keys/providers.':
     '使用 Coding Plan 凭证或您自己的 API 密钥/提供商。',
   OpenAI: 'OpenAI',
