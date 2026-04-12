@@ -1182,6 +1182,197 @@ export function resolveSkillPhaseMessages(
   );
 }
 
+// ─── PRODUCT LIFECYCLE (OPTIONAL PREFIX, MERGED WITH STANDARD /PROD) ─────────
+
+/** Number of main lifecycle phases prepended when `includeProductLifecycle` or `QWEN_PROD_PRODUCT_LIFECYCLE` is set. */
+export const PRODUCT_LIFECYCLE_PHASE_COUNT = 16;
+
+type ProductLifecycleMainPhase = {
+  readonly title: string;
+  readonly focus: string;
+  readonly suggestedSkills: readonly string[];
+};
+
+/**
+ * Main product phases (1..16). Each phase queues a guidance block plus a
+ * filtered subset of pipeline skills; the standard `/prod` tail still runs
+ * afterward unchanged.
+ */
+const PRODUCT_LIFECYCLE_MAIN_PHASES: readonly ProductLifecycleMainPhase[] = [
+  {
+    title: 'Discovery & problem framing',
+    focus:
+      'Problem statement, stakeholders, success criteria, and explicit in/out of scope.',
+    suggestedSkills: ['plan', 'user-stories'],
+  },
+  {
+    title: 'Requirements & acceptance',
+    focus:
+      'User-visible behavior, acceptance signals, and traceability from stories to code.',
+    suggestedSkills: ['user-stories', 'plan'],
+  },
+  {
+    title: 'Architecture & boundaries',
+    focus:
+      'Modules, boundaries, dependency direction, and where cross-cutting concerns live.',
+    suggestedSkills: ['plan', 'audit-backend'],
+  },
+  {
+    title: 'Data model & persistence',
+    focus:
+      'Schema, migrations, integrity, queries, and data lifecycle (PII, retention).',
+    suggestedSkills: ['audit-database', 'plan'],
+  },
+  {
+    title: 'Backend services & APIs',
+    focus:
+      'Endpoints, validation, errors, idempotency, and service-level contracts.',
+    suggestedSkills: ['audit-backend', 'build'],
+  },
+  {
+    title: 'Identity, authorization & roles',
+    focus:
+      'Auth flows, session/JWT, role matrices, and enforcement points in code.',
+    suggestedSkills: ['audit-roles', 'audit-backend'],
+  },
+  {
+    title: 'Frontend UX & UI',
+    focus: 'Screens, states, navigation, forms, and client-side data fetching.',
+    suggestedSkills: ['audit-frontend', 'build'],
+  },
+  {
+    title: 'Integrations & external dependencies',
+    focus:
+      'Third-party APIs, webhooks, SDKs, config, and failure modes when deps fail.',
+    suggestedSkills: ['audit-backend', 'harden'],
+  },
+  {
+    title: 'Unit & narrow tests',
+    focus:
+      'Fast tests, fixtures, mocks, and coverage of critical paths and edge cases.',
+    suggestedSkills: ['test-unit', 'test-fix'],
+  },
+  {
+    title: 'Integration tests',
+    focus: 'Service boundaries, DB, queues, and multi-component scenarios.',
+    suggestedSkills: ['test-integration', 'test-fix'],
+  },
+  {
+    title: 'Performance & scalability',
+    focus:
+      'Hot paths, N+1 queries, payloads, caching, and load-sensitive design.',
+    suggestedSkills: ['review-as-performance', 'harden'],
+  },
+  {
+    title: 'Security',
+    focus:
+      'Threats, authZ bugs, injection, secrets, headers, and dependency risk.',
+    suggestedSkills: ['review-as-security', 'audit-backend'],
+  },
+  {
+    title: 'Accessibility & inclusive UX',
+    focus: 'Keyboard, semantics, contrast, motion, and assistive-tech flows.',
+    suggestedSkills: ['review-as-a11y', 'audit-frontend'],
+  },
+  {
+    title: 'Resilience & degraded behavior',
+    focus:
+      'Timeouts, retries, partial outages, and user-visible failure handling.',
+    suggestedSkills: ['review-as-slow-network', 'harden'],
+  },
+  {
+    title: 'Cross-functional quality',
+    focus: 'Consistency, maintainability, logging, and engineering hygiene.',
+    suggestedSkills: ['review-as-qa', 'review-as-developer'],
+  },
+  {
+    title: 'Release readiness & narrative',
+    focus:
+      'What ships, known gaps, operational handoff, and stakeholder summary.',
+    suggestedSkills: ['review-as-pm', 'report', 'harden'],
+  },
+];
+
+function shouldIncludeProductLifecycle(
+  includeProductLifecycleOption?: boolean,
+): boolean {
+  if (includeProductLifecycleOption !== undefined) {
+    return includeProductLifecycleOption;
+  }
+  const raw = process.env['QWEN_PROD_PRODUCT_LIFECYCLE']?.trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+function buildMainProductPhaseBlock(
+  root: string,
+  phaseIndex1Based: number,
+  phase: ProductLifecycleMainPhase,
+): string {
+  const u = brainPromptRel('understand.md');
+  return [
+    `## MAIN PRODUCT PHASE ${phaseIndex1Based}/${PRODUCT_LIFECYCLE_PHASE_COUNT} — ${phase.title}`,
+    '',
+    '**Merged `/prod`:** This block is the product-lifecycle spine. After all main phases complete, this run continues with the **standard** queue (global understand → stacked skills → dynamic NEXT_SKILLS → persona reviews → final gate).',
+    '',
+    `**Focus for this phase:** ${phase.focus}`,
+    '',
+    '1. **Smart run** — Read the repo and project brain files relevant to this focus (honor governance in `preferences.md` / `decisions.md` when present).',
+    `2. **Phase-scoped understand** — Update \`${u}\` only where this focus applies (delta-style). If it does not exist yet, create a minimal baseline.`,
+    '3. **Derive sub-phases** — List 2–5 concrete sub-steps compatible with this project’s stack; execute them in order before moving on.',
+    `4. **Phase finish** — Print exactly: ✅ MAIN PHASE ${phaseIndex1Based}/${PRODUCT_LIFECYCLE_PHASE_COUNT} COMPLETE — <one-line outcome>`,
+    '',
+    'Then run each **queued skill playbook** that follows this message for this phase (standard PHASE mini-loops apply). Skip a playbook only if it is truly not applicable.',
+  ].join('\n');
+}
+
+function pushProductLifecyclePrefix(
+  queue: string[],
+  root: string,
+  preamble: string,
+  governanceSep: string,
+  stackInstruction: string,
+  date: string,
+  phaseMode: 'smart',
+): { prevSkill: string | undefined } {
+  let prevSkill: string | undefined = undefined;
+  const lifecycleSkillSeen = new Set<string>();
+  for (let i = 0; i < PRODUCT_LIFECYCLE_MAIN_PHASES.length; i++) {
+    const phase = PRODUCT_LIFECYCLE_MAIN_PHASES[i]!;
+    const idx = i + 1;
+    const block = buildMainProductPhaseBlock(root, idx, phase);
+    const open =
+      i === 0 ? `${preamble}${governanceSep}\n\n---\n\n${block}` : block;
+    queue.push(open);
+    const filtered = filterSelectedForProjectShape(
+      [...phase.suggestedSkills],
+      root,
+    );
+    for (const skillName of filtered) {
+      if (lifecycleSkillSeen.has(skillName)) {
+        continue;
+      }
+      const skillContent = readSkillFile(skillName, root);
+      if (!skillContent) {
+        continue;
+      }
+      lifecycleSkillSeen.add(skillName);
+      queue.push(
+        ...resolveSkillPhaseMessages(
+          root,
+          skillName,
+          skillContent,
+          stackInstruction,
+          date,
+          prevSkill,
+          phaseMode,
+        ),
+      );
+      prevSkill = skillName;
+    }
+  }
+  return { prevSkill };
+}
+
 // ─── UNDERSTAND PROMPT ───────────────────────────────────────────────────────
 
 function buildUnderstandPrompt(
@@ -1374,6 +1565,13 @@ export type BuildProdQueueOptions = {
    * drains (e.g. interactive `/prod`).
    */
   useWorkspaceOrchestrator?: boolean;
+  /**
+   * When `true`, prepend 16 main product-lifecycle phases (each: guidance + related
+   * skill mini-loops) **before** the standard prod tail. When omitted, the env
+   * `QWEN_PROD_PRODUCT_LIFECYCLE` (`1` / `true` / `yes`) enables the same. Ignored
+   * when the workspace orchestrator shortcut is used (single-message prod).
+   */
+  includeProductLifecycle?: boolean;
 };
 
 export function buildProdQueue(
@@ -1408,20 +1606,44 @@ export function buildProdQueue(
   const queue: string[] = [];
 
   const govSep = governance ? `\n\n---\n\n${governance}` : '';
-  queue.push(
-    `${preamble}${govSep}\n\n---\n\n${buildUnderstandPrompt(root, commit, hasBrain)}`,
-  );
+  const stackInstruction = getProdStackContextInstruction();
+  const phaseMode = 'smart' as const;
+
+  let prevSkill: string | undefined = undefined;
+
+  if (shouldIncludeProductLifecycle(options?.includeProductLifecycle)) {
+    const life = pushProductLifecyclePrefix(
+      queue,
+      root,
+      preamble,
+      govSep,
+      stackInstruction,
+      date,
+      phaseMode,
+    );
+    prevSkill = life.prevSkill;
+    queue.push(
+      [
+        '## /PROD — GLOBAL PROJECT BRAIN REFRESH',
+        '',
+        'Governance and **RESOLVED SKILL PATHS** from the opening message of this run still apply.',
+        '',
+        '---',
+        '',
+        buildUnderstandPrompt(root, commit, hasBrain),
+      ].join('\n'),
+    );
+  } else {
+    queue.push(
+      `${preamble}${govSep}\n\n---\n\n${buildUnderstandPrompt(root, commit, hasBrain)}`,
+    );
+  }
 
   const available = getAvailableSkills(root);
   const selectedRaw = understand.trim()
     ? selectSkills(understand, available)
     : selectAllAvailableOrdered(available);
   const selected = filterSelectedForProjectShape(selectedRaw, root);
-
-  const stackInstruction = getProdStackContextInstruction();
-  const phaseMode = 'smart' as const;
-
-  let prevSkill: string | undefined = undefined;
 
   for (const skillName of selected) {
     const skillContent = readSkillFile(skillName, root);

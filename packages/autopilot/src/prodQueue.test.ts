@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  PRODUCT_LIFECYCLE_PHASE_COUNT,
   buildProdQueue,
   getProdStackContextInstruction,
   getProjectBrainDirName,
@@ -278,6 +279,39 @@ describe('buildProdQueue', () => {
     const first = phases[0] ?? '';
     expect(first).toMatch(/alt-brain\/preferences\.md/);
     expect(first).toMatch(/Use pnpm/);
+  });
+
+  it('prepends merged product lifecycle before standard prod when includeProductLifecycle is true', () => {
+    const root = tempWorkspace();
+    const phases = buildProdQueue(root, { includeProductLifecycle: true });
+    const first = phases[0] ?? '';
+    expect(first).toMatch(/RESOLVED SKILL PATHS/);
+    expect(first).toMatch(/MAIN PRODUCT PHASE 1\/16/);
+    const joined = phases.join('\n');
+    expect((joined.match(/MAIN PRODUCT PHASE \d+\/16/g) ?? []).length).toBe(
+      PRODUCT_LIFECYCLE_PHASE_COUNT,
+    );
+    expect(joined).toMatch(/GLOBAL PROJECT BRAIN REFRESH/);
+    expect(joined).toMatch(/project codebase|BRAIN UPDATED/i);
+    const gatePhase = phases.find((m) => /FINAL PROD REPORT/i.test(m));
+    expect(gatePhase).toBeDefined();
+    expect(phases[phases.length - 1] ?? '').toMatch(/GIT TOOL — persist/);
+  });
+
+  it('enables product lifecycle via QWEN_PROD_PRODUCT_LIFECYCLE when option is omitted', () => {
+    vi.stubEnv('QWEN_PROD_PRODUCT_LIFECYCLE', '1');
+    const root = tempWorkspace();
+    const phases = buildProdQueue(root);
+    expect(phases[0] ?? '').toMatch(/MAIN PRODUCT PHASE 1\/16/);
+  });
+
+  it('disables product lifecycle when includeProductLifecycle is false even if env is set', () => {
+    vi.stubEnv('QWEN_PROD_PRODUCT_LIFECYCLE', '1');
+    const root = tempWorkspace();
+    const phases = buildProdQueue(root, { includeProductLifecycle: false });
+    const first = phases[0] ?? '';
+    expect(first).not.toMatch(/MAIN PRODUCT PHASE 1\/16/);
+    expect(first).toMatch(/project codebase|BRAIN UPDATED/i);
   });
 
   it('selects multi-tenant and billing when understand mentions SaaS', () => {

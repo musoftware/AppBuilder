@@ -10,6 +10,7 @@ export {
   collectNextSkillsDynamic,
   getProdStackContextInstruction,
   getProjectBrainDirName,
+  PRODUCT_LIFECYCLE_PHASE_COUNT,
   PROJECT_BRAIN_SKILL_ORDER,
   PROD_FIXED_REVIEW_SKILL_ORDER,
   resolveSkillPhaseMessages,
