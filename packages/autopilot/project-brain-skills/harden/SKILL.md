@@ -19,6 +19,7 @@ BACKEND HARDENING:
 
 FRONTEND HARDENING:
 
+- **CSP / security headers — production only**: Apply strict CSP and related headers **when `production` / deployed** (env or config branch). In **local**, do **not** mirror prod CSP in code paths that run during dev — omit CSP or use a dev-only bypass so Vite/HMR and `localhost` vs `127.0.0.1` never require “fixing” as hardening work.
 - Every API call has loading, success, and error handling
 - Forms can't be double-submitted
 - All 401 responses redirect to login

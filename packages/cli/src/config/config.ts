@@ -444,7 +444,7 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('smart', {
           type: 'boolean',
           description:
-            'Smart orchestrator: reads .project-brain/, runs the pipeline in order, documents actions. With bundled smart-orchestrator playbook this is one prompt; otherwise each skill is queued as six phases (brain → report → fix → verify → complete), same as --prod. Skips skills already current vs git.',
+            'Smart orchestrator: reads .project-brain/, runs the pipeline in order. With bundled smart-orchestrator this is one prompt; otherwise each skill uses the same six-phase pattern as --prod: missing brain file → full scan+fix; saved NOT_READY/NEEDS_WORK → fix phases only; clean PROD_READY → full scan again.',
           default: false,
         })
         .option('skill', {

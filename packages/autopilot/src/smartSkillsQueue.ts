@@ -1,11 +1,10 @@
-import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  buildSkillMiniLoop,
   getProdStackContextInstruction,
   PROD_FIXED_REVIEW_SKILL_ORDER,
+  resolveSkillPhaseMessages,
 } from './prodQueue.js';
 
 /** Built-in project-brain pipeline skills under `.qwen/skills/<name>/SKILL.md`. */
@@ -123,33 +122,6 @@ function readBrainFile(
   return readFileSync(brainPath, 'utf8');
 }
 
-function getLastCommit(workspaceRoot: string): string {
-  try {
-    return execSync('git rev-parse HEAD', {
-      cwd: workspaceRoot,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      encoding: 'utf8',
-    }).trim();
-  } catch {
-    return 'no-git';
-  }
-}
-
-function brainFileIsCurrent(
-  skillName: string,
-  workspaceRoot: string,
-  currentCommit: string,
-): boolean {
-  if (currentCommit === 'no-git') {
-    return false;
-  }
-  const content = readBrainFile(skillName, workspaceRoot);
-  if (!content) {
-    return false;
-  }
-  return content.includes(currentCommit);
-}
-
 function readUnderstand(workspaceRoot: string): string {
   return readBrainFile('understand', workspaceRoot) ?? '';
 }
@@ -215,10 +187,11 @@ function findCustomSkills(workspaceRoot: string): string[] {
 /**
  * Build queued user messages for `--smart`: prefer the smart-orchestrator
  * playbook when present; otherwise the same **six-phase** cycle per skill as
- * `buildProdQueue` (brain → report → fix ×2 → verify → complete).
+ * `buildProdQueue` (brain → report → fix ×2 → verify → complete). Rerun policy:
+ * missing `.project-brain/<skill>.md` → full 6 phases; file has NOT_READY/NEEDS_WORK
+ * → fix-only (phases 3–6); clean → full 6 phases again (re-scan).
  */
 export function buildSmartQueue(workspaceRoot: string): string[] {
-  const currentCommit = getLastCommit(workspaceRoot);
   const hasFrontend = projectHasFrontend(workspaceRoot);
   const hasBackend = projectHasBackend(workspaceRoot);
 
@@ -245,7 +218,8 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
   };
 
   const enqueuePhasedSkill = (skillName: string, skillContent: string) => {
-    for (const phase of buildSkillMiniLoop(
+    for (const phase of resolveSkillPhaseMessages(
+      workspaceRoot,
       skillName,
       skillContent,
       stackInstruction,
@@ -278,17 +252,7 @@ export function buildSmartQueue(workspaceRoot: string): string[] {
       continue;
     }
 
-    const isCurrent = brainFileIsCurrent(
-      skillName,
-      workspaceRoot,
-      currentCommit,
-    );
-    if (isCurrent) {
-      const short = currentCommit.slice(0, 7);
-      enqueue(
-        `[SKILL: ${skillName}]\nPrevious output is current (matches git commit ${short}).\nRead .project-brain/${skillName}.md and use it as context. Skip re-running. Print: ✅ SKIP: ${skillName} (current)`,
-      );
-    } else if (skillName === 'understand') {
+    if (skillName === 'understand') {
       enqueue(skill);
     } else {
       enqueuePhasedSkill(skillName, skill);
@@ -350,7 +314,8 @@ export function buildSingleSkillQueue(
   }
 
   const date = new Date().toISOString().split('T')[0] ?? '';
-  const phases = buildSkillMiniLoop(
+  const phases = resolveSkillPhaseMessages(
+    workspaceRoot,
     trimmed,
     skill,
     getProdStackContextInstruction(),

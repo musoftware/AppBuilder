@@ -486,6 +486,78 @@ If nothing remaining: print ✅ ${skillName.toUpperCase()} COMPLETE — moving t
   ];
 }
 
+function readSkillReportMarkdown(root: string, skillName: string): string {
+  const p = join(root, '.project-brain', `${skillName}-report.md`);
+  return existsSync(p) ? readFileSync(p, 'utf8') : '';
+}
+
+/** True when brain/report text still calls for follow-up work. */
+function combinedSkillTextHasOpenIssues(combined: string): boolean {
+  if (!combined.trim()) {
+    return false;
+  }
+  return (
+    /\bNEEDS_WORK\b/i.test(combined) ||
+    /\bNOT_READY\b/i.test(combined) ||
+    /\bNOT READY\b/i.test(combined) ||
+    /VERDICT:\s*(NOT_READY|NOT READY|NEEDS_WORK)/i.test(combined)
+  );
+}
+
+/** Phases 3–6 only: fix / continue / verify / complete — no full re-audit. */
+export function buildSkillMiniLoopFixOnly(
+  skillName: string,
+  skillContent: string,
+  stackInstruction: string,
+  date: string,
+): string[] {
+  const brain = `.project-brain/${skillName}.md`;
+  const report = `.project-brain/${skillName}-report.md`;
+  const full = buildSkillMiniLoop(
+    skillName,
+    skillContent,
+    stackInstruction,
+    date,
+  );
+  const tail = full.slice(2);
+  if (tail.length === 0) {
+    return full;
+  }
+  const note = `RERUN POLICY — FIX PATH (keep phases 3→6 only):
+- ${brain} already exists and still shows **open issues** (NOT_READY / NEEDS_WORK / etc.).
+- **Do not** redo a full phase 1–2 re-scan; use the existing ${brain} and ${report} as the issue list. If either file is missing, recreate from the repo, then continue with fixes.
+- Complete this skill through fix → verify → complete only.\n\n`;
+  return [`${note}${tail[0]!}`, ...tail.slice(1)];
+}
+
+/**
+ * Per-skill queue: missing brain → full 6 phases (scan/write then fix); open
+ * issues in saved brain/report → fix-only (phases 3–6); clean → full 6 phases
+ * again (re-scan).
+ */
+export function resolveSkillPhaseMessages(
+  root: string,
+  skillName: string,
+  skillContent: string,
+  stackInstruction: string,
+  date: string,
+): string[] {
+  const brainText = readBrainFile(skillName, root);
+  if (!brainText.trim()) {
+    return buildSkillMiniLoop(skillName, skillContent, stackInstruction, date);
+  }
+  const combined = `${brainText}\n${readSkillReportMarkdown(root, skillName)}`;
+  if (combinedSkillTextHasOpenIssues(combined)) {
+    return buildSkillMiniLoopFixOnly(
+      skillName,
+      skillContent,
+      stackInstruction,
+      date,
+    );
+  }
+  return buildSkillMiniLoop(skillName, skillContent, stackInstruction, date);
+}
+
 // ─── UNDERSTAND PROMPT ───────────────────────────────────────────────────────
 
 function buildUnderstandPrompt(
@@ -645,13 +717,15 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
       continue;
     }
 
-    const miniLoop = buildSkillMiniLoop(
-      skillName,
-      skillContent,
-      stackInstruction,
-      date,
+    queue.push(
+      ...resolveSkillPhaseMessages(
+        root,
+        skillName,
+        skillContent,
+        stackInstruction,
+        date,
+      ),
     );
-    queue.push(...miniLoop);
   }
 
   for (const skillName of PROD_FIXED_REVIEW_SKILL_ORDER) {
@@ -659,13 +733,15 @@ export function buildProdQueue(workspaceRoot?: string): string[] {
     if (!skillContent) {
       continue;
     }
-    const miniLoop = buildSkillMiniLoop(
-      skillName,
-      skillContent,
-      stackInstruction,
-      date,
+    queue.push(
+      ...resolveSkillPhaseMessages(
+        root,
+        skillName,
+        skillContent,
+        stackInstruction,
+        date,
+      ),
     );
-    queue.push(...miniLoop);
   }
 
   queue.push(...buildFinalGate(date));

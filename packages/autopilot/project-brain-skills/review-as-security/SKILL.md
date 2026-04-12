@@ -13,7 +13,20 @@ Read first:
 - **Every form** (when UI exists): injection in text fields, file uploads, hidden fields, mass assignment.
 - **Every screen**: sensitive data in DOM/URL, IDOR via predictable IDs, missing auth on client-only “hiding”.
 - **Every HTTP/API surface** (REST/GraphQL/tRPC/etc.): authn/authz, CSRF where cookies used, rate limits, CORS mistakes.
-- **Headers / cookies**: Secure, HttpOnly, SameSite where relevant.
+- **Headers / cookies**: Secure, HttpOnly, SameSite where relevant — **grade strictly in production**; see CSP split below.
+
+## Environment split — local vs production
+
+**Local / development (`APP_ENV=local`, `NODE_ENV=development`, Vite dev, etc.)**
+
+- Run this skill **normally** (injection, auth, XSS, secrets, etc. still matter).
+- **Do not** file **Critical/High** findings for **CSP** or **production-only headers** blocking `127.0.0.1` vs `localhost` or Vite HMR. That is a **dev UX** topic, not prod security.
+- **Recommendation only (optional one line in report):** if CSP meta/headers are applied in local and break the app, suggest **disabling or not sending production CSP in local** (env-gated: strict CSP **only when production**).
+
+**Production / staging (deployed builds, real users)**
+
+- **Content-Security-Policy** is in scope here: strict `script-src` / `style-src` / `connect-src` (and `frame-ancestors`, etc.), avoid copying permissive dev allowlists, prefer nonces/hashes over broad `unsafe-inline`, flag `unsafe-eval` unless justified.
+- **127.0.0.1 vs localhost** is irrelevant in prod if the live site uses one canonical origin; if prod CSP accidentally whitelists dev hosts, flag that as **misconfiguration**.
 
 Check systematically:
 

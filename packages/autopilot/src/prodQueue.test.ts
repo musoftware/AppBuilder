@@ -8,11 +8,68 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
-import { buildProdQueue } from './prodQueue.js';
+import {
+  buildProdQueue,
+  getProdStackContextInstruction,
+  resolveSkillPhaseMessages,
+  SKILL_MINI_LOOP_PHASE_COUNT,
+} from './prodQueue.js';
 
 function tempWorkspace(): string {
   return mkdtempSync(join(tmpdir(), 'prod-queue-test-'));
 }
+
+describe('resolveSkillPhaseMessages', () => {
+  const stack = getProdStackContextInstruction();
+  const date = '2026-01-01';
+
+  it('uses six phases when primary brain file is missing', () => {
+    const root = tempWorkspace();
+    const phases = resolveSkillPhaseMessages(
+      root,
+      'audit-backend',
+      '[SKILL: audit-backend]\nRun.',
+      stack,
+      date,
+    );
+    expect(phases.length).toBe(SKILL_MINI_LOOP_PHASE_COUNT);
+  });
+
+  it('uses fix-only (four phases) when brain shows open issues', () => {
+    const root = tempWorkspace();
+    mkdirSync(join(root, '.project-brain'), { recursive: true });
+    writeFileSync(
+      join(root, '.project-brain', 'audit-backend.md'),
+      'VERDICT: NOT_READY\n',
+    );
+    const phases = resolveSkillPhaseMessages(
+      root,
+      'audit-backend',
+      '[SKILL: audit-backend]\nRun.',
+      stack,
+      date,
+    );
+    expect(phases.length).toBe(4);
+    expect(phases[0]).toMatch(/RERUN POLICY — FIX PATH/);
+  });
+
+  it('uses six phases again when brain is clean (re-scan)', () => {
+    const root = tempWorkspace();
+    mkdirSync(join(root, '.project-brain'), { recursive: true });
+    writeFileSync(
+      join(root, '.project-brain', 'audit-backend.md'),
+      'VERDICT: PROD_READY\n',
+    );
+    const phases = resolveSkillPhaseMessages(
+      root,
+      'audit-backend',
+      '[SKILL: audit-backend]\nRun.',
+      stack,
+      date,
+    );
+    expect(phases.length).toBe(SKILL_MINI_LOOP_PHASE_COUNT);
+  });
+});
 
 describe('buildProdQueue', () => {
   it('starts with UNDERSTAND / brain flow and ends with final prod report gate', () => {

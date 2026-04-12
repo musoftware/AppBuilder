@@ -4,8 +4,10 @@ export { buildProdReadyQueue } from './prodReadyQueue.js';
 export {
   buildProdQueue,
   buildSkillMiniLoop,
+  buildSkillMiniLoopFixOnly,
   getProdStackContextInstruction,
   PROD_FIXED_REVIEW_SKILL_ORDER,
+  resolveSkillPhaseMessages,
   SKILL_MINI_LOOP_PHASE_COUNT,
 } from './prodQueue.js';
 export {
