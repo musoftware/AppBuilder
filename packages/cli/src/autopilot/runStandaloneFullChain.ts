@@ -5,6 +5,12 @@
  */
 
 import type { ChatMessage } from '@qwen-code/autopilot';
+import { getErrorMessage } from '@qwen-code/qwen-code-core';
+import {
+  getAutopilotQueueLogPath,
+  logAutopilotQueueHalted,
+  logAutopilotQueueTurn,
+} from './autopilotQueueJsonl.js';
 import { writeStdoutLine } from '../utils/stdioHelpers.js';
 
 /**
@@ -36,6 +42,7 @@ export async function runStandaloneFullChain(
   const system =
     'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
 
+  const logPath = getAutopilotQueueLogPath();
   let gateOutput = '';
   for (let pass = 0; pass < maxPasses; pass++) {
     const phasesThisPass =
@@ -50,11 +57,44 @@ export async function runStandaloneFullChain(
 
     for (let i = 0; i < phasesThisPass.length; i++) {
       const phase = phasesThisPass[i]!;
-      gateOutput = await callModelWithTools(
-        [{ role: 'user', content: phase }],
-        system,
-        true,
-      );
+      logAutopilotQueueTurn(logPath, {
+        kind: 'autopilot_queue',
+        index: i + 1,
+        total: phasesThisPass.length,
+        prompt: phase,
+        extra: {
+          source: 'full-chain-only',
+          pass: pass + 1,
+          maxPasses,
+        },
+      });
+      try {
+        gateOutput = await callModelWithTools(
+          [{ role: 'user', content: phase }],
+          system,
+          true,
+        );
+      } catch (error: unknown) {
+        const remainingThisPass = phasesThisPass.length - i - 1;
+        const remainingPassesAfter = maxPasses - pass - 1;
+        const droppedRemaining = remainingThisPass + remainingPassesAfter;
+        if (droppedRemaining > 0) {
+          logAutopilotQueueHalted(logPath, {
+            reason: 'headless_phase_error',
+            source: 'full-chain-only',
+            droppedRemaining,
+            pass: pass + 1,
+            phaseInPass: i + 1,
+            phasesInPass: phasesThisPass.length,
+            fullPassesRemainingAfterCurrent: remainingPassesAfter,
+            errorPreview: (getErrorMessage(error) || String(error)).slice(
+              0,
+              200,
+            ),
+          });
+        }
+        throw error;
+      }
       if (persistPhase0 && i === 0) {
         if (
           persistProjectContextFromAssistantOutput(workspaceRoot, gateOutput)

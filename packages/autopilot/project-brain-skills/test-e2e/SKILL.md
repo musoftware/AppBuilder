@@ -1,5 +1,7 @@
 [SKILL: test-e2e]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 **Never skip this skill** because there is “no frontend” or “no E2E yet.” Always produce **runnable** automated checks and record what ran in `.project-brain/test-e2e.md`. If the stack has no browser UI, run **API / contract / CLI** end-to-end tests instead.
 
 Read first:

@@ -1,5 +1,7 @@
 [SKILL: smart-orchestrator]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 You are the master orchestrator. You run a full loop:
 understand → audit → plan → build → harden → test → report → fix → repeat.
 

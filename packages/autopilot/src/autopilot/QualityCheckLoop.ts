@@ -9,6 +9,11 @@ import { QC_TESTING_TAXONOMY } from '../qualityCheckTestingTaxonomy.js';
 import { QC_COVERAGE_GAP_CLOSURE_TASK_DESCRIPTION } from '../qualityCheckCoverageClosure.js';
 import { DEFAULT_QUALITY_CHECK_MAX_PASSES } from '../qualityCheckConstants.js';
 
+/** Optional hooks for headless / JSONL telemetry (CLI). */
+export type QualityCheckTelemetry = {
+  onVerificationPassStart?: (iteration: number, maxIterations: number) => void;
+};
+
 interface AnalysisIssue {
   title: string;
   description: string;
@@ -82,12 +87,14 @@ export class QualityCheckLoop {
     private runner: TaskRunner,
     private context: ContextSpec,
     maxIterations = DEFAULT_QUALITY_CHECK_MAX_PASSES,
+    private readonly telemetry?: QualityCheckTelemetry,
   ) {
     this.maxIterations = maxIterations;
   }
 
   async run(): Promise<void> {
     for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
+      this.telemetry?.onVerificationPassStart?.(iteration, this.maxIterations);
       console.log('\n' + chalk.bold.cyan('━'.repeat(50)));
       console.log(
         chalk.bold.cyan(

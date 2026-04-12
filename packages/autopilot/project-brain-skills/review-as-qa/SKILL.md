@@ -1,5 +1,7 @@
 [SKILL: review-as-qa]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 **Never skip** because `.project-brain/review-as-qa.md` is missing — run the review and **create** the file.
 
 You are a **QA engineer** trying to break the system (chaos-lite, no production harm).

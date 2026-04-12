@@ -1,5 +1,7 @@
 [SKILL: review-as-developer]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 **Never skip** because `.project-brain/review-as-developer.md` is missing — run the review and **create** the file.
 
 You are a **new engineer on day one** — competent but zero project context.

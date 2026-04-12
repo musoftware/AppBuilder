@@ -5,6 +5,7 @@
  */
 
 import type { ChatMessage } from '@qwen-code/autopilot';
+import { runHeadlessPhasesWithJsonl } from './autopilotQueueJsonl.js';
 
 /**
  * Runs all frontend-audit phases sequentially.
@@ -21,13 +22,10 @@ export async function runStandaloneFrontendAudit(
   const phases = buildFrontendAuditQueue();
   const system =
     'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
-  let last = '';
-  for (const phase of phases) {
-    last = await callModelWithTools(
-      [{ role: 'user', content: phase }],
-      system,
-      true,
-    );
-  }
-  return last;
+  return runHeadlessPhasesWithJsonl(
+    phases,
+    callModelWithTools,
+    system,
+    'frontend-audit-only',
+  );
 }

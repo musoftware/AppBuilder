@@ -53,7 +53,10 @@ export {
 export type { ChainCache, CacheCheckResult } from './fullChainCache.js';
 export type { AutopilotPlan } from './AutopilotDriver.js';
 export { DEFAULT_QUALITY_CHECK_MAX_PASSES } from './qualityCheckConstants.js';
-export { QualityCheckLoop } from './autopilot/QualityCheckLoop.js';
+export {
+  QualityCheckLoop,
+  type QualityCheckTelemetry,
+} from './autopilot/QualityCheckLoop.js';
 export { TaskRunner } from './autopilot/TaskRunner.js';
 export { writeCoreProjectDocs } from './project/coreProjectDocs.js';
 export { ProjectDocsGenerator } from './project/ProjectDocsGenerator.js';

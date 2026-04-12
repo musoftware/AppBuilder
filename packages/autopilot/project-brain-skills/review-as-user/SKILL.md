@@ -1,5 +1,7 @@
 [SKILL: review-as-user]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 **Never skip** because `.project-brain/review-as-user.md` is missing — perform this review and **create** that file (and any sections the prod pipeline expects).
 
 When this playbook is delivered by the **automated `--prod` queue** (Cron), it is a **mandatory phase**: do **not** reply with “skipped”, “deferred”, “N/A”, or “no UI — skip”. If there is no web UI, follow the **API/CLI lens** branch below and still write the report file.

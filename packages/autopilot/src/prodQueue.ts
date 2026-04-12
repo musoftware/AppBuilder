@@ -228,9 +228,9 @@ function parseNextSkills(text: string): string[] {
 }
 
 /**
- * Walk existing `.project-brain/` reports up to `maxDepth` hops, collecting
- * any skills named in NEXT_SKILLS: lines that are not already in `allSeen`.
- * Returns newly discovered skill names in discovery order.
+ * Walk existing project brain reports (see `getProjectBrainDirName()`) up to
+ * `maxDepth` hops, collecting any skills named in NEXT_SKILLS: lines that are
+ * not already in `allSeen`. Returns newly discovered skill names in discovery order.
  */
 export function collectNextSkillsDynamic(
   root: string,
@@ -378,8 +378,8 @@ function extractBrainSection(text: string, section: string): string {
 
 /**
  * Build a ≤2000-token (≈8 000 char) recap from SUMMARY and STATE sections of
- * every skill brain file in `.project-brain/`. Oldest entries are dropped first
- * when the limit is exceeded.
+ * every skill brain file under the project brain directory. Oldest entries are
+ * dropped first when the limit is exceeded.
  */
 function buildContextRecap(root: string, maxChars = 8000): string {
   const gov = buildGovernanceBlock(root);

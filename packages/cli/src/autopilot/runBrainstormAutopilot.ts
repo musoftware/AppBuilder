@@ -1,5 +1,5 @@
-import { AutopilotSession, type ChatMessage } from '@qwen-code/autopilot';
-import type { Config } from '@qwen-code/qwen-code-core';
+import { AutopilotSession } from '@qwen-code/autopilot';
+import { getErrorMessage, type Config } from '@qwen-code/qwen-code-core';
 import type { LoadedSettings } from '../config/settings.js';
 import { resolvePath } from '../utils/resolvePath.js';
 import { writeStdoutLine } from '../utils/stdioHelpers.js';
@@ -8,34 +8,11 @@ import { runStandaloneFullChain } from './runStandaloneFullChain.js';
 import { runStandaloneFrontendAudit } from './runStandaloneFrontendAudit.js';
 import { runStandaloneQualityCheck } from './runStandaloneQualityCheck.js';
 import {
+  appendAutopilotQueueJsonl,
   getAutopilotQueueLogPath,
-  logAutopilotQueueTurn,
+  logAutopilotQueueHalted,
+  runHeadlessPhasesWithJsonl,
 } from './autopilotQueueJsonl.js';
-
-async function runHeadlessAutopilotPhaseLoop(
-  phases: string[],
-  callModelWithTools: (
-    messages: ChatMessage[],
-    system: string,
-    yolo: boolean,
-  ) => Promise<string>,
-  system: string,
-  source: string,
-): Promise<void> {
-  const logPath = getAutopilotQueueLogPath();
-  for (let i = 0; i < phases.length; i++) {
-    const phase = phases[i]!;
-    logAutopilotQueueTurn(logPath, {
-      kind: 'autopilot_queue',
-      index: i + 1,
-      total: phases.length,
-      prompt: phase,
-      extra: { source },
-    });
-    await callModelWithTools([{ role: 'user', content: phase }], system, true);
-  }
-}
-
 export async function runBrainstormAutopilot(
   config: Config,
   settings: LoadedSettings,
@@ -55,9 +32,27 @@ export async function runBrainstormAutopilot(
     createAutopilotModelAdapters(config);
 
   if (mode === 'quality-check-only') {
-    await runStandaloneQualityCheck(callModelWithTools, {
-      maxTaskRetries: ap?.maxTaskRetries,
-    });
+    const logPath = getAutopilotQueueLogPath();
+    if (logPath) {
+      appendAutopilotQueueJsonl(logPath, {
+        kind: 'autopilot_queue_session',
+        source: 'quality-check-only',
+        note: 'QualityCheckLoop start',
+      });
+    }
+    try {
+      await runStandaloneQualityCheck(callModelWithTools, {
+        maxTaskRetries: ap?.maxTaskRetries,
+      });
+    } catch (error: unknown) {
+      logAutopilotQueueHalted(logPath, {
+        reason: 'quality_check_error',
+        source: 'quality-check-only',
+        droppedRemaining: 1,
+        errorPreview: (getErrorMessage(error) || String(error)).slice(0, 200),
+      });
+      throw error;
+    }
     return;
   }
 
@@ -66,7 +61,7 @@ export async function runBrainstormAutopilot(
     const phases = buildProdQueue(process.cwd());
     const system =
       'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
-    await runHeadlessAutopilotPhaseLoop(
+    await runHeadlessPhasesWithJsonl(
       phases,
       callModelWithTools,
       system,
@@ -81,7 +76,7 @@ export async function runBrainstormAutopilot(
     const phases = buildProdReadyQueue(focus ? focus : undefined);
     const system =
       'You are an expert autonomous coding agent. Execute the phase instructions in the user message completely in the current workspace.';
-    await runHeadlessAutopilotPhaseLoop(
+    await runHeadlessPhasesWithJsonl(
       phases,
       callModelWithTools,
       system,
@@ -104,8 +99,17 @@ export async function runBrainstormAutopilot(
     const workspaceRoot = process.cwd();
     const maxRounds = getReadyProductionRounds();
     const exitWhenGreen = getReadyProductionExitWhenRoundGreen();
+    const logPath = getAutopilotQueueLogPath();
 
     for (let round = 1; round <= maxRounds; round++) {
+      if (logPath) {
+        appendAutopilotQueueJsonl(logPath, {
+          kind: 'autopilot_ready_production_round',
+          source: 'ready-production-only',
+          round,
+          maxRounds,
+        });
+      }
       writeStdoutLine(
         `[ready-production] Round ${round}/${maxRounds}: full-chain…`,
       );
@@ -154,7 +158,7 @@ export async function runBrainstormAutopilot(
     const phases = buildSingleSkillQueue(skillName, process.cwd());
     const system =
       'You are an expert autonomous coding agent. Execute the instructions in the user message completely in the current workspace.';
-    await runHeadlessAutopilotPhaseLoop(
+    await runHeadlessPhasesWithJsonl(
       phases,
       callModelWithTools,
       system,

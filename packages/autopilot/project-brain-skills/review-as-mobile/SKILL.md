@@ -1,5 +1,7 @@
 [SKILL: review-as-mobile]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 **Never skip** because `.project-brain/review-as-mobile.md` is missing — run the review and **create** the file.
 
 **Prod / smart queue:** This skill runs in **several automated phases** (brain → `-report.md` → **fix** → more fix → verify → complete). You must **finish all phases** for this skill. Do **not** stop after editing one or two files in an early phase.

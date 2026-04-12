@@ -6,6 +6,10 @@ import {
   TaskRunner,
 } from '@qwen-code/autopilot';
 import type { ChatMessage, ContextSpec } from '@qwen-code/autopilot';
+import {
+  appendAutopilotQueueJsonl,
+  getAutopilotQueueLogPath,
+} from './autopilotQueueJsonl.js';
 
 interface StandaloneQcOptions {
   maxTaskRetries?: number;
@@ -43,11 +47,30 @@ export async function runStandaloneQualityCheck(
     callModelWithTools,
     options.maxTaskRetries ?? 2,
   );
+  const logPath = getAutopilotQueueLogPath();
+  const telemetry =
+    logPath !== null
+      ? {
+          onVerificationPassStart(
+            iteration: number,
+            maxIterations: number,
+          ): void {
+            appendAutopilotQueueJsonl(logPath, {
+              kind: 'quality_check_pass',
+              source: 'quality-check-only',
+              iteration,
+              maxIterations,
+            });
+          },
+        }
+      : undefined;
+
   const loop = new QualityCheckLoop(
     callModelWithTools,
     runner,
     context,
     options.maxIterations ?? DEFAULT_QUALITY_CHECK_MAX_PASSES,
+    telemetry,
   );
 
   await loop.run();

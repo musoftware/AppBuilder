@@ -866,7 +866,7 @@ export const AppContainer = (props: AppContainerProps) => {
             historyManager.addItem(
               {
                 type: MessageType.INFO,
-                text: `Production: ${pre.messageCount} queued message(s)${pre.labeledPhaseMarkers > 0 ? ` (~${pre.labeledPhaseMarkers} with PHASE x/y markers)` : ''}. Approval mode set to YOLO until the queue drains. Optional JSONL log: set env QWEN_AUTOPILOT_QUEUE_LOG to a file path. They run automatically when idle.`,
+                text: `Production: ${pre.messageCount} queued message(s)${pre.labeledPhaseMarkers > 0 ? ` (~${pre.labeledPhaseMarkers} with PHASE x/y markers)` : ''}. Approval mode set to YOLO until the queue drains. Env: QWEN_AUTOPILOT_QUEUE_LOG (JSONL path), QWEN_AUTOPILOT_STOP_QUEUE_ON_ERROR=0 to keep draining after API errors, QWEN_PROJECT_BRAIN_DIR (safe relative brain folder, default .project-brain). Phases run when idle.`,
               },
               Date.now(),
             );

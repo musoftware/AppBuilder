@@ -1,5 +1,7 @@
 [SKILL: user-stories]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 **Never skip** because `.project-brain/user-stories.md` is missing — run this playbook and **create** the required brain files.
 
 This skill is **backlog engineering + traceability + closure** — not a duplicate of opinion-only reviews. See **Guardrails** below.

@@ -1,5 +1,7 @@
 [SKILL: prod-gate]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 Read first:
 
 - .project-brain/understand.md

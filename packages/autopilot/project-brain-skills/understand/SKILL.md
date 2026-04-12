@@ -1,5 +1,7 @@
 [SKILL: understand]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 This is a LISTING PASS ONLY.
 
 Do not analyze, judge, recommend, or say anything is missing. Your only job is to enumerate what is present in the codebase.

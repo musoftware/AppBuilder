@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PROJECT_BRAIN_SKILL_ORDER,
   buildSingleSkillQueue,
@@ -9,6 +9,10 @@ import {
 } from './smartSkillsQueue.js';
 
 describe('smartSkillsQueue', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('buildSingleSkillQueue returns not-found message for missing skill', () => {
     const root = mkdtempSync(join(tmpdir(), 'pb-skill-'));
     const q = buildSingleSkillQueue('nonexistent-skill-xyz', root);
@@ -39,6 +43,26 @@ describe('smartSkillsQueue', () => {
     expect(q[0]).toContain('[SKILL: plan]');
     expect(q[0]).toContain('PHASE 1/6');
     expect(q[5]).toContain('PHASE 6/6');
+  });
+
+  it('buildSingleSkillQueue reads understand.md from QWEN_PROJECT_BRAIN_DIR', () => {
+    vi.stubEnv('QWEN_PROJECT_BRAIN_DIR', 'my-brain');
+    const root = mkdtempSync(join(tmpdir(), 'pb-skill-brain-'));
+    mkdirSync(join(root, 'my-brain'), { recursive: true });
+    writeFileSync(
+      join(root, 'my-brain', 'understand.md'),
+      'HAS_BACKEND: Yes\n',
+      'utf8',
+    );
+    mkdirSync(join(root, '.qwen', 'skills', 'plan'), { recursive: true });
+    writeFileSync(
+      join(root, '.qwen', 'skills', 'plan', 'SKILL.md'),
+      '[SKILL: plan]\nDo the plan.\n',
+      'utf8',
+    );
+    const q = buildSingleSkillQueue('plan', root);
+    expect(q[0]).toContain('my-brain/understand.md');
+    expect(q[0]).toContain('HAS_BACKEND: Yes');
   });
 
   it('buildSmartQueue returns orchestrator only when smart-orchestrator exists', () => {

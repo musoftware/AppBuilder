@@ -1,5 +1,7 @@
 [SKILL: review-as-pm]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 **Never skip** because `.project-brain/review-as-pm.md` is missing — run the review and **create** the file.
 
 **Prod / smart queue:** This skill runs in **multiple automated phases**. After you write the PM view, the pipeline will prompt you again to build `review-as-pm-report.md`, then **to apply fixes in the codebase** (or a doc note when there is no code anchor). Do **not** treat the first write as the end of the skill — execute every follow-up user message until the queue prints **COMPLETE** for this skill.

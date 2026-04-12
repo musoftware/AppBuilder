@@ -54,6 +54,7 @@ import {
 import {
   appendAutopilotQueueJsonl,
   getAutopilotQueueLogPath,
+  logAutopilotQueueHalted,
   logAutopilotQueueTurn,
 } from '../../autopilot/autopilotQueueJsonl.js';
 import { type Part, type PartListUnion, FinishReason } from '@google/genai';
@@ -240,6 +241,13 @@ export const useGeminiStream = (
   const haltAutopilotQueueOnErrorRef = useRef<(reason: string) => void>(
     () => {},
   );
+  /**
+   * When the API signals Retry (e.g. rate limit) and the autopilot queue is
+   * non-empty, append JSONL (`autopilot_queue_stream_retry`) without halting.
+   */
+  const logAutopilotStreamRetryRef = useRef<
+    (info: RetryInfo | undefined) => void
+  >(() => {});
   const processedMemoryToolsRef = useRef<Set<string>>(new Set());
   const {
     startNewPrompt,
@@ -1153,6 +1161,7 @@ export const useGeminiStream = (
               // The retry attempt is starting now, so any prior retry UI is stale.
               clearRetryCountdown();
             }
+            logAutopilotStreamRetryRef.current(event.retryInfo);
             break;
           case ServerGeminiEventType.HookSystemMessage:
             // Display system message from Stop hooks with "Stop says:" prefix
@@ -1983,14 +1992,31 @@ export const useGeminiStream = (
     autopilotSessionTotalRef.current = 0;
     autopilotTurnSubmittedRef.current = 0;
     setAutopilotTrigger((n) => n + 1);
+    logAutopilotQueueHalted(getAutopilotQueueLogPath(), {
+      reason,
+      droppedRemaining: dropped,
+    });
+  };
+
+  logAutopilotStreamRetryRef.current = (retryInfo: RetryInfo | undefined) => {
     const logPath = getAutopilotQueueLogPath();
-    if (logPath) {
-      appendAutopilotQueueJsonl(logPath, {
-        kind: 'autopilot_queue_halted',
-        reason,
-        droppedRemaining: dropped,
-      });
+    if (!logPath) {
+      return;
     }
+    const queued = autopilotQueueRef.current.length;
+    if (queued === 0) {
+      return;
+    }
+    appendAutopilotQueueJsonl(logPath, {
+      kind: 'autopilot_queue_stream_retry',
+      source: 'interactive_tui',
+      autopilotQueuedRemaining: queued,
+      retryAttempt: retryInfo?.attempt,
+      retryMax: retryInfo?.maxRetries,
+      messagePreview: retryInfo?.message
+        ? retryInfo.message.slice(0, 160).replace(/\s+/g, ' ').trim()
+        : undefined,
+    });
   };
 
   return {

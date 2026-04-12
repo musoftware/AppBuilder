@@ -1,5 +1,7 @@
 [SKILL: report]
 
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
 Read ALL brain files that exist in .project-brain/.
 For any file that does not exist, mark that skill as ➖ NOT RUN.
 
