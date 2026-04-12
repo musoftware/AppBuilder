@@ -65,7 +65,7 @@ describe('smartSkillsQueue', () => {
     expect(q[0]).toContain('HAS_BACKEND: Yes');
   });
 
-  it('buildSmartQueue returns orchestrator only when smart-orchestrator exists', () => {
+  it('buildSmartQueue returns orchestrator plus GIT TOOL when smart-orchestrator exists', () => {
     const root = mkdtempSync(join(tmpdir(), 'pb-smart-'));
     mkdirSync(join(root, '.qwen', 'skills', 'smart-orchestrator'), {
       recursive: true,
@@ -76,9 +76,18 @@ describe('smartSkillsQueue', () => {
       'utf8',
     );
     const q = buildSmartQueue(root);
-    expect(q).toHaveLength(1);
+    expect(q).toHaveLength(2);
     expect(q[0]).toContain('## RESOLVED SKILL PATHS');
     expect(q[0]).toContain('[SKILL: smart-orchestrator]\nRun all.\n');
+    expect(q[1] ?? '').toMatch(/GIT TOOL — persist/);
+  });
+
+  it('git-feature-workflow is bundled and runs as a single queued message', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pb-git-'));
+    const q = buildSingleSkillQueue('git-feature-workflow', root);
+    expect(q).toHaveLength(1);
+    expect(q[0]).toContain('git-feature-workflow');
+    expect(q[0]).toMatch(/Git tool|GIT BASELINE|Step 1/i);
   });
 
   it('buildSmartQueue (prod-unified) uses bundled playbooks when workspace has no .qwen/skills', () => {

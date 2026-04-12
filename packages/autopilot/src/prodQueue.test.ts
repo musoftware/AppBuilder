@@ -139,16 +139,27 @@ describe('buildProdQueue', () => {
     vi.unstubAllEnvs();
   });
 
-  it('starts with UNDERSTAND / brain flow and ends with final prod report gate', () => {
+  it('starts with UNDERSTAND / brain flow, includes final prod gate, then GIT TOOL closure', () => {
     const root = tempWorkspace();
     const phases = buildProdQueue(root);
-    expect(phases.length).toBeGreaterThan(0);
+    expect(phases.length).toBeGreaterThan(1);
     const first = phases[0] ?? '';
     expect(first).toMatch(/RESOLVED SKILL PATHS/);
     expect(first).toMatch(/project codebase|BRAIN UPDATED/i);
+    const gatePhase = phases.find((m) => /FINAL PROD REPORT/i.test(m));
+    expect(gatePhase).toBeDefined();
+    expect(gatePhase ?? '').toMatch(/PRODUCTION READY|REMAINING ISSUES/i);
+    const last = phases[phases.length - 1] ?? '';
+    expect(last).toMatch(/GIT TOOL — persist/);
+  });
+
+  it('omits GIT TOOL closure when QWEN_PROD_SKIP_GIT_TOOL=1', () => {
+    vi.stubEnv('QWEN_PROD_SKIP_GIT_TOOL', '1');
+    const root = tempWorkspace();
+    const phases = buildProdQueue(root);
     const last = phases[phases.length - 1] ?? '';
     expect(last).toMatch(/FINAL PROD REPORT/i);
-    expect(last).toMatch(/PRODUCTION READY|REMAINING ISSUES/i);
+    expect(last).not.toMatch(/GIT TOOL — persist/);
   });
 
   it('queues six phased prompts per stacked skill with visible PHASE labels', () => {
@@ -172,7 +183,7 @@ describe('buildProdQueue', () => {
     expect(joined).toMatch(/AUDIT DONE: audit-backend/i);
   });
 
-  it('uses workspace smart-orchestrator as one message when present (default)', () => {
+  it('uses workspace smart-orchestrator as first message plus GIT TOOL when present (default headless)', () => {
     const root = tempWorkspace();
     mkdirSync(join(root, '.qwen', 'skills', 'smart-orchestrator'), {
       recursive: true,
@@ -182,8 +193,9 @@ describe('buildProdQueue', () => {
       '[SKILL: smart-orchestrator]\nRun all phases.\n',
     );
     const phases = buildProdQueue(root);
-    expect(phases).toHaveLength(1);
+    expect(phases).toHaveLength(2);
     expect(phases[0]).toContain('Run all phases');
+    expect(phases[1] ?? '').toMatch(/GIT TOOL — persist/);
   });
 
   it('builds phased queue when workspace orchestrator exists but useWorkspaceOrchestrator is false', () => {

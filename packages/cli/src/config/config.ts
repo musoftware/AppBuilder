@@ -407,7 +407,7 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('prod', {
           type: 'boolean',
           description:
-            'Production pipeline: stack-detected audits, custom `.qwen/skills/` playbooks, NEXT_SKILLS expansion (up to 3 hops), persona reviews, then final gate. **Interactive TTY:** always queues phased messages (ignores workspace smart-orchestrator) unless QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR=1. **Headless:** if the workspace defines `.qwen/skills/smart-orchestrator/SKILL.md`, uses that single orchestrator prompt instead of phased queue. Prepends bundled skill paths when the workspace has no `.qwen/skills/`.',
+            'Production pipeline: stack-detected audits, custom `.qwen/skills/` playbooks, NEXT_SKILLS expansion (up to 3 hops), persona reviews, final gate, then a GIT TOOL step (commit/branch/merge checklist; set QWEN_PROD_SKIP_GIT_TOOL=1 to skip). **Interactive TTY:** phased queue unless QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR=1. **Headless:** workspace smart-orchestrator uses one prompt plus GIT TOOL when present. Prepends bundled skill paths when the workspace has no `.qwen/skills/`.',
           default: false,
         })
         .option('prod-ready', {
@@ -443,7 +443,7 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('skill', {
           type: 'string',
           description:
-            'Run one project-brain skill by name (six queued phases by default: brain, report, fixes, verify, complete — except understand and smart-orchestrator). Example: --skill audit-frontend, --skill test-e2e. Playbooks: .qwen/skills/<name>/SKILL.md or bundled project-brain-skills.',
+            'Run one project-brain skill by name (six queued phases by default: brain, report, fixes, verify, complete — except understand, smart-orchestrator, and git-feature-workflow, which use one playbook message). Example: --skill audit-frontend, --skill git-feature-workflow. Playbooks: .qwen/skills/<name>/SKILL.md or bundled project-brain-skills.',
         })
         .option('allowed-mcp-server-names', {
           type: 'array',

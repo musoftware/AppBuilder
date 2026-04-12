@@ -856,7 +856,7 @@ export const AppContainer = (props: AppContainerProps) => {
           historyManager.addItem(
             {
               type: MessageType.INFO,
-              text: 'Production: queuing phased runs (understand → stack audits → custom skills → NEXT_SKILLS expansion → persona reviews → final gate). Interactive `/prod` always uses this multi-message queue even if `.qwen/skills/smart-orchestrator/SKILL.md` exists (set QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR=1 to use one orchestrator prompt instead).',
+              text: 'Production: queuing phased runs (understand → … → final gate → GIT TOOL: commit/branch/merge via shell). Interactive `/prod` ignores workspace smart-orchestrator unless QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR=1. Set QWEN_PROD_SKIP_GIT_TOOL=1 to drop the closing git step.',
             },
             Date.now(),
           );

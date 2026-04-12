@@ -78,10 +78,15 @@ const KNOWN_SKILLS_LIST = [
   'user-stories',
   'smart-orchestrator',
   'report',
+  'git-feature-workflow',
 ].join(', ');
 
 /** One-shot queue entries (orchestrator is self-phasing; understand matches prod’s first prompt style). */
-const SINGLE_PHASE_SKILL_NAMES = new Set(['smart-orchestrator', 'understand']);
+const SINGLE_PHASE_SKILL_NAMES = new Set([
+  'smart-orchestrator',
+  'understand',
+  'git-feature-workflow',
+]);
 
 /**
  * Build queued messages for `--skill <name>`: by default the same **six phases**

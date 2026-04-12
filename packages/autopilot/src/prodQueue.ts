@@ -546,6 +546,7 @@ function findCustomSkills(workspaceRoot: string): string[] {
     ...PROJECT_BRAIN_SKILL_ORDER,
     'smart-orchestrator',
     'understand',
+    'git-feature-workflow',
   ]);
   const seen = new Set<string>();
   const out: string[] = [];
@@ -596,6 +597,8 @@ const SKILL_EXCLUDE = new Set([
   'report',
   /** Large meta-playbook: run via `--skill user-stories` or smart list, not auto "run all" prod. */
   'user-stories',
+  /** Git checklist: appended once after final prod gate as a tool closure, not a 6-phase loop. */
+  'git-feature-workflow',
   ...PROD_FIXED_REVIEW_SKILL_ORDER,
 ]);
 
@@ -1327,6 +1330,39 @@ If NOT_READY  → print: ⚠️ REMAINING ISSUES — see blockers above`,
   ];
 }
 
+const PROD_GIT_TOOL_SKILL_NAME = 'git-feature-workflow';
+
+function prodGitToolAppendEnabled(): boolean {
+  return process.env['QWEN_PROD_SKIP_GIT_TOOL'] !== '1';
+}
+
+/**
+ * One queued message after the final prod gate: treat Git as shell **tools** to
+ * commit, branch, merge, and push — not a six-phase skill mini-loop.
+ */
+function buildProdGitToolMessage(
+  root: string,
+  preamble: string,
+  governanceBlock: string,
+): string | null {
+  const toolBody = readSkillFile(PROD_GIT_TOOL_SKILL_NAME, root);
+  if (!toolBody) {
+    return null;
+  }
+  const govSep = governanceBlock
+    ? `\n\n---\n\n${governanceBlock}\n\n---\n\n`
+    : '';
+  const header = [
+    '## GIT TOOL — persist `/prod` work',
+    '',
+    '**Not** a PHASE 1/6 skill loop. Use **shell / Git as tools** (`git status`, `git add`, `git commit`, `git push`, branch/merge when appropriate).',
+    '',
+    'Earlier prompts implemented fixes and features. **Commit** any remaining changes with Conventional Commits, then integrate/push/cleanup per the checklist below and your team’s policy.',
+    '',
+  ].join('\n');
+  return `${preamble}${govSep}${header}\n${toolBody}`;
+}
+
 // ─── MAIN BUILDER ────────────────────────────────────────────────────────────
 
 export type BuildProdQueueOptions = {
@@ -1349,11 +1385,17 @@ export function buildProdQueue(
 
   const orchestrator = readWorkspaceSkillFile('smart-orchestrator', root);
   if (orchestrator && useOrchestrator) {
+    const pre = buildSkillPathsPreamble(root);
     const gov = buildGovernanceBlock(root);
     const govSep = gov ? `\n\n---\n\n${gov}` : '';
-    return [
-      `${buildSkillPathsPreamble(root)}${govSep}\n\n---\n\n${orchestrator}`,
-    ];
+    const out = [`${pre}${govSep}\n\n---\n\n${orchestrator}`];
+    if (prodGitToolAppendEnabled()) {
+      const gitMsg = buildProdGitToolMessage(root, pre, gov);
+      if (gitMsg) {
+        out.push(gitMsg);
+      }
+    }
+    return out;
   }
 
   const preamble = buildSkillPathsPreamble(root);
@@ -1472,6 +1514,13 @@ export function buildProdQueue(
   }
 
   queue.push(...buildFinalGate(date));
+
+  if (prodGitToolAppendEnabled()) {
+    const gitMsg = buildProdGitToolMessage(root, preamble, governance);
+    if (gitMsg) {
+      queue.push(gitMsg);
+    }
+  }
 
   return queue;
 }
