@@ -47,4 +47,30 @@ describe('parseAutopilotPhasePickArgs', () => {
     const r = parseAutopilotPhasePickArgs('nope 1');
     expect(r.ok).toBe(false);
   });
+
+  it('parses a single skill-style phase name', () => {
+    const r = parseAutopilotPhasePickArgs('prod e2e-testing');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.pick.phaseNames).toEqual(['e2e-testing']);
+      expect(r.pick.start).toBeUndefined();
+    }
+  });
+
+  it('parses comma-separated phase names', () => {
+    const r = parseAutopilotPhasePickArgs('prod plan,user-stories');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.pick.phaseNames).toEqual(['plan', 'user-stories']);
+    }
+  });
+
+  it('parses prod-ready by role name with focus', () => {
+    const r = parseAutopilotPhasePickArgs('prod-ready analyst -- fix checkout');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.pick.phaseNames).toEqual(['analyst']);
+      expect(r.pick.pipelineFocus).toBe('fix checkout');
+    }
+  });
 });

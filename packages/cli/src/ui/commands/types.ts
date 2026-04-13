@@ -223,13 +223,18 @@ export type AutopilotPhasePickPipeline =
   | 'project-hardening'
   | 'quality-check';
 
-/** Selects a contiguous slice of queued messages for a pipeline. */
+/** Selects queued messages for a pipeline (numeric slice and/or name match). */
 export type AutopilotPhasePick = {
   pipeline: AutopilotPhasePickPipeline;
-  /** 1-based index of the first queued message */
-  start: number;
+  /** 1-based index of the first queued message (omit when using `phaseNames`) */
+  start?: number;
   /** 1-based inclusive end; omit to take only `start` */
   end?: number;
+  /**
+   * Match queued messages by phase/skill slug (comma-separated in `/phase`).
+   * For `prod`, use skill folder names (e.g. `e2e-testing`) or `understand`, `gate`, `git`.
+   */
+  phaseNames?: readonly string[];
   /** Optional focus for `prod-ready` / `project-hardening` queue builders */
   pipelineFocus?: string;
 };

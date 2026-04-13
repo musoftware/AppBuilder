@@ -34,7 +34,7 @@ export function parseAutopilotPhasePickArgs(
   if (!trimmed) {
     return {
       ok: false,
-      error: `Usage: /phase <pipeline> <n|n-m> [-- <focus>]\nPipelines: ${PHASE_PIPELINES.join(', ')}.\nExample: /phase prod 4   or   /phase prod-ready 2 -- tighten auth`,
+      error: `Usage: /phase <pipeline> <n|n-m|name[,name…]> [-- <focus>]\nPipelines: ${PHASE_PIPELINES.join(', ')}.\nExamples: /phase prod 4  |  /phase prod e2e-testing  |  /phase full-chain planner  |  /phase prod-ready 2 -- tighten auth`,
     };
   }
 
@@ -52,14 +52,7 @@ export function parseAutopilotPhasePickArgs(
   if (tokens.length < 2) {
     return {
       ok: false,
-      error: `Missing pipeline or range. Example: /phase full-chain 3-5`,
-    };
-  }
-  if (tokens.length > 2) {
-    return {
-      ok: false,
-      error:
-        'Too many tokens before `--`. Use `/phase <pipeline> <n|n-m> -- <focus>` for prod-ready or project-hardening.',
+      error: `Missing pipeline or selector. Example: /phase full-chain 3-5 or /phase prod audit-backend`,
     };
   }
 
@@ -72,16 +65,28 @@ export function parseAutopilotPhasePickArgs(
   }
   const pipeline = pipelineRaw as AutopilotPhasePickPipeline;
 
-  const rangeTok = tokens[1]!;
-  const rangeM = /^(\d+)(?:-(\d+))?$/.exec(rangeTok);
-  if (!rangeM) {
-    return {
-      ok: false,
-      error: `Invalid range "${rangeTok}". Use one index or start-end (e.g. 6 or 2-4).`,
-    };
+  const rest = tokens.slice(1).join(' ').trim();
+  if (!rest) {
+    return { ok: false, error: 'Missing phase index or name after pipeline.' };
   }
-  const start = Number(rangeM[1]);
-  const end = rangeM[2] === undefined ? undefined : Number(rangeM[2]);
+
+  const rangeM = /^(\d+)(?:-(\d+))?$/.exec(rest);
+  let pick: AutopilotPhasePick;
+
+  if (rangeM) {
+    const start = Number(rangeM[1]);
+    const end = rangeM[2] === undefined ? undefined : Number(rangeM[2]);
+    pick = { pipeline, start, end };
+  } else {
+    const phaseNames = rest
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (phaseNames.length === 0) {
+      return { ok: false, error: 'No phase names after pipeline.' };
+    }
+    pick = { pipeline, phaseNames };
+  }
 
   if (
     pipelineFocus &&
@@ -94,22 +99,18 @@ export function parseAutopilotPhasePickArgs(
     };
   }
 
-  return {
-    ok: true,
-    pick: {
-      pipeline,
-      start,
-      end,
-      ...(pipelineFocus ? { pipelineFocus } : {}),
-    },
-  };
+  if (pipelineFocus) {
+    pick = { ...pick, pipelineFocus };
+  }
+
+  return { ok: true, pick };
 }
 
 export const phaseCommand: SlashCommand = {
   name: 'phase',
   get description() {
     return t(
-      'Queue a subset of autopilot messages: /phase <pipeline> <n|n-m> [-- focus]. Pipelines: prod, prod-ready, full-chain, frontend-audit, ready-production, project-hardening, quality-check.',
+      'Queue part of an autopilot pipeline: /phase <pipeline> <n|n-m|name[,name…]> [-- focus]. Names: prod skills (e2e-testing), full-chain (planner), prod-ready (analyst), frontend-audit (mapper), project-hardening skill ids, quality (qc).',
     );
   },
   kind: CommandKind.BUILT_IN,

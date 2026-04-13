@@ -24,7 +24,7 @@ export const PROJECT_HARDENING_SKILL_PHASES = [
   'post-turn-complete',
 ] as const;
 
-const BLOCK_LABELS = [
+export const PROJECT_HARDENING_BLOCK_LABELS = [
   'Understand (1/3)',
   'Understand (2/3)',
   'Understand (3/3)',
@@ -74,7 +74,7 @@ export async function buildProjectHardeningQueue(
 
   for (let i = 0; i < total; i++) {
     const id = PROJECT_HARDENING_SKILL_PHASES[i]!;
-    const label = BLOCK_LABELS[i] ?? `Phase ${i + 1}`;
+    const label = PROJECT_HARDENING_BLOCK_LABELS[i] ?? `Phase ${i + 1}`;
     try {
       const body = await driver.skillWorkflow(id, resolvedSkillsPath);
       out.push(

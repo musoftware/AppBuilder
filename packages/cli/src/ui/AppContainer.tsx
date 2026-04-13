@@ -113,7 +113,7 @@ import type {
   AutopilotRequestOptions,
 } from './commands/types.js';
 import { buildProjectHardeningQueue } from './projectHardeningQueue.js';
-import { sliceAutopilotPhaseMessages } from './utils/sliceAutopilotPhases.js';
+import { resolvePhasePickFromQueue } from './utils/resolvePhasePickFromQueue.js';
 import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
 import { resolvePath } from '../utils/resolvePath.js';
 import { useMessageQueue } from './hooks/useMessageQueue.js';
@@ -838,14 +838,18 @@ export const AppContainer = (props: AppContainerProps) => {
 
         const phasePick = options?.phasePick;
         if (phasePick) {
+          const sel =
+            phasePick.phaseNames && phasePick.phaseNames.length > 0
+              ? `names ${phasePick.phaseNames.map((n) => `\`${n}\``).join(', ')}`
+              : `indices ${phasePick.start}${
+                  phasePick.end && phasePick.end !== phasePick.start
+                    ? `–${phasePick.end}`
+                    : ''
+                }`;
           historyManager.addItem(
             {
               type: MessageType.INFO,
-              text: `Autopilot phase slice: building full \`${phasePick.pipeline}\` queue, then keeping message(s) ${phasePick.start}${
-                phasePick.end && phasePick.end !== phasePick.start
-                  ? `–${phasePick.end}`
-                  : ''
-              }…`,
+              text: `Autopilot phase slice: building full \`${phasePick.pipeline}\` queue, then keeping ${sel}…`,
             },
             Date.now(),
           );
@@ -887,11 +891,7 @@ export const AppContainer = (props: AppContainerProps) => {
                 throw new Error(`Unhandled pipeline: ${_exhaustive}`);
               }
             }
-            const sliced = sliceAutopilotPhaseMessages(
-              full,
-              phasePick.start,
-              phasePick.end,
-            );
+            const sliced = resolvePhasePickFromQueue(phasePick, full);
             if (!sliced.ok) {
               historyManager.addItem(
                 { type: MessageType.ERROR, text: sliced.error },
@@ -900,14 +900,18 @@ export const AppContainer = (props: AppContainerProps) => {
               return;
             }
             const pre = summarizeAutopilotQueue(sliced.messages);
+            const selDone =
+              phasePick.phaseNames && phasePick.phaseNames.length > 0
+                ? phasePick.phaseNames.map((n) => `\`${n}\``).join(', ')
+                : `${phasePick.start}${
+                    phasePick.end && phasePick.end !== phasePick.start
+                      ? `–${phasePick.end}`
+                      : ''
+                  }`;
             historyManager.addItem(
               {
                 type: MessageType.INFO,
-                text: `Queued ${sliced.messages.length} message(s) (\`${phasePick.pipeline}\` indices ${phasePick.start}${
-                  phasePick.end && phasePick.end !== phasePick.start
-                    ? `–${phasePick.end}`
-                    : ''
-                } of ${full.length} total).${
+                text: `Queued ${sliced.messages.length} message(s) (\`${phasePick.pipeline}\` → ${selDone} of ${full.length} total).${
                   pre.labeledPhaseMarkers > 0
                     ? ` ~${pre.labeledPhaseMarkers} with PHASE x/y markers.`
                     : ''
