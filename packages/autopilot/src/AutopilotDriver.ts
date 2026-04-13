@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { BrainstormAgent } from './brainstorm/BrainstormAgent.js';
+import { IdeaDirectPlanner } from './idea/IdeaDirectPlanner.js';
 import { SkillLoader } from './planning/SkillLoader.js';
 import { SkillMatcher } from './planning/SkillMatcher.js';
 import { TaskPlanner } from './planning/TaskPlanner.js';
@@ -526,13 +527,19 @@ export class AutopilotDriver {
         ? 'Improve and fix any issues in the existing project.'
         : 'Build a new project based on my requirements.');
 
+    let ideaContextSpec: ContextSpec | null = null;
+
     if (planCallOptions?.skipBrainstormChat) {
-      agent.seedForDirectPlan(idea);
+      // --idea mode: skip interactive questions, extract context directly.
+      const ideaPlanner = new IdeaDirectPlanner(this.settings, callModel);
+      ideaContextSpec = await ideaPlanner.extractContextSpec(idea);
     } else {
       // One chat turn to capture the idea, then extract structured context.
       await agent.chat(idea);
     }
-    const contextSpec = await agent.extractContextSpec();
+
+    // Extract or use pre-extracted context.
+    const contextSpec = ideaContextSpec ?? (await agent.extractContextSpec());
 
     const context: ContextSpec = {
       ...contextSpec,
