@@ -585,9 +585,11 @@ export const useGeminiStream = (
               return { queryToSend: null, shouldProceed: false };
             }
             case 'autopilot': {
+              const pick = slashCommandResult.phasePick;
               autopilotRequestRef?.current?.(
                 slashCommandResult.initialIdea,
                 slashCommandResult.mode,
+                pick ? { phasePick: pick } : undefined,
               );
               return { queryToSend: null, shouldProceed: false };
             }

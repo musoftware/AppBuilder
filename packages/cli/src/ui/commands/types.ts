@@ -206,7 +206,33 @@ export interface AutopilotRequestOptions {
    * normal chat. Used for interactive `mu-pilot --brainstorm` startup.
    */
   brainstormDeferTasksUntilGo?: boolean;
+  /**
+   * Queue only a 1-based subset of messages from a built-in autopilot pipeline
+   * (from `/phase …`). Handled in the interactive autopilot hook before other modes.
+   */
+  phasePick?: AutopilotPhasePick;
 }
+
+/** Pipelines supported by `/phase` (subset of autopilot queue builders). */
+export type AutopilotPhasePickPipeline =
+  | 'prod'
+  | 'prod-ready'
+  | 'full-chain'
+  | 'frontend-audit'
+  | 'ready-production'
+  | 'project-hardening'
+  | 'quality-check';
+
+/** Selects a contiguous slice of queued messages for a pipeline. */
+export type AutopilotPhasePick = {
+  pipeline: AutopilotPhasePickPipeline;
+  /** 1-based index of the first queued message */
+  start: number;
+  /** 1-based inclusive end; omit to take only `start` */
+  end?: number;
+  /** Optional focus for `prod-ready` / `project-hardening` queue builders */
+  pipelineFocus?: string;
+};
 
 /** Modes for slash commands that drive the interactive autopilot hook. */
 export type AutopilotInteractiveMode =
@@ -236,9 +262,13 @@ export interface AutopilotActionReturn {
    * - 'skill': initialIdea = skill folder name (e.g. 'e2e-testing')
    * - 'brain-skill': initialIdea = project-brain skill name (e.g. 'audit-frontend')
    * - 'project-hardening': optional focus text; queues 9 skill phases
+   *
+   * When `phasePick` is set (e.g. from `/phase`), only that slice of the
+   * pipeline’s queue is scheduled; `mode` is omitted.
    */
   initialIdea?: string;
   mode?: AutopilotInteractiveMode;
+  phasePick?: AutopilotPhasePick;
 }
 
 /**

@@ -113,6 +113,7 @@ import type {
   AutopilotRequestOptions,
 } from './commands/types.js';
 import { buildProjectHardeningQueue } from './projectHardeningQueue.js';
+import { sliceAutopilotPhaseMessages } from './utils/sliceAutopilotPhases.js';
 import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
 import { resolvePath } from '../utils/resolvePath.js';
 import { useMessageQueue } from './hooks/useMessageQueue.js';
@@ -834,6 +835,100 @@ export const AppContainer = (props: AppContainerProps) => {
         const resolvedSkillsPath = ap?.skillsPath
           ? resolvePath(ap.skillsPath)
           : undefined;
+
+        const phasePick = options?.phasePick;
+        if (phasePick) {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Autopilot phase slice: building full \`${phasePick.pipeline}\` queue, then keeping message(s) ${phasePick.start}${
+                phasePick.end && phasePick.end !== phasePick.start
+                  ? `–${phasePick.end}`
+                  : ''
+              }…`,
+            },
+            Date.now(),
+          );
+          try {
+            let full: string[] = [];
+            switch (phasePick.pipeline) {
+              case 'quality-check':
+                full = [await driver.qualityCheck()];
+                break;
+              case 'prod':
+                full = driver.prod(process.cwd(), {
+                  useWorkspaceOrchestrator:
+                    process.env['QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR'] === '1',
+                });
+                break;
+              case 'prod-ready':
+                full = await driver.prodReady(phasePick.pipelineFocus);
+                break;
+              case 'full-chain': {
+                const plan = await driver.fullChain(process.cwd());
+                full = plan.phases;
+                break;
+              }
+              case 'frontend-audit':
+                full = await driver.frontendAudit();
+                break;
+              case 'ready-production':
+                full = await driver.buildReadyProductionQueue(process.cwd());
+                break;
+              case 'project-hardening': {
+                full = await buildProjectHardeningQueue(
+                  phasePick.pipelineFocus,
+                  settings,
+                );
+                break;
+              }
+              default: {
+                const _exhaustive: never = phasePick.pipeline;
+                throw new Error(`Unhandled pipeline: ${_exhaustive}`);
+              }
+            }
+            const sliced = sliceAutopilotPhaseMessages(
+              full,
+              phasePick.start,
+              phasePick.end,
+            );
+            if (!sliced.ok) {
+              historyManager.addItem(
+                { type: MessageType.ERROR, text: sliced.error },
+                Date.now(),
+              );
+              return;
+            }
+            const pre = summarizeAutopilotQueue(sliced.messages);
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Queued ${sliced.messages.length} message(s) (\`${phasePick.pipeline}\` indices ${phasePick.start}${
+                  phasePick.end && phasePick.end !== phasePick.start
+                    ? `–${phasePick.end}`
+                    : ''
+                } of ${full.length} total).${
+                  pre.labeledPhaseMarkers > 0
+                    ? ` ~${pre.labeledPhaseMarkers} with PHASE x/y markers.`
+                    : ''
+                } Approval mode set to YOLO until the queue drains.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(sliced.messages);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Autopilot phase slice failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Phase slice failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
 
         if (mode === 'quality-check') {
           historyManager.addItem(
