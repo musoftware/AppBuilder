@@ -37,7 +37,7 @@ if errorlevel 1 (
 
 echo.
 echo Installing globally so mu-pilot / mu point to latest dist\cli.js...
-call npm install -g .
+call npm install -g . --ignore-scripts
 if errorlevel 1 (
   echo Global install failed.
   exit /b 1
