@@ -36,15 +36,24 @@ if errorlevel 1 (
 )
 
 echo.
-echo Build, bundle, and dist package prep finished successfully.
-echo Output: dist\cli.js plus vendor, locales, project-brain-skills, etc.
+echo Installing globally so mu-pilot / mu point to latest dist\cli.js...
+call npm install -g .
+if errorlevel 1 (
+  echo Global install failed.
+  exit /b 1
+)
+
+echo.
+echo Build, bundle, and global install finished successfully.
 echo.
 echo --- How to use ---
 echo mu-pilot ^(or mu / autocreator^) — two entry points ^(skills run inside these flows^):
 echo   mu-pilot --brainstorm
 echo   mu-pilot --prod
+echo   mu-pilot --idea "build a task manager"
+echo   mu-pilot --idea "build CRM system in Laravel" --approval-mode plan
 echo.
 echo Interactive terminal ^(TTY^): /brainstorm   /prod
 echo.
-echo More flags: node dist\cli.js --help
+echo More flags: mu-pilot --help
 exit /b 0
