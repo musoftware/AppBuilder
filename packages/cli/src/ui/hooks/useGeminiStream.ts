@@ -1964,6 +1964,22 @@ export const useGeminiStream = (
     [config, handleApprovalModeChange],
   );
 
+  /** Append messages to the existing autopilot queue without replacing it */
+  const appendAutopilotQueue = useCallback((messages: string[]) => {
+    if (messages.length === 0) {
+      // Clear queue
+      autopilotQueueRef.current = [];
+      autopilotSessionTotalRef.current = 0;
+      autopilotTurnSubmittedRef.current = 0;
+      setAutopilotTrigger((n) => n + 1);
+      return;
+    }
+    // Append to existing queue
+    autopilotQueueRef.current.push(...messages);
+    autopilotSessionTotalRef.current += messages.length;
+    setAutopilotTrigger((n) => n + 1);
+  }, []);
+
   useEffect(() => {
     if (
       streamingState === StreamingState.Idle &&
@@ -2034,5 +2050,6 @@ export const useGeminiStream = (
     activePtyId,
     loopDetectionConfirmationRequest,
     setAutopilotQueue,
+    appendAutopilotQueue,
   };
 };

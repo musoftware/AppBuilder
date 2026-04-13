@@ -33,6 +33,14 @@ Return ONLY a JSON array of tasks with this exact shape:
 
 Rules:
 - 4 to 8 tasks maximum. Keep it focused.
+- Recommended task progression for greenfield projects:
+  1. Use "scaffold" skill to create initial project structure
+  2. Use "database-design" skill if project needs data persistence
+  3. Use "api-design" skill if project exposes data/functionality via HTTP
+  4. Use "auth-setup" skill if project requires user accounts/login
+  5. Use "build" or implementation skills for core business logic
+  6. Use test skills (test-unit, test-integration, test-e2e) to verify functionality
+  7. End with "ship" type task (docs + final output + deployment-config if needed)
 - Every project must end with a "ship" type task (docs + final output).
 - Tasks with no dependsOn run first; others wait for their deps.
 - "description" must be specific enough for an AI to execute without any extra context.

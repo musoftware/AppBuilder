@@ -98,6 +98,7 @@ const MINIMAL_AUTH_CLI_ARGV: CliArgs = {
   channel: undefined,
   brainstorm: undefined,
   brainstormInitialIdea: undefined,
+  idea: undefined,
   brownfield: undefined,
   qualityCheck: undefined,
   prod: undefined,

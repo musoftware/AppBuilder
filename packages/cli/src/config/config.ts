@@ -163,6 +163,7 @@ export interface CliArgs {
   channel: string | undefined;
   brainstorm: boolean | undefined;
   brainstormInitialIdea: string | undefined;
+  idea: string | undefined;
   brownfield: boolean | undefined;
   qualityCheck: boolean | undefined;
   prod: boolean | undefined;
@@ -391,6 +392,12 @@ export async function parseArguments(): Promise<CliArgs> {
           description:
             'Autopilot brainstorm mode: with a TTY, auto-plans from your seed then waits for a go trigger (go, start, proceed, … — see autopilot goTriggers) or normal chat for questions before tasks run in YOLO; same UI as /brainstorm. Without a TTY, runs standalone autopilot.',
           default: false,
+        })
+        .option('idea', {
+          alias: 'i',
+          type: 'string',
+          description:
+            'Build a full project from a simple idea. Skips brainstorm Q&A entirely — goes straight to context extraction, skill selection, planning, and autonomous execution in YOLO mode. Example: --idea "build a task manager CLI with SQLite storage"',
         })
         .option('brownfield', {
           type: 'boolean',
@@ -737,6 +744,18 @@ export async function parseArguments(): Promise<CliArgs> {
     // `query` set, loadCliConfig treats the session as one-shot (non-interactive)
     // and --brainstorm falls back to standalone AutopilotSession instead of the
     // main TUI (same as --prod with an optional seed).
+    (result as Record<string, unknown>)['query'] = undefined;
+  }
+
+  // --idea: direct build from a simple text idea, skipping brainstorm Q&A
+  const ideaString = result['idea'] as string | undefined;
+  if (ideaString && ideaString.trim()) {
+    (result as Record<string, unknown>)['idea'] = ideaString.trim();
+    // Force YOLO mode for unattended execution
+    if (!result['yolo']) {
+      (result as Record<string, unknown>)['yolo'] = true;
+    }
+    // Clear query so the interactive TUI launches instead of one-shot mode
     (result as Record<string, unknown>)['query'] = undefined;
   }
 

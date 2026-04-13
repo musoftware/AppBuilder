@@ -481,18 +481,25 @@ export const PROD_FIXED_REVIEW_SKILL_ORDER = [
  */
 export const PROJECT_BRAIN_SKILL_ORDER = [
   'understand',
+  'scaffold',
+  'database-design',
+  'api-design',
+  'auth-setup',
   'audit-backend',
   'audit-frontend',
   'audit-roles',
   'audit-database',
   'plan',
   'build',
+  'review-implementation',
+  'refine',
   'harden',
   'test-unit',
   'test-integration',
   'test-e2e',
   'test-fix',
   ...PROD_FIXED_REVIEW_SKILL_ORDER,
+  'deployment-config',
   'prod-gate',
 ] as const;
 
@@ -645,6 +652,14 @@ function getAvailableSkills(root: string): string[] {
 }
 
 // ─── SKILL SELECTOR ──────────────────────────────────────────────────────────
+//
+// This function selects skills based on the project's characteristics from
+// understand.md. Only skills that actually exist in the repository are checked
+// here. To add a new audit skill:
+// 1. Create packages/autopilot/project-brain-skills/<skill-name>/SKILL.md
+// 2. Add '<skill-name>' to PROJECT_BRAIN_SKILL_ORDER above
+// 3. Add the selection logic below with appropriate keyword matching
+// ─────────────────────────────────────────────────────────────────────────────
 
 function selectSkills(understand: string, availableSkills: string[]): string[] {
   const has = (keyword: string) =>
@@ -652,40 +667,13 @@ function selectSkills(understand: string, availableSkills: string[]): string[] {
 
   const selected: string[] = [];
 
-  if (availableSkills.includes('audit-security')) {
-    selected.push('audit-security');
-  }
-  if (availableSkills.includes('audit-auth')) {
-    selected.push('audit-auth');
-  }
-  if (availableSkills.includes('audit-env')) {
-    selected.push('audit-env');
-  }
-
+  // Core audit skills that exist in the bundled skill set
   if (has('has_backend: yes')) {
     if (availableSkills.includes('audit-backend')) {
       selected.push('audit-backend');
     }
     if (availableSkills.includes('audit-database')) {
       selected.push('audit-database');
-    }
-    if (availableSkills.includes('audit-performance')) {
-      selected.push('audit-performance');
-    }
-    if (availableSkills.includes('audit-logging')) {
-      selected.push('audit-logging');
-    }
-  }
-
-  if (has('rest') || has('api') || has('graphql') || has('grpc')) {
-    if (availableSkills.includes('audit-api')) {
-      selected.push('audit-api');
-    }
-    if (availableSkills.includes('audit-graphql') && has('graphql')) {
-      selected.push('audit-graphql');
-    }
-    if (availableSkills.includes('audit-webhooks')) {
-      selected.push('audit-webhooks');
     }
   }
 
@@ -698,71 +686,7 @@ function selectSkills(understand: string, availableSkills: string[]): string[] {
     }
   }
 
-  if (has('queue') || has('job') || has('worker') || has('schedule')) {
-    if (availableSkills.includes('audit-queue')) {
-      selected.push('audit-queue');
-    }
-  }
-
-  if (has('storage') || has('upload') || has('s3') || has('disk')) {
-    if (availableSkills.includes('audit-storage')) {
-      selected.push('audit-storage');
-    }
-  }
-
-  if (
-    has('mail') ||
-    has('notification') ||
-    has('email') ||
-    has('sms') ||
-    has('push')
-  ) {
-    if (availableSkills.includes('audit-notifications')) {
-      selected.push('audit-notifications');
-    }
-  }
-
-  if (has('payment') || has('stripe') || has('paypal') || has('billing')) {
-    if (availableSkills.includes('audit-payments')) {
-      selected.push('audit-payments');
-    }
-    if (availableSkills.includes('audit-billing')) {
-      selected.push('audit-billing');
-    }
-  }
-
-  if (has('tenant') || has('saas') || has('subscription') || has('plan')) {
-    if (availableSkills.includes('audit-multi-tenant')) {
-      selected.push('audit-multi-tenant');
-    }
-  }
-
-  if (has('cache') || has('redis') || has('memcached')) {
-    if (availableSkills.includes('audit-cache')) {
-      selected.push('audit-cache');
-    }
-  }
-
-  if (has('search') || has('filter') || has('elasticsearch')) {
-    if (availableSkills.includes('audit-search')) {
-      selected.push('audit-search');
-    }
-  }
-
-  if (availableSkills.includes('audit-dependencies')) {
-    selected.push('audit-dependencies');
-  }
-  if (availableSkills.includes('audit-docs')) {
-    selected.push('audit-docs');
-  }
-  if (availableSkills.includes('refactor')) {
-    selected.push('refactor');
-  }
-
-  if (availableSkills.includes('audit-devops')) {
-    selected.push('audit-devops');
-  }
-
+  // Test skills (always include when available)
   if (availableSkills.includes('test-unit')) {
     selected.push('test-unit');
   }
@@ -774,6 +698,26 @@ function selectSkills(understand: string, availableSkills: string[]): string[] {
   }
   if (availableSkills.includes('test-fix')) {
     selected.push('test-fix');
+  }
+
+  // Extensibility: any other skill found in availableSkills will be included
+  // automatically. This allows custom skills under .qwen/skills/ to work
+  // without code changes here.
+  const knownSkills = new Set([
+    'audit-backend',
+    'audit-database',
+    'audit-frontend',
+    'audit-roles',
+    'test-unit',
+    'test-integration',
+    'test-e2e',
+    'test-fix',
+  ]);
+
+  for (const skill of availableSkills) {
+    if (!knownSkills.has(skill) && !selected.includes(skill)) {
+      selected.push(skill);
+    }
   }
 
   return [...new Set(selected)];

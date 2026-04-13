@@ -207,6 +207,12 @@ export interface AutopilotRequestOptions {
    */
   brainstormDeferTasksUntilGo?: boolean;
   /**
+   * Skip brainstorm Q&A entirely and build directly from a simple idea string.
+   * Used for `mu-pilot --idea` — extracts context in one model call, then
+   * proceeds to skill selection, planning, and YOLO execution.
+   */
+  ideaDirectBuild?: boolean;
+  /**
    * Queue only a 1-based subset of messages from a built-in autopilot pipeline
    * (from `/phase …`). Handled in the interactive autopilot hook before other modes.
    */

@@ -114,6 +114,7 @@ import type {
 } from './commands/types.js';
 import { buildProjectHardeningQueue } from './projectHardeningQueue.js';
 import { resolvePhasePickFromQueue } from './utils/resolvePhasePickFromQueue.js';
+import { setEnqueueFunction } from './commands/queueCommand.js';
 import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
 import { resolvePath } from '../utils/resolvePath.js';
 import { useMessageQueue } from './hooks/useMessageQueue.js';
@@ -170,6 +171,8 @@ interface AppContainerProps {
   startupBrainstormInitialIdea?: string;
   /** From `mu-pilot --brainstorm --brownfield`: force brownfield planning. */
   startupBrainstormBrownfield?: boolean;
+  /** From `mu-pilot --idea`: skips brainstorm Q&A, goes straight to plan + execute. */
+  startupIdea?: string;
   /** From `mu-pilot --quality-check`: same UI; starts quality-check autopilot when ready (no slash). */
   startupQualityCheck?: boolean;
   /** From `mu-pilot --prod`: same UI; starts stack-detected prod autopilot when ready. */
@@ -206,6 +209,7 @@ export const AppContainer = (props: AppContainerProps) => {
     startupBrainstorm,
     startupBrainstormInitialIdea,
     startupBrainstormBrownfield,
+    startupIdea,
     startupQualityCheck,
     startupProd,
     startupProdReady,
@@ -786,6 +790,7 @@ export const AppContainer = (props: AppContainerProps) => {
     activePtyId,
     loopDetectionConfirmationRequest,
     setAutopilotQueue,
+    appendAutopilotQueue,
   } = useGeminiStream(
     config.getGeminiClient(),
     historyManager.history,
@@ -1278,9 +1283,12 @@ export const AppContainer = (props: AppContainerProps) => {
         historyManager.addItem(
           {
             type: MessageType.INFO,
-            text: options?.brainstormAutoPlan
-              ? `Autopilot: Planning from your request${idea ? ` (${idea.slice(0, 80)}${idea.length > 80 ? '…' : ''})` : ''}…`
-              : `Autopilot: Planning tasks${idea ? ` for "${idea}"` : ''}…`,
+            text:
+              options?.ideaDirectBuild && idea
+                ? `Idea → Build: Extracting spec from "${idea.slice(0, 80)}${idea.length > 80 ? '…' : ''}" and starting autonomous execution…`
+                : options?.brainstormAutoPlan
+                  ? `Autopilot: Planning from your request${idea ? ` (${idea.slice(0, 80)}${idea.length > 80 ? '…' : ''})` : ''}…`
+                  : `Autopilot: Planning tasks${idea ? ` for "${idea}"` : ''}…`,
           },
           Date.now(),
         );
@@ -1291,7 +1299,7 @@ export const AppContainer = (props: AppContainerProps) => {
             idea,
             options?.brainstormForceMode,
             resolvedSkillsPath,
-            options?.brainstormAutoPlan
+            options?.brainstormAutoPlan || options?.ideaDirectBuild
               ? { skipBrainstormChat: true }
               : undefined,
           );
@@ -1339,6 +1347,14 @@ export const AppContainer = (props: AppContainerProps) => {
     [config, settings, historyManager, setAutopilotQueue],
   );
   autopilotHandlerRef.current = handleAutopilotRequest;
+
+  // Set up the /queue command's enqueue function
+  // This creates a wrapper that appends to the existing autopilot queue
+  useEffect(() => {
+    setEnqueueFunction((messages: string[]) => {
+      appendAutopilotQueue(messages);
+    });
+  }, [appendAutopilotQueue]);
 
   // Track whether suggestions are visible for Tab key handling
   const [hasSuggestionsVisible, setHasSuggestionsVisible] = useState(false);
@@ -1683,6 +1699,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const initialPromptSubmitted = useRef(false);
   const startupBrainstormSubmitted = useRef(false);
+  const startupIdeaSubmitted = useRef(false);
   const startupQualityCheckSubmitted = useRef(false);
   const startupProdSubmitted = useRef(false);
   const startupProdReadySubmitted = useRef(false);
@@ -1759,6 +1776,43 @@ export const AppContainer = (props: AppContainerProps) => {
     startupBrainstorm,
     startupBrainstormInitialIdea,
     startupBrainstormBrownfield,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  // --idea: direct build from simple text, skips brainstorm Q&A
+  useEffect(() => {
+    if (
+      !startupIdea ||
+      !startupIdea.trim() ||
+      !isConfigInitialized ||
+      startupIdeaSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupIdeaSubmitted.current = true;
+    // Skip brainstorm Q&A, go straight to planning + execution
+    handleAutopilotRequest(startupIdea.trim(), undefined, {
+      ideaDirectBuild: true,
+    });
+  }, [
+    startupIdea,
     initialPrompt,
     isConfigInitialized,
     handleAutopilotRequest,
