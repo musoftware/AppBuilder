@@ -28,12 +28,21 @@ describe('promptSlashCommand', () => {
     }
     const result = await plan.action(mockContext, '  an inventory tool  ');
     expect(result).toMatchObject({ type: 'submit_prompt' });
-    if (result?.type === 'submit_prompt') {
-      const text = result.content[0]?.text ?? '';
-      expect(text).toContain('=======\n');
-      expect(text).toContain('"an inventory tool"');
-      expect(text).toContain('Now begin. Output every file.');
+    if (result?.type !== 'submit_prompt') {
+      throw new Error('expected submit_prompt');
     }
+    expect(result).toHaveProperty(
+      'content.0.text',
+      expect.stringContaining('=======\n'),
+    );
+    expect(result).toHaveProperty(
+      'content.0.text',
+      expect.stringContaining('"an inventory tool"'),
+    );
+    expect(result).toHaveProperty(
+      'content.0.text',
+      expect.stringContaining('Now begin. Output every file.'),
+    );
   });
 
   it('strips zero-width spaces from args', async () => {
