@@ -6,6 +6,7 @@
 
 import {
   AuthType,
+  type ApiProfilesSettings,
   type ContentGeneratorConfig,
   type ContentGeneratorConfigSources,
   resolveModelConfig,
@@ -82,8 +83,10 @@ export function getAuthTypeFromEnv(): AuthType | undefined {
  *
  * Precedence (for OpenAI auth):
  * - model: argv.model > OPENAI_MODEL > QWEN_MODEL > settings.model.name
- * - apiKey: argv.openaiApiKey > OPENAI_API_KEY > settings.security.auth.apiKey
- * - baseUrl: argv.openaiBaseUrl > OPENAI_BASE_URL > settings.security.auth.baseUrl
+ * - apiKey: argv.openaiApiKey > OPENAI_API_KEY > active apiProfiles entry >
+ *   settings.security.auth.apiKey
+ * - baseUrl: argv.openaiBaseUrl > OPENAI_BASE_URL > active profile baseUrl >
+ *   settings.security.auth.baseUrl
  *
  * For non-OpenAI auth, only argv.model override is respected at CLI layer.
  */
@@ -121,6 +124,9 @@ export function resolveCliGenerationConfig(
       model: settings.model?.name,
       apiKey: settings.security?.auth?.apiKey,
       baseUrl: settings.security?.auth?.baseUrl,
+      apiProfiles: settings.security?.auth?.apiProfiles as
+        | ApiProfilesSettings
+        | undefined,
       generationConfig: settings.model?.generationConfig as
         | Partial<ContentGeneratorConfig>
         | undefined,

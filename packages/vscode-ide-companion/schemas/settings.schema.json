@@ -607,6 +607,11 @@
             "baseUrl": {
               "description": "Base URL for OpenAI compatible API.",
               "type": "string"
+            },
+            "apiProfiles": {
+              "description": "Named OpenAI-compatible API keys. The active profile is used when OPENAI_API_KEY is not set and no --openai-api-key flag is passed.",
+              "type": "object",
+              "additionalProperties": true
             }
           }
         }

@@ -10,6 +10,16 @@ import { AuthType } from '@qwen-code/qwen-code-core';
 import { CODING_PLAN_ENV_KEY } from '../../constants/codingPlan.js';
 import type { LoadedSettings } from '../../config/settings.js';
 
+vi.mock('@qwen-code/qwen-code-core', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@qwen-code/qwen-code-core')>();
+  return {
+    ...actual,
+    listQwenOAuthAccounts: vi.fn().mockResolvedValue([]),
+    getActiveQwenOAuthAccountId: vi.fn().mockResolvedValue(null),
+  };
+});
+
 vi.mock('../../config/settings.js', () => ({
   loadSettings: vi.fn(),
 }));
@@ -61,6 +71,9 @@ describe('showAuthStatus', () => {
     );
     expect(writeStdoutLine).toHaveBeenCalledWith(
       expect.stringContaining('qwen auth coding-plan'),
+    );
+    expect(writeStdoutLine).toHaveBeenCalledWith(
+      expect.stringContaining('oauth-account list'),
     );
     expect(process.exit).toHaveBeenCalledWith(0);
   });

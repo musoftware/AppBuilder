@@ -1336,6 +1336,27 @@ const SETTINGS_SCHEMA = {
             description: 'Base URL for OpenAI compatible API.',
             showInDialog: false,
           },
+          apiProfiles: {
+            type: 'object',
+            label: 'OpenAI API Key Profiles',
+            category: 'Security',
+            requiresRestart: true,
+            default: undefined as
+              | {
+                  activeProfileId?: string;
+                  profiles: Array<{
+                    id: string;
+                    name?: string;
+                    apiKey: string;
+                    baseUrl?: string;
+                  }>;
+                }
+              | undefined,
+            description:
+              'Named OpenAI-compatible API keys. The active profile is used when OPENAI_API_KEY is not set and no --openai-api-key flag is passed.',
+            showInDialog: false,
+            mergeStrategy: MergeStrategy.SHALLOW_MERGE,
+          },
         },
       },
     },

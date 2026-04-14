@@ -1185,6 +1185,12 @@ export async function upsertQwenOAuthAccount(
 
   store.activeAccountId = accountId;
   await saveQwenOAuthAccounts(store);
+  await writePrimaryCredentialFile(nextRecord.credentials);
+  try {
+    SharedTokenManager.getInstance().clearCache();
+  } catch {
+    // Best-effort cache clear.
+  }
   return accountId;
 }
 

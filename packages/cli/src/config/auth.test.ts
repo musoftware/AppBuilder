@@ -43,8 +43,25 @@ describe('validateAuthMethod', () => {
 
   it('should return an error message for USE_OPENAI if no API key is available', () => {
     expect(validateAuthMethod(AuthType.USE_OPENAI)).toBe(
-      "Missing API key for OpenAI-compatible auth. Set settings.security.auth.apiKey, or set the 'OPENAI_API_KEY' environment variable.",
+      "Missing API key for OpenAI-compatible auth. Set settings.security.auth.apiKey, add a profile with `qwen auth api-key add`, or set the 'OPENAI_API_KEY' environment variable.",
     );
+  });
+
+  it('should return null for USE_OPENAI when apiProfiles contains a usable key', () => {
+    vi.mocked(settings.loadSettings).mockReturnValue({
+      merged: {
+        security: {
+          auth: {
+            apiProfiles: {
+              activeProfileId: 'work',
+              profiles: [{ id: 'work', apiKey: 'profile-api-key' }],
+            },
+          },
+        },
+      },
+    } as unknown as ReturnType<typeof settings.loadSettings>);
+
+    expect(validateAuthMethod(AuthType.USE_OPENAI)).toBeNull();
   });
 
   it('should return null for USE_OPENAI with custom envKey from modelProviders', () => {

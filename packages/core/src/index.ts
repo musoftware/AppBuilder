@@ -23,6 +23,8 @@ export {
   MAINLINE_CODER_MODEL,
 } from './config/models.js';
 export {
+  type ApiKeyProfile,
+  type ApiProfilesSettings,
   type AvailableModel,
   type ModelCapabilities,
   type ModelConfig as ProviderModelConfig,

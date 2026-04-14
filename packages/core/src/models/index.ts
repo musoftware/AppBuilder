@@ -37,6 +37,8 @@ export {
 export {
   resolveModelConfig,
   validateModelConfig,
+  type ApiKeyProfile,
+  type ApiProfilesSettings,
   type ModelConfigSourcesInput,
   type ModelConfigCliInput,
   type ModelConfigSettingsInput,

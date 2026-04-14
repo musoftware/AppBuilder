@@ -114,6 +114,26 @@ function hasApiKeyForAuth(
     };
   }
 
+  // Stored OpenAI-compatible profiles (used when resolver has no config yet)
+  const apiProfiles = settings.security?.auth?.apiProfiles;
+  const profs = apiProfiles?.profiles;
+  if (Array.isArray(profs) && profs.length > 0) {
+    const activeId = apiProfiles?.activeProfileId;
+    const withKey = (p: { id?: string; apiKey?: string }) =>
+      !!p?.id && !!p.apiKey;
+    const active = activeId
+      ? profs.find((p) => p.id === activeId && withKey(p))
+      : undefined;
+    const fallback = profs.find((p) => withKey(p));
+    if (active?.apiKey || fallback?.apiKey) {
+      return {
+        hasKey: true,
+        checkedEnvKey: defaultEnvKey || undefined,
+        isExplicitEnvKey: false,
+      };
+    }
+  }
+
   return {
     hasKey: false,
     checkedEnvKey: defaultEnvKey,
@@ -181,7 +201,7 @@ export function validateAuthMethod(
       }
       // Default env key - can use either apiKey or env var
       return t(
-        'Missing API key for OpenAI-compatible auth. Set settings.security.auth.apiKey, or set the {{envKeyHint}} environment variable.',
+        'Missing API key for OpenAI-compatible auth. Set settings.security.auth.apiKey, add a profile with `qwen auth api-key add`, or set the {{envKeyHint}} environment variable.',
         { envKeyHint },
       );
     }

@@ -141,6 +141,70 @@ describe('modelConfigResolver', () => {
         expect(result.config.model).toBe('qwen-model');
         expect(result.sources['model'].envKey).toBe('QWEN_MODEL');
       });
+
+      it('uses active apiProfiles entry over flat settings apiKey and baseUrl', () => {
+        const result = resolveModelConfig({
+          authType: AuthType.USE_OPENAI,
+          cli: {},
+          settings: {
+            apiKey: 'flat-key',
+            baseUrl: 'https://flat.example.com',
+            apiProfiles: {
+              activeProfileId: 'work',
+              profiles: [
+                {
+                  id: 'work',
+                  name: 'Work',
+                  apiKey: 'profile-key',
+                  baseUrl: 'https://profile.example.com',
+                },
+              ],
+            },
+          },
+          env: {},
+        });
+
+        expect(result.config.apiKey).toBe('profile-key');
+        expect(result.config.baseUrl).toBe('https://profile.example.com');
+        expect(result.sources['apiKey'].kind).toBe('settings');
+        expect(result.sources['baseUrl'].kind).toBe('settings');
+      });
+
+      it('uses first profile with apiKey when activeProfileId is unset', () => {
+        const result = resolveModelConfig({
+          authType: AuthType.USE_OPENAI,
+          cli: {},
+          settings: {
+            apiKey: 'flat-key',
+            apiProfiles: {
+              profiles: [
+                { id: 'a', apiKey: 'first-key' },
+                { id: 'b', apiKey: 'second-key' },
+              ],
+            },
+          },
+          env: {},
+        });
+
+        expect(result.config.apiKey).toBe('first-key');
+      });
+
+      it('prefers CLI apiKey over apiProfiles', () => {
+        const result = resolveModelConfig({
+          authType: AuthType.USE_OPENAI,
+          cli: { apiKey: 'cli-key' },
+          settings: {
+            apiProfiles: {
+              activeProfileId: 'work',
+              profiles: [{ id: 'work', apiKey: 'profile-key' }],
+            },
+          },
+          env: {},
+        });
+
+        expect(result.config.apiKey).toBe('cli-key');
+        expect(result.sources['apiKey'].kind).toBe('cli');
+      });
     });
 
     describe('Qwen OAuth auth type', () => {

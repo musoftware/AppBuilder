@@ -14,8 +14,9 @@
  * 1. modelProvider - Explicit selection from ModelProviders config
  * 2. CLI arguments - Command line flags (--model, --openaiApiKey, etc.)
  * 3. Environment variables - OPENAI_API_KEY, OPENAI_MODEL, etc.
- * 4. Settings - User/workspace settings file
- * 5. Defaults - Built-in default values
+ * 4. Active API key profile - settings.security.auth.apiProfiles (before flat apiKey)
+ * 5. Settings - User/workspace settings file (flat apiKey / baseUrl)
+ * 6. Defaults - Built-in default values
  */
 
 import { AuthType } from '../core/contentGenerator.js';
@@ -57,6 +58,24 @@ export interface ModelConfigCliInput {
 }
 
 /**
+ * A stored OpenAI-compatible API key profile (multi-account).
+ */
+export interface ApiKeyProfile {
+  id: string;
+  name?: string;
+  apiKey: string;
+  baseUrl?: string;
+}
+
+/**
+ * Named API key profiles with an active selection.
+ */
+export interface ApiProfilesSettings {
+  activeProfileId?: string;
+  profiles: ApiKeyProfile[];
+}
+
+/**
  * Settings-provided configuration values
  */
 export interface ModelConfigSettingsInput {
@@ -66,6 +85,11 @@ export interface ModelConfigSettingsInput {
   apiKey?: string;
   /** Base URL from settings.security.auth.baseUrl */
   baseUrl?: string;
+  /**
+   * Named API key profiles from settings.security.auth.apiProfiles.
+   * Active profile applies after env vars but before flat apiKey/baseUrl.
+   */
+  apiProfiles?: ApiProfilesSettings;
   /** Generation config from settings.model.generationConfig */
   generationConfig?: Partial<ContentGeneratorConfig>;
 }
@@ -135,7 +159,7 @@ export function resolveModelConfig(
     : { model: [], apiKey: [], baseUrl: [] };
 
   // Build layers for each field in priority order
-  // Priority: modelProvider > cli > env > settings > default
+  // Priority: modelProvider > cli > env > active apiProfiles > flat settings > default
 
   // ---- Model ----
   const modelLayers: Array<ConfigLayer<string>> = [];
@@ -188,6 +212,18 @@ export function resolveModelConfig(
   for (const envKey of envMapping.apiKey) {
     apiKeyLayers.push(envLayer(env, envKey));
   }
+
+  const activeProfile = resolveActiveApiKeyProfile(settings?.apiProfiles);
+  if (activeProfile?.apiKey) {
+    apiKeyLayers.push(
+      layer(activeProfile.apiKey, {
+        kind: 'settings',
+        settingsPath: 'security.auth.apiProfiles.active',
+        detail: activeProfile.id,
+      }),
+    );
+  }
+
   if (settings?.apiKey) {
     apiKeyLayers.push(
       layer(settings.apiKey, settingsSource('security.auth.apiKey')),
@@ -216,6 +252,17 @@ export function resolveModelConfig(
   for (const envKey of envMapping.baseUrl) {
     baseUrlLayers.push(envLayer(env, envKey));
   }
+
+  if (activeProfile?.baseUrl) {
+    baseUrlLayers.push(
+      layer(activeProfile.baseUrl, {
+        kind: 'settings',
+        settingsPath: 'security.auth.apiProfiles.active.baseUrl',
+        detail: activeProfile.id,
+      }),
+    );
+  }
+
   if (settings?.baseUrl) {
     baseUrlLayers.push(
       layer(settings.baseUrl, settingsSource('security.auth.baseUrl')),
@@ -267,6 +314,22 @@ export function resolveModelConfig(
   sources['authType'] = computedSource('provided by caller');
 
   return { config, sources, warnings };
+}
+
+function resolveActiveApiKeyProfile(
+  apiProfiles: ApiProfilesSettings | undefined,
+): ApiKeyProfile | undefined {
+  if (!apiProfiles?.profiles?.length) {
+    return undefined;
+  }
+  const activeId = apiProfiles.activeProfileId;
+  if (activeId) {
+    const match = apiProfiles.profiles.find((p) => p.id === activeId);
+    if (match?.apiKey) {
+      return match;
+    }
+  }
+  return apiProfiles.profiles.find((p) => !!p.apiKey);
 }
 
 /**
