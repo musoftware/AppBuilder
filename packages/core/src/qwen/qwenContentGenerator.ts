@@ -7,6 +7,10 @@
 import { OpenAIContentGenerator } from '../core/openaiContentGenerator/index.js';
 import { DashScopeOpenAICompatibleProvider } from '../core/openaiContentGenerator/provider/dashscope.js';
 import type { IQwenOAuth2Client } from './qwenOAuth2.js';
+import {
+  getActiveQwenOAuthAccountId,
+  rotateQwenOAuthAccount,
+} from './qwenOAuth2.js';
 import { SharedTokenManager } from './sharedTokenManager.js';
 import { type Config } from '../config/config.js';
 import type {
@@ -20,6 +24,7 @@ import type {
 import type { ContentGeneratorConfig } from '../core/contentGenerator.js';
 import { DEFAULT_DASHSCOPE_BASE_URL } from '../core/openaiContentGenerator/constants.js';
 import { createDebugLogger } from '../utils/debugLogger.js';
+import { isQwenQuotaExceededError } from '../utils/quotaErrorDetection.js';
 
 /**
  * Qwen Content Generator that uses Qwen OAuth tokens with automatic refresh
@@ -29,6 +34,7 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
   private qwenClient: IQwenOAuth2Client;
   private sharedManager: SharedTokenManager;
   private currentToken?: string;
+  private exhaustedAccountIds = new Set<string>();
 
   constructor(
     qwenClient: IQwenOAuth2Client,
@@ -124,7 +130,6 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
   private async executeWithCredentialManagement<T>(
     operation: () => Promise<T>,
   ): Promise<T> {
-    // Attempt the operation with credential management and retry logic
     const attemptOperation = async (): Promise<T> => {
       const { token, endpoint } = await this.getValidToken();
 
@@ -135,17 +140,45 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
       return await operation();
     };
 
-    // Execute with retry logic for auth errors
-    try {
-      return await attemptOperation();
-    } catch (error) {
-      if (this.isAuthError(error)) {
-        // Use SharedTokenManager to properly refresh and persist the token
-        // This ensures the refreshed token is saved to oauth_creds.json
-        await this.sharedManager.getValidCredentials(this.qwenClient, true);
+    let authRefreshRetried = false;
+    let quotaRotations = 0;
+
+    while (true) {
+      try {
         return await attemptOperation();
+      } catch (error) {
+        if (this.shouldRotateAccountForQuota(error)) {
+          const currentAccountId = await getActiveQwenOAuthAccountId();
+          if (currentAccountId) {
+            this.exhaustedAccountIds.add(currentAccountId);
+          }
+
+          const rotatedAccount = await rotateQwenOAuthAccount(
+            this.exhaustedAccountIds,
+          );
+          if (!rotatedAccount || quotaRotations >= 16) {
+            throw new Error(
+              'Qwen OAuth quota is exhausted for all available accounts. Please login another account with `qwen auth qwen-oauth` or switch provider via `qwen auth`.',
+            );
+          }
+
+          quotaRotations += 1;
+          this.debugLogger.warn(
+            `Rotating Qwen OAuth account due to quota exhaustion (switch #${quotaRotations}).`,
+          );
+          this.sharedManager.clearCache();
+          continue;
+        }
+
+        if (this.isAuthError(error) && !authRefreshRetried) {
+          authRefreshRetried = true;
+          // Use SharedTokenManager to properly refresh and persist the token
+          // This ensures the refreshed token is saved to oauth_creds.json
+          await this.sharedManager.getValidCredentials(this.qwenClient, true);
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
   }
 
@@ -224,6 +257,22 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
       errorMessage.includes('authentication') ||
       errorMessage.includes('access denied') ||
       (errorMessage.includes('token') && errorMessage.includes('expired'))
+    );
+  }
+
+  private shouldRotateAccountForQuota(error: unknown): boolean {
+    if (isQwenQuotaExceededError(error)) {
+      return true;
+    }
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : String(error).toLowerCase();
+    return (
+      errorMessage.includes('insufficient_quota') ||
+      errorMessage.includes('quota exceeded') ||
+      errorMessage.includes('qwen oauth free tier quota exceeded')
     );
   }
 

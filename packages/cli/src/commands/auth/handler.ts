@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
@@ -9,6 +9,7 @@ import {
   getErrorMessage,
   type Config,
   type ProviderModelConfig as ModelConfig,
+  clearQwenCredentials,
 } from '@qwen-code/qwen-code-core';
 import { writeStdoutLine, writeStderrLine } from '../../utils/stdioHelpers.js';
 import { t } from '../../i18n/index.js';
@@ -28,6 +29,7 @@ import { InteractiveSelector } from './interactiveSelector.js';
 interface QwenAuthOptions {
   region?: string;
   key?: string;
+  all?: boolean;
 }
 
 interface CodingPlanSettings {
@@ -53,7 +55,7 @@ interface MergedSettingsWithCodingPlan {
  * Handles the authentication process based on the specified command and options
  */
 export async function handleQwenAuth(
-  command: 'qwen-oauth' | 'coding-plan',
+  command: 'qwen-oauth' | 'coding-plan' | 'logout',
   options: QwenAuthOptions,
 ) {
   try {
@@ -123,6 +125,8 @@ export async function handleQwenAuth(
       await handleQwenOAuth(config, settings);
     } else if (command === 'coding-plan') {
       await handleCodePlanAuth(config, settings, options);
+    } else if (command === 'logout') {
+      await handleLogout(settings, options);
     }
 
     // Exit after authentication is complete
@@ -132,6 +136,20 @@ export async function handleQwenAuth(
     writeStderrLine(getErrorMessage(error));
     process.exit(1);
   }
+}
+
+async function handleLogout(
+  settings: LoadedSettings,
+  options: QwenAuthOptions,
+): Promise<void> {
+  const authTypeScope = getPersistScopeForModelSelection(settings);
+  await clearQwenCredentials();
+  settings.setValue(authTypeScope, 'security.auth.selectedType', undefined);
+  writeStdoutLine(
+    options.all
+      ? t('Logged out from all Qwen OAuth accounts.')
+      : t('Logged out from Qwen OAuth.'),
+  );
 }
 
 /**

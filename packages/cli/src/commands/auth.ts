@@ -58,6 +58,23 @@ const statusCommand = {
   },
 };
 
+const logoutCommand = {
+  command: 'logout',
+  describe: t('Logout from Qwen OAuth account(s)'),
+  builder: (yargs: Argv) =>
+    yargs.option('all', {
+      alias: 'a',
+      describe: t('Logout all Qwen OAuth accounts'),
+      type: 'boolean',
+      default: false,
+    }),
+  handler: async (argv: { all?: boolean }) => {
+    await handleQwenAuth('logout', {
+      all: argv['all'],
+    });
+  },
+};
+
 export const authCommand: CommandModule = {
   command: 'auth',
   describe: t(
@@ -68,6 +85,7 @@ export const authCommand: CommandModule = {
       .command(qwenOauthCommand)
       .command(codePlanCommand)
       .command(statusCommand)
+      .command(logoutCommand)
       .demandCommand(0) // Don't require a subcommand
       .version(false),
   handler: async () => {

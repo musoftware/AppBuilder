@@ -38,6 +38,7 @@ const QWEN_OAUTH_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code';
 // File System Configuration
 const QWEN_DIR = '.qwen';
 const QWEN_CREDENTIAL_FILENAME = 'oauth_creds.json';
+const QWEN_ACCOUNTS_FILENAME = 'oauth_accounts.json';
 
 /**
  * PKCE (Proof Key for Code Exchange) utilities
@@ -120,6 +121,19 @@ export interface QwenCredentials {
   expiry_date?: number;
   token_type?: string;
   resource_url?: string;
+}
+
+export interface QwenAccountRecord {
+  id: string;
+  label?: string;
+  credentials: QwenCredentials;
+  lastLoginAt: number;
+}
+
+export interface QwenAccountStore {
+  version: 1;
+  activeAccountId?: string;
+  accounts: QwenAccountRecord[];
 }
 
 /**
@@ -991,17 +1005,40 @@ async function cacheQwenCredentials(credentials: QwenCredentials) {
       `Failed to cache credentials: error when creating folder \`${path.dirname(filePath)}\` and writing to \`${filePath}\`. ${errorMessage}. Please check permissions.`,
     );
   }
+
+  await upsertQwenOAuthAccount(credentials);
 }
 
 /**
  * Clear cached Qwen credentials from disk
  * This is useful when credentials have expired or need to be reset
  */
-export async function clearQwenCredentials(): Promise<void> {
+export async function clearQwenCredentials(options?: {
+  accountId?: string;
+  all?: boolean;
+}): Promise<void> {
   try {
-    const filePath = getQwenCachedCredentialPath();
-    await fs.unlink(filePath);
-    debugLogger.debug('Cached Qwen credentials cleared successfully.');
+    const removeAll = options?.all ?? (!options?.accountId && !options?.all);
+    if (removeAll) {
+      const filePath = getQwenCachedCredentialPath();
+      const accountsPath = getQwenAccountsPath();
+      await Promise.all([fs.unlink(filePath), fs.unlink(accountsPath)]).catch(
+        async () => {
+          await Promise.allSettled([
+            fs.unlink(filePath),
+            fs.unlink(accountsPath),
+          ]);
+        },
+      );
+      debugLogger.debug('Cached Qwen credentials and account store cleared.');
+      return;
+    }
+
+    if (!options?.accountId) {
+      return;
+    }
+
+    await removeQwenOAuthAccount(options.accountId);
   } catch (error: unknown) {
     // If file doesn't exist or can't be deleted, we consider it cleared
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
@@ -1029,3 +1066,238 @@ function getQwenCachedCredentialPath(): string {
 }
 
 export const clearCachedCredentialFile = clearQwenCredentials;
+
+function getQwenAccountsPath(): string {
+  return path.join(os.homedir(), QWEN_DIR, QWEN_ACCOUNTS_FILENAME);
+}
+
+function normalizeAccountStore(raw: unknown): QwenAccountStore {
+  if (!raw || typeof raw !== 'object') {
+    return { version: 1, accounts: [] };
+  }
+
+  const candidate = raw as Partial<QwenAccountStore>;
+  if (!Array.isArray(candidate.accounts)) {
+    return { version: 1, accounts: [] };
+  }
+
+  const accounts = candidate.accounts
+    .filter((account) => !!account && typeof account === 'object')
+    .map((account) => {
+      const record = account as Partial<QwenAccountRecord>;
+      return {
+        id: typeof record.id === 'string' ? record.id : `acct-${randomUUID()}`,
+        label: typeof record.label === 'string' ? record.label : undefined,
+        credentials:
+          record.credentials && typeof record.credentials === 'object'
+            ? record.credentials
+            : {},
+        lastLoginAt:
+          typeof record.lastLoginAt === 'number'
+            ? record.lastLoginAt
+            : Date.now(),
+      };
+    });
+
+  const activeAccountId =
+    typeof candidate.activeAccountId === 'string'
+      ? candidate.activeAccountId
+      : undefined;
+
+  return {
+    version: 1,
+    activeAccountId,
+    accounts,
+  };
+}
+
+export async function loadQwenOAuthAccounts(): Promise<QwenAccountStore> {
+  const filePath = getQwenAccountsPath();
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    return normalizeAccountStore(JSON.parse(content));
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return { version: 1, accounts: [] };
+    }
+    debugLogger.warn(
+      'Failed to read Qwen account store, using empty store.',
+      error,
+    );
+    return { version: 1, accounts: [] };
+  }
+}
+
+async function saveQwenOAuthAccounts(store: QwenAccountStore): Promise<void> {
+  const filePath = getQwenAccountsPath();
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(store, null, 2), 'utf8');
+}
+
+async function writePrimaryCredentialFile(
+  credentials: QwenCredentials,
+): Promise<void> {
+  const filePath = getQwenCachedCredentialPath();
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(credentials, null, 2), 'utf8');
+}
+
+export async function upsertQwenOAuthAccount(
+  credentials: QwenCredentials,
+  label?: string,
+): Promise<string> {
+  const store = await loadQwenOAuthAccounts();
+
+  let matchedIndex = -1;
+  if (credentials.refresh_token) {
+    matchedIndex = store.accounts.findIndex(
+      (account) =>
+        account.credentials.refresh_token &&
+        account.credentials.refresh_token === credentials.refresh_token,
+    );
+  }
+
+  if (matchedIndex < 0 && credentials.access_token) {
+    matchedIndex = store.accounts.findIndex(
+      (account) =>
+        account.credentials.access_token &&
+        account.credentials.access_token === credentials.access_token,
+    );
+  }
+
+  const accountId =
+    matchedIndex >= 0
+      ? store.accounts[matchedIndex].id
+      : `acct-${randomUUID()}`;
+
+  const nextRecord: QwenAccountRecord = {
+    id: accountId,
+    label: label ?? store.accounts[matchedIndex]?.label,
+    credentials,
+    lastLoginAt: Date.now(),
+  };
+
+  if (matchedIndex >= 0) {
+    store.accounts[matchedIndex] = nextRecord;
+  } else {
+    store.accounts.push(nextRecord);
+  }
+
+  store.activeAccountId = accountId;
+  await saveQwenOAuthAccounts(store);
+  return accountId;
+}
+
+export async function getActiveQwenOAuthAccountId(): Promise<string | null> {
+  const store = await loadQwenOAuthAccounts();
+  if (!store.activeAccountId && store.accounts.length > 0) {
+    return store.accounts[0].id;
+  }
+  return store.activeAccountId ?? null;
+}
+
+export async function listQwenOAuthAccounts(): Promise<QwenAccountRecord[]> {
+  const store = await loadQwenOAuthAccounts();
+  return store.accounts;
+}
+
+export async function setActiveQwenOAuthAccount(
+  accountId: string,
+): Promise<boolean> {
+  const store = await loadQwenOAuthAccounts();
+  const account = store.accounts.find((entry) => entry.id === accountId);
+  if (!account) {
+    return false;
+  }
+
+  store.activeAccountId = accountId;
+  await saveQwenOAuthAccounts(store);
+  await writePrimaryCredentialFile(account.credentials);
+
+  try {
+    SharedTokenManager.getInstance().clearCache();
+  } catch {
+    // Best-effort cache clear.
+  }
+  return true;
+}
+
+export async function removeQwenOAuthAccount(
+  accountId: string,
+): Promise<boolean> {
+  const store = await loadQwenOAuthAccounts();
+  const targetIndex = store.accounts.findIndex(
+    (entry) => entry.id === accountId,
+  );
+  if (targetIndex < 0) {
+    return false;
+  }
+
+  store.accounts.splice(targetIndex, 1);
+  const activeStillExists = store.accounts.some(
+    (entry) => entry.id === store.activeAccountId,
+  );
+
+  if (!activeStillExists) {
+    store.activeAccountId = store.accounts[0]?.id;
+  }
+
+  if (store.accounts.length === 0) {
+    const credsPath = getQwenCachedCredentialPath();
+    const accountsPath = getQwenAccountsPath();
+    await Promise.allSettled([fs.unlink(credsPath), fs.unlink(accountsPath)]);
+  } else {
+    await saveQwenOAuthAccounts(store);
+    const active = store.accounts.find(
+      (entry) => entry.id === store.activeAccountId,
+    );
+    if (active) {
+      await writePrimaryCredentialFile(active.credentials);
+    }
+  }
+
+  try {
+    SharedTokenManager.getInstance().clearCache();
+  } catch {
+    // Best-effort cache clear.
+  }
+  return true;
+}
+
+export async function rotateQwenOAuthAccount(
+  excludedAccountIds: ReadonlySet<string>,
+): Promise<QwenAccountRecord | null> {
+  const store = await loadQwenOAuthAccounts();
+  if (store.accounts.length <= 1) {
+    return null;
+  }
+
+  const activeId = store.activeAccountId ?? store.accounts[0]?.id;
+  const currentIndex = store.accounts.findIndex(
+    (entry) => entry.id === activeId,
+  );
+  const startIndex = currentIndex >= 0 ? currentIndex : 0;
+
+  for (let step = 1; step <= store.accounts.length; step++) {
+    const idx = (startIndex + step) % store.accounts.length;
+    const candidate = store.accounts[idx];
+    const hasUsableCredentials =
+      !!candidate.credentials.refresh_token ||
+      !!candidate.credentials.access_token;
+    if (!hasUsableCredentials || excludedAccountIds.has(candidate.id)) {
+      continue;
+    }
+
+    store.activeAccountId = candidate.id;
+    await saveQwenOAuthAccounts(store);
+    await writePrimaryCredentialFile(candidate.credentials);
+    try {
+      SharedTokenManager.getInstance().clearCache();
+    } catch {
+      // Best-effort cache clear.
+    }
+    return candidate;
+  }
+
+  return null;
+}
