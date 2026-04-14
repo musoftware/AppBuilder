@@ -28,7 +28,7 @@ call npm run bundle
 if errorlevel 1 goto :error
 
 echo Installing globally...
-call npm install -g .
+call npm link
 if errorlevel 1 goto :error
 
 echo Done. Global install completed successfully.

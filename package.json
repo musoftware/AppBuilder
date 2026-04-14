@@ -76,7 +76,7 @@
     "normalize-package-data": "^7.0.1"
   },
   "bin": {
-    "qwen": "dist/cli.js"
+    "mu-cli": "dist/cli.js"
   },
   "files": [
     "dist/",
