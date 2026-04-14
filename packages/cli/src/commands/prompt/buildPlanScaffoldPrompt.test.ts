@@ -15,7 +15,7 @@ describe('buildPlanScaffoldPrompt', () => {
       'The user wants to build: ' + JSON.stringify('a CRM for dentists'),
     );
     expect(out).toContain('## AUTOMATIC INFERENCE RULES');
-    expect(out).toContain('docs/adr/001-initial-architecture.md');
+    expect(out).toContain('docs/adr/001-stack-selection.md');
     expect(out).toContain(
       'Now begin. Output every file. Full content. No skipping.',
     );

@@ -5,6 +5,7 @@
  */
 
 import type { Argv, CommandModule } from 'yargs';
+import { buildAddFeaturePrompt } from './prompt/buildAddFeaturePrompt.js';
 import { buildPlanScaffoldPrompt } from './prompt/buildPlanScaffoldPrompt.js';
 import { writeStderrLine, writeStdoutLine } from '../utils/stdioHelpers.js';
 
@@ -37,13 +38,43 @@ const planCommand: CommandModule<
   },
 };
 
+const featureCommand: CommandModule<
+  Record<string, unknown>,
+  { request?: string | string[] }
+> = {
+  command: 'feature <request..>',
+  describe:
+    'Print the full "add feature to existing codebase" prompt with your request embedded (for pasting into an LLM).',
+  builder: (yargs: Argv) =>
+    yargs
+      .positional('request', {
+        describe:
+          'What to build (all words after "feature" are joined into one request).',
+        type: 'string',
+      })
+      .version(false),
+  handler: (argv) => {
+    const raw = argv['request'];
+    const parts = Array.isArray(raw) ? raw : raw !== undefined ? [raw] : [];
+    const joined = parts.join(' ').trim();
+    if (!joined) {
+      writeStderrLine(
+        'Error: Missing feature request. Example: qwen prompt feature add CSV export to the reports page',
+      );
+      process.exit(1);
+    }
+    writeStdoutLine(buildAddFeaturePrompt(joined));
+  },
+};
+
 export const promptCommand: CommandModule = {
   command: 'prompt',
   describe: 'Utilities for assembling LLM prompts from the CLI.',
   builder: (yargs: Argv) =>
     yargs
       .command(planCommand)
-      .demandCommand(1, 'Choose a prompt subcommand (try: plan).')
+      .command(featureCommand)
+      .demandCommand(1, 'Choose a prompt subcommand (try: plan or feature).')
       .version(false),
   handler: () => {
     /* Subcommands handle execution. */

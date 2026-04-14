@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { buildAddFeaturePrompt } from '../../commands/prompt/buildAddFeaturePrompt.js';
 import { buildPlanScaffoldPrompt } from '../../commands/prompt/buildPlanScaffoldPrompt.js';
 import {
   CommandKind,
@@ -42,9 +43,34 @@ const promptPlanSubcommand: SlashCommand = {
   },
 };
 
+const promptFeatureSubcommand: SlashCommand = {
+  name: 'feature',
+  description:
+    'Submit the add-feature prompt for an existing codebase (same as `qwen prompt feature`).',
+  kind: CommandKind.BUILT_IN,
+  action: async (
+    _context: CommandContext,
+    args: string,
+  ): Promise<SlashCommandActionReturn> => {
+    const request = normalizePromptArgs(args);
+    if (!request) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content:
+          'Missing feature request after `/prompt feature`. Example: `/prompt feature add dark mode to settings`.',
+      };
+    }
+    return {
+      type: 'submit_prompt',
+      content: [{ text: buildAddFeaturePrompt(request) }],
+    };
+  },
+};
+
 export const promptSlashCommand: SlashCommand = {
   name: 'prompt',
   description: 'Wrap text in reusable LLM prompt templates.',
   kind: CommandKind.BUILT_IN,
-  subCommands: [promptPlanSubcommand],
+  subCommands: [promptPlanSubcommand, promptFeatureSubcommand],
 };
