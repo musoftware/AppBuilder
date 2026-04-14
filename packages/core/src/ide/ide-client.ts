@@ -834,18 +834,26 @@ export class IdeClient {
       return;
     }
 
-    this.client.setNotificationHandler(
-      IdeContextNotificationSchema,
-      (notification) => {
-        ideContextStore.set(notification.params);
-        const isTrusted = notification.params.workspaceState?.isTrusted;
-        if (isTrusted !== undefined) {
-          for (const listener of this.trustChangeListeners) {
-            listener(isTrusted);
-          }
+    // Use a narrowed runtime-compatible signature here to avoid TS deep
+    // instantiation issues with complex Zod schemas across package versions.
+    const setNotificationHandler = this.client
+      .setNotificationHandler as unknown as (
+      schema: unknown,
+      handler: (notification: { params: unknown }) => void,
+    ) => void;
+
+    setNotificationHandler(IdeContextNotificationSchema, (notification) => {
+      const params = notification.params as Parameters<
+        typeof ideContextStore.set
+      >[0];
+      ideContextStore.set(params);
+      const isTrusted = params.workspaceState?.isTrusted;
+      if (isTrusted !== undefined) {
+        for (const listener of this.trustChangeListeners) {
+          listener(isTrusted);
         }
-      },
-    );
+      }
+    });
     this.client.onerror = (_error) => {
       const errorMessage = _error instanceof Error ? _error.message : `_error`;
       this.setState(
@@ -861,10 +869,13 @@ export class IdeClient {
         true,
       );
     };
-    this.client.setNotificationHandler(
+    setNotificationHandler(
       IdeDiffAcceptedNotificationSchema,
       (notification) => {
-        const { filePath, content } = notification.params;
+        const { filePath, content } = notification.params as {
+          filePath: string;
+          content: string;
+        };
         const resolver = this.diffResponses.get(filePath);
         if (resolver) {
           resolver({ status: 'accepted', content });
@@ -875,10 +886,12 @@ export class IdeClient {
       },
     );
 
-    this.client.setNotificationHandler(
+    setNotificationHandler(
       IdeDiffRejectedNotificationSchema,
       (notification) => {
-        const { filePath } = notification.params;
+        const { filePath } = notification.params as {
+          filePath: string;
+        };
         const resolver = this.diffResponses.get(filePath);
         if (resolver) {
           resolver({ status: 'rejected', content: undefined });
@@ -891,19 +904,18 @@ export class IdeClient {
 
     // For backwards compatability. Newer extension versions will only send
     // IdeDiffRejectedNotificationSchema.
-    this.client.setNotificationHandler(
-      IdeDiffClosedNotificationSchema,
-      (notification) => {
-        const { filePath } = notification.params;
-        const resolver = this.diffResponses.get(filePath);
-        if (resolver) {
-          resolver({ status: 'rejected', content: undefined });
-          this.diffResponses.delete(filePath);
-        } else {
-          debugLogger.debug(`No resolver found for ${filePath}`);
-        }
-      },
-    );
+    setNotificationHandler(IdeDiffClosedNotificationSchema, (notification) => {
+      const { filePath } = notification.params as {
+        filePath: string;
+      };
+      const resolver = this.diffResponses.get(filePath);
+      if (resolver) {
+        resolver({ status: 'rejected', content: undefined });
+        this.diffResponses.delete(filePath);
+      } else {
+        debugLogger.debug(`No resolver found for ${filePath}`);
+      }
+    });
   }
 
   private async establishHttpConnection(port: string): Promise<boolean> {
