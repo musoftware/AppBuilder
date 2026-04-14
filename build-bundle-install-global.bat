@@ -31,6 +31,18 @@ echo Installing globally...
 call npm link
 if errorlevel 1 goto :error
 
+echo Verifying global command...
+where mu-cli >nul 2>nul
+if errorlevel 1 (
+  echo Global link did not expose mu-cli on PATH.
+  goto :error
+)
+call mu-cli --version >nul 2>nul
+if errorlevel 1 (
+  echo mu-cli command exists but failed to run.
+  goto :error
+)
+
 echo Done. Global install completed successfully.
 popd
 exit /b 0
