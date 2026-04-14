@@ -11,6 +11,8 @@ import { retryWithBackoff } from './retry.js';
 import { getErrorStatus } from './errors.js';
 import { setSimulate429 } from './testUtils.js';
 import { AuthType } from '../core/contentGenerator.js';
+import * as qwenMultiAccountManager from '../qwen/multiAccountManager.js';
+import { SharedTokenManager } from '../qwen/sharedTokenManager.js';
 
 // Helper to create a mock function that fails a certain number of times
 const createFailingFunction = (
@@ -43,6 +45,15 @@ describe('retryWithBackoff', () => {
     vi.useFakeTimers();
     // Disable 429 simulation for tests
     setSimulate429(false);
+    // Avoid depending on real local account files during tests
+    vi.spyOn(
+      qwenMultiAccountManager,
+      'rotateToNextAvailableQwenOAuthAccount',
+    ).mockResolvedValue({
+      rotated: false,
+      reason: 'no_store',
+      totalAccounts: 0,
+    });
     // Suppress unhandled promise rejection warnings for tests that expect errors
     console.warn = vi.fn();
   });
@@ -269,15 +280,11 @@ describe('retryWithBackoff', () => {
       (call) => call[1] as number,
     );
 
-    // Check that the delays are not exactly the same due to jitter
-    // This is a probabilistic test, but with +/-30% jitter, it's highly likely they differ.
-    if (firstDelaySet.length > 0 && secondDelaySet.length > 0) {
-      // Check the first delay of each set
-      expect(firstDelaySet[0]).not.toBe(secondDelaySet[0]);
-    } else {
-      // If somehow no delays were captured (e.g. test setup issue), fail explicitly
-      throw new Error('Delays were not captured for jitter test');
-    }
+    // Check that the delays are not exactly the same due to jitter.
+    // This is probabilistic, but with +/-30% jitter, it's highly likely they differ.
+    expect(firstDelaySet.length).toBeGreaterThan(0);
+    expect(secondDelaySet.length).toBeGreaterThan(0);
+    expect(firstDelaySet[0]).not.toBe(secondDelaySet[0]);
 
     // Ensure delays are within the expected jitter range [70, 130] for initialDelayMs = 100
     [...firstDelaySet, ...secondDelaySet].forEach((d) => {
@@ -331,6 +338,42 @@ describe('retryWithBackoff', () => {
 
       // Should be called only once (no retries)
       expect(fn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should rotate to another account and retry when Qwen quota is exhausted', async () => {
+      const quotaError = Object.assign(
+        new Error('Free allocated quota exceeded.'),
+        { status: 429, code: 'insufficient_quota' },
+      );
+
+      const clearCache = vi.fn();
+      vi.spyOn(SharedTokenManager, 'getInstance').mockReturnValue({
+        clearCache,
+      } as unknown as SharedTokenManager);
+      vi.spyOn(
+        qwenMultiAccountManager,
+        'rotateToNextAvailableQwenOAuthAccount',
+      ).mockResolvedValueOnce({
+        rotated: true,
+        totalAccounts: 2,
+      });
+
+      const fn = vi
+        .fn()
+        .mockRejectedValueOnce(quotaError)
+        .mockResolvedValue('success');
+
+      await expect(
+        retryWithBackoff(fn, {
+          maxAttempts: 5,
+          initialDelayMs: 100,
+          maxDelayMs: 1000,
+          authType: AuthType.QWEN_OAUTH,
+        }),
+      ).resolves.toBe('success');
+
+      expect(fn).toHaveBeenCalledTimes(2);
+      expect(clearCache).toHaveBeenCalledTimes(1);
     });
 
     it('should throw immediately for Qwen OAuth with free allocated quota exceeded message', async () => {

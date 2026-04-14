@@ -75,7 +75,7 @@
     "baseline-browser-mapping": "^2.9.19"
   },
   "bin": {
-    "qwen": "dist/cli.js"
+    "mu-pilot": "dist/cli.js"
   },
   "files": [
     "dist/",

@@ -9,6 +9,8 @@ import { AuthType } from '../core/contentGenerator.js';
 import { isQwenQuotaExceededError } from './quotaErrorDetection.js';
 import { createDebugLogger } from './debugLogger.js';
 import { getErrorStatus } from './errors.js';
+import { SharedTokenManager } from '../qwen/sharedTokenManager.js';
+import { rotateToNextAvailableQwenOAuthAccount } from '../qwen/multiAccountManager.js';
 
 const debugLogger = createDebugLogger('RETRY');
 
@@ -110,8 +112,19 @@ export async function retryWithBackoff<T>(
 
       // Check for Qwen OAuth quota exceeded error - throw immediately without retry
       if (authType === AuthType.QWEN_OAUTH && isQwenQuotaExceededError(error)) {
+        const rotation = await rotateToNextAvailableQwenOAuthAccount();
+        if (rotation.rotated) {
+          SharedTokenManager.getInstance().clearCache();
+          debugLogger.warn(
+            `Qwen OAuth quota exhausted for current account, rotated to another account (${rotation.totalAccounts ?? 0} configured).`,
+          );
+          currentDelay = initialDelayMs;
+          continue;
+        }
+
         throw new Error(
-          `Qwen OAuth quota exceeded: Your free daily quota has been reached.\n\n` +
+          `Qwen OAuth quota exceeded: Your free daily quota has been reached and no backup account is available for automatic rotation.\n\n` +
+            `To use round-robin fallback, login with additional Qwen OAuth accounts using /auth.\n\n` +
             `To continue using Qwen Code without waiting, upgrade to the Alibaba Cloud Coding Plan:\n` +
             `  China:       https://help.aliyun.com/zh/model-studio/coding-plan\n` +
             `  Global/Intl: https://www.alibabacloud.com/help/en/model-studio/coding-plan\n\n` +

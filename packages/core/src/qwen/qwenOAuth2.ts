@@ -20,6 +20,7 @@ import {
   TokenManagerError,
   TokenError,
 } from './sharedTokenManager.js';
+import { recordQwenOAuthAccount } from './multiAccountManager.js';
 
 const debugLogger = createDebugLogger('QWEN_OAUTH');
 
@@ -958,6 +959,15 @@ async function cacheQwenCredentials(credentials: QwenCredentials) {
 
     const credString = JSON.stringify(credentials, null, 2);
     await fs.writeFile(filePath, credString);
+    try {
+      await recordQwenOAuthAccount(credentials);
+    } catch (error) {
+      // Multi-account persistence is best-effort and should not block auth success.
+      debugLogger.warn(
+        'Failed to persist Qwen OAuth account pool entry:',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   } catch (error: unknown) {
     // Handle file system errors (e.g., EACCES permission denied)
     const errorMessage = error instanceof Error ? error.message : String(error);
