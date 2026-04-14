@@ -192,6 +192,88 @@ describe('<ModelDialog />', () => {
     expect(mockedSelect).toHaveBeenCalledTimes(1);
   });
 
+  it('lists models for openai-codex and gemini when getAllConfiguredModels includes them', () => {
+    const multiModels = [
+      {
+        id: 'coder-model',
+        label: 'Qwen',
+        description: '',
+        authType: AuthType.QWEN_OAUTH,
+      },
+      {
+        id: 'gpt-5.2-codex',
+        label: 'Codex',
+        description: '',
+        authType: AuthType.OPENAI_CODEX,
+      },
+      {
+        id: 'gemini-1.5-pro',
+        label: 'Gemini',
+        description: '',
+        authType: AuthType.USE_GEMINI,
+      },
+    ];
+    renderComponent(
+      {},
+      {
+        getAllConfiguredModels: vi.fn(() => multiModels),
+      },
+    );
+
+    const items = mockedSelect.mock.calls[0][0].items as Array<{
+      value: string;
+    }>;
+    const values = items.map((i) => i.value);
+    expect(values.some((v) => v.startsWith(`${AuthType.OPENAI_CODEX}::`))).toBe(
+      true,
+    );
+    expect(values.some((v) => v.startsWith(`${AuthType.USE_GEMINI}::`))).toBe(
+      true,
+    );
+    expect(values.some((v) => v.startsWith(`${AuthType.QWEN_OAUTH}::`))).toBe(
+      true,
+    );
+  });
+
+  it('passes requireCachedCredentials when switching onto OPENAI_CODEX from another auth type', async () => {
+    const switchModel = vi.fn().mockResolvedValue(undefined);
+    const mockConfigWithSwitchAuthType = {
+      getAuthType: vi.fn(() => AuthType.QWEN_OAUTH),
+      getModel: vi.fn(() => DEFAULT_QWEN_MODEL),
+      getContentGeneratorConfig: vi.fn(() => ({
+        authType: AuthType.QWEN_OAUTH,
+        model: DEFAULT_QWEN_MODEL,
+      })),
+      switchModel,
+      getAllConfiguredModels: vi.fn(() => [
+        {
+          id: DEFAULT_QWEN_MODEL,
+          label: 'Q',
+          description: '',
+          authType: AuthType.QWEN_OAUTH,
+        },
+        {
+          id: 'gpt-5.2-codex',
+          label: 'Codex',
+          description: '',
+          authType: AuthType.OPENAI_CODEX,
+        },
+      ]),
+    };
+    const { props } = renderComponent(
+      {},
+      mockConfigWithSwitchAuthType as unknown as Partial<Config>,
+    );
+    const childOnSelect = mockedSelect.mock.calls[0][0].onSelect;
+    await childOnSelect(`${AuthType.OPENAI_CODEX}::gpt-5.2-codex`);
+    expect(switchModel).toHaveBeenCalledWith(
+      AuthType.OPENAI_CODEX,
+      'gpt-5.2-codex',
+      { requireCachedCredentials: true },
+    );
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('calls config.switchModel and onClose when DescriptiveRadioButtonSelect.onSelect is triggered', async () => {
     const { props, mockConfig, mockSettings } = renderComponent(
       {},

@@ -75,6 +75,9 @@ describe('showAuthStatus', () => {
     expect(writeStdoutLine).toHaveBeenCalledWith(
       expect.stringContaining('oauth-account list'),
     );
+    expect(writeStdoutLine).toHaveBeenCalledWith(
+      expect.stringContaining('codex-account list'),
+    );
     expect(process.exit).toHaveBeenCalledWith(0);
   });
 

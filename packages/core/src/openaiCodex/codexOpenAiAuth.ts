@@ -40,6 +40,11 @@ export interface CodexOpenAiCredentials {
   refresh_token: string;
   /** Optional token-exchange result (openai-api-key), when the server returns it. */
   exchanged_api_key?: string;
+  /**
+   * ChatGPT account id from JWT claim `https://api.openai.com/auth.chatgpt_account_id`.
+   * Required for the Codex backend (`/responses`); see Autohand code-cli OpenAIProvider.
+   */
+  chatgpt_account_id?: string;
 }
 
 export interface CodexOpenAiAccountRecord {
@@ -102,6 +107,42 @@ export function decodeCodexJwtEmail(jwt: string): string | undefined {
   }
 }
 
+const CHATGPT_AUTH_CLAIM_NS = 'https://api.openai.com/auth';
+
+export function extractChatgptAccountIdFromJwt(
+  jwt: string,
+): string | undefined {
+  try {
+    const parts = jwt.split('.');
+    if (parts.length < 2 || !parts[1]) {
+      return undefined;
+    }
+    const payload = JSON.parse(
+      Buffer.from(parts[1], 'base64url').toString('utf8'),
+    ) as Record<string, unknown>;
+    const auth = payload[CHATGPT_AUTH_CLAIM_NS] as
+      | { chatgpt_account_id?: string }
+      | undefined;
+    return typeof auth?.chatgpt_account_id === 'string'
+      ? auth.chatgpt_account_id
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function enrichCodexCredentialsChatgptAccount(
+  creds: CodexOpenAiCredentials,
+): CodexOpenAiCredentials {
+  if (creds.chatgpt_account_id) {
+    return creds;
+  }
+  const chatgpt_account_id =
+    extractChatgptAccountIdFromJwt(creds.id_token) ??
+    extractChatgptAccountIdFromJwt(creds.access_token);
+  return chatgpt_account_id ? { ...creds, chatgpt_account_id } : creds;
+}
+
 export async function mirrorPrimaryCredentialFile(
   creds: CodexOpenAiCredentials,
 ): Promise<void> {
@@ -134,8 +175,8 @@ function normalizeAccountStore(raw: unknown): CodexOpenAiAccountStore {
           }
           return {
             id: typeof r.id === 'string' ? r.id : `acct-${randomUUID()}`,
-            label: typeof r.label === 'string' ? r.label : undefined,
-            credentials: creds,
+            ...(typeof r.label === 'string' ? { label: r.label } : {}),
+            credentials: enrichCodexCredentialsChatgptAccount(creds),
             lastLoginAt:
               typeof r.lastLoginAt === 'number' ? r.lastLoginAt : Date.now(),
           };
@@ -159,7 +200,7 @@ async function readLegacyPrimaryCredentials(): Promise<CodexOpenAiCredentials | 
       typeof parsed.access_token === 'string' &&
       typeof parsed.refresh_token === 'string'
     ) {
-      return parsed;
+      return enrichCodexCredentialsChatgptAccount(parsed);
     }
     return null;
   } catch (err: unknown) {
@@ -225,27 +266,28 @@ export async function upsertCodexOpenAiAccount(
   credentials: CodexOpenAiCredentials,
   label?: string,
 ): Promise<string> {
+  const credentialsResolved = enrichCodexCredentialsChatgptAccount(credentials);
   const store = await loadCodexOpenAiAccountStore();
   let matchedIndex = -1;
-  if (credentials.refresh_token) {
+  if (credentialsResolved.refresh_token) {
     matchedIndex = store.accounts.findIndex(
-      (a) => a.credentials.refresh_token === credentials.refresh_token,
+      (a) => a.credentials.refresh_token === credentialsResolved.refresh_token,
     );
   }
-  if (matchedIndex < 0 && credentials.access_token) {
+  if (matchedIndex < 0 && credentialsResolved.access_token) {
     matchedIndex = store.accounts.findIndex(
-      (a) => a.credentials.access_token === credentials.access_token,
+      (a) => a.credentials.access_token === credentialsResolved.access_token,
     );
   }
   const accountId =
     matchedIndex >= 0
       ? store.accounts[matchedIndex].id
       : `acct-${randomUUID()}`;
-  const email = decodeCodexJwtEmail(credentials.id_token);
+  const email = decodeCodexJwtEmail(credentialsResolved.id_token);
   const next: CodexOpenAiAccountRecord = {
     id: accountId,
     label: label ?? store.accounts[matchedIndex]?.label ?? email,
-    credentials,
+    credentials: credentialsResolved,
     lastLoginAt: Date.now(),
   };
   if (matchedIndex >= 0) {
@@ -255,7 +297,7 @@ export async function upsertCodexOpenAiAccount(
   }
   store.activeAccountId = accountId;
   await saveCodexOpenAiAccountStore(store);
-  await mirrorPrimaryCredentialFile(credentials);
+  await mirrorPrimaryCredentialFile(credentialsResolved);
   return accountId;
 }
 
@@ -341,7 +383,7 @@ export async function loadCodexOpenAiCredentials(): Promise<CodexOpenAiCredentia
     const activeId = store.activeAccountId ?? store.accounts[0]?.id;
     const active = store.accounts.find((a) => a.id === activeId);
     if (active) {
-      return active.credentials;
+      return enrichCodexCredentialsChatgptAccount(active.credentials);
     }
   }
   return readLegacyPrimaryCredentials();
@@ -350,9 +392,10 @@ export async function loadCodexOpenAiCredentials(): Promise<CodexOpenAiCredentia
 export async function saveCodexOpenAiCredentials(
   creds: CodexOpenAiCredentials,
 ): Promise<void> {
+  const toSave = enrichCodexCredentialsChatgptAccount(creds);
   const store = await loadCodexOpenAiAccountStore();
   if (store.accounts.length === 0) {
-    await upsertCodexOpenAiAccount(creds);
+    await upsertCodexOpenAiAccount(toSave);
     return;
   }
   const activeId = store.activeAccountId ?? store.accounts[0]?.id;
@@ -361,15 +404,15 @@ export async function saveCodexOpenAiCredentials(
     if (idx >= 0) {
       store.accounts[idx] = {
         ...store.accounts[idx],
-        credentials: creds,
+        credentials: toSave,
         lastLoginAt: Date.now(),
       };
       await saveCodexOpenAiAccountStore(store);
-      await mirrorPrimaryCredentialFile(creds);
+      await mirrorPrimaryCredentialFile(toSave);
       return;
     }
   }
-  await mirrorPrimaryCredentialFile(creds);
+  await mirrorPrimaryCredentialFile(toSave);
 }
 
 export async function clearCodexOpenAiCredentials(): Promise<void> {
@@ -528,6 +571,7 @@ export async function refreshCodexOpenAiSession(
     access_token: json.access_token ?? creds.access_token,
     refresh_token: json.refresh_token ?? creds.refresh_token,
     exchanged_api_key: creds.exchanged_api_key,
+    chatgpt_account_id: creds.chatgpt_account_id,
   };
   const exchanged = await obtainExchangedApiKey(
     CODEX_OPENAI_ISSUER_DEFAULT,
@@ -536,8 +580,9 @@ export async function refreshCodexOpenAiSession(
   if (exchanged) {
     next.exchanged_api_key = exchanged;
   }
-  await saveCodexOpenAiCredentials(next);
-  return next;
+  const enriched = enrichCodexCredentialsChatgptAccount(next);
+  await saveCodexOpenAiCredentials(enriched);
+  return enriched;
 }
 
 async function pollDeviceAuthorization(
@@ -640,12 +685,12 @@ export async function runCodexOpenAiDeviceCodeLogin(options?: {
 
   const exchanged = await obtainExchangedApiKey(issuer, tokens.id_token);
 
-  const creds: CodexOpenAiCredentials = {
+  const creds = enrichCodexCredentialsChatgptAccount({
     id_token: tokens.id_token,
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     ...(exchanged ? { exchanged_api_key: exchanged } : {}),
-  };
+  });
   await upsertCodexOpenAiAccount(creds);
   return creds;
 }
@@ -664,12 +709,33 @@ export class CodexOpenAiAuthClient {
   }
 
   /**
-   * Returns a bearer token suitable for `Authorization: Bearer` against api.openai.com.
-   * Prefers the exchanged API-style token when present (Codex CLI persists this when available).
+   * Returns the ChatGPT OAuth **access_token** for `Authorization: Bearer` against the
+   * Codex backend (`https://chatgpt.com/backend-api/codex`), not api.openai.com chat.
+   *
+   * Always use the ChatGPT OAuth **access_token**. The optional `exchanged_api_key` from
+   * `urn:ietf:params:oauth:grant-type:token-exchange` is an OpenAI **platform** API key shape
+   * and is often created **without** `model.request` scope, which produces 401 errors like
+   * "Missing scopes: model.request" on chat/completions. Official `codex` device login persists
+   * tokens with no separate API key and uses the OAuth access token for model calls.
    */
   async getBearerToken(): Promise<string> {
     const creds = await this.ensureFreshCredentials();
-    return creds.exchanged_api_key ?? creds.access_token;
+    return creds.access_token;
+  }
+
+  /** Required header `chatgpt-account-id` for Codex `/responses` requests. */
+  async getChatgptAccountId(): Promise<string> {
+    const creds = await this.ensureFreshCredentials();
+    const id =
+      creds.chatgpt_account_id ??
+      extractChatgptAccountIdFromJwt(creds.id_token) ??
+      extractChatgptAccountIdFromJwt(creds.access_token);
+    if (!id) {
+      throw new Error(
+        'ChatGPT account id missing from your Codex session JWT. Remove the account with `qwen auth codex-account remove` and run `qwen auth codex-openai` again.',
+      );
+    }
+    return id;
   }
 
   private async ensureFreshCredentials(): Promise<CodexOpenAiCredentials> {
@@ -680,7 +746,7 @@ export class CodexOpenAiAuthClient {
           'No ChatGPT (Codex) credentials on disk. Run `qwen auth codex-openai` to sign in.',
         );
       }
-      this.credentials = fromDisk;
+      this.credentials = enrichCodexCredentialsChatgptAccount(fromDisk);
     }
 
     const exp = decodeJwtExp(this.credentials.access_token);
@@ -699,8 +765,8 @@ export class CodexOpenAiAuthClient {
       }
       const exp2 = decodeJwtExp(latest.access_token);
       if (exp2 !== undefined && exp2 > Math.floor(Date.now() / 1000) + skew) {
-        this.credentials = latest;
-        return latest;
+        this.credentials = enrichCodexCredentialsChatgptAccount(latest);
+        return this.credentials;
       }
       const refreshed = await refreshCodexOpenAiSession(latest);
       this.credentials = refreshed;
@@ -723,6 +789,6 @@ export async function getCodexOpenAiAuthClient(
     }
     return client;
   }
-  client.setCredentials(existing);
+  client.setCredentials(enrichCodexCredentialsChatgptAccount(existing));
   return client;
 }

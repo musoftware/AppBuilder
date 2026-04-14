@@ -5,6 +5,7 @@
  */
 
 import { AuthType } from '@qwen-code/qwen-code-core';
+import * as qwenCore from '@qwen-code/qwen-code-core';
 import { vi } from 'vitest';
 import { validateAuthMethod } from './auth.js';
 import * as settings from './settings.js';
@@ -126,6 +127,30 @@ describe('validateAuthMethod', () => {
 
   it('should return null for QWEN_OAUTH', () => {
     expect(validateAuthMethod(AuthType.QWEN_OAUTH)).toBeNull();
+  });
+
+  it('should return an error for OPENAI_CODEX when no session is persisted', () => {
+    const spy = vi
+      .spyOn(qwenCore, 'hasCodexOpenAiPersistedSessionSync')
+      .mockReturnValue(false);
+    try {
+      const result = validateAuthMethod(AuthType.OPENAI_CODEX);
+      expect(result).not.toBeNull();
+      expect(result).toContain('codex-openai');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('should return null for OPENAI_CODEX when a session is persisted', () => {
+    const spy = vi
+      .spyOn(qwenCore, 'hasCodexOpenAiPersistedSessionSync')
+      .mockReturnValue(true);
+    try {
+      expect(validateAuthMethod(AuthType.OPENAI_CODEX)).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('should return an error message for an invalid auth method', () => {

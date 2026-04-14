@@ -46,7 +46,7 @@ import {
   QWEN_OAUTH_ALLOWED_MODELS,
   MODEL_GENERATION_CONFIG_FIELDS,
 } from './constants.js';
-import { DEFAULT_OPENAI_BASE_URL } from '../core/openaiContentGenerator/constants.js';
+import { CODEX_CHATGPT_BACKEND_BASE_URL } from '../core/openaiContentGenerator/constants.js';
 import type { ModelConfig as ModelProviderConfig } from './types.js';
 export {
   validateModelConfig,
@@ -475,7 +475,7 @@ function resolveOpenAiCodexConfig(
   sources['apiKey'] = computedSource(
     'OpenAI Codex ChatGPT OAuth dynamic token',
   );
-  sources['baseUrl'] = computedSource('OpenAI Codex default API base');
+  sources['baseUrl'] = computedSource('ChatGPT Codex backend (Responses API)');
   sources['authType'] = computedSource('provided by caller');
 
   if (proxy) {
@@ -494,7 +494,7 @@ function resolveOpenAiCodexConfig(
     authType: AuthType.OPENAI_CODEX,
     model: resolvedModel,
     apiKey: 'OPENAI_CODEX_DYNAMIC_TOKEN',
-    baseUrl: DEFAULT_OPENAI_BASE_URL,
+    baseUrl: CODEX_CHATGPT_BACKEND_BASE_URL,
     proxy,
     ...generationConfig,
   };

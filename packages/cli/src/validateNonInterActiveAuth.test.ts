@@ -198,6 +198,24 @@ describe('validateNonInterActiveAuth', () => {
     expect(refreshAuthMock).toHaveBeenCalledWith(AuthType.QWEN_OAUTH);
   });
 
+  it('uses OPENAI_CODEX when configured and local validation passes', async () => {
+    vi.spyOn(auth, 'validateAuthMethod').mockReturnValue(null);
+    const nonInteractiveConfig = createMockConfig({
+      refreshAuth: refreshAuthMock,
+      getModelsConfig: vi.fn().mockReturnValue({
+        getModel: vi.fn().mockReturnValue('gpt-5.2-codex'),
+        getCurrentAuthType: vi.fn().mockReturnValue(AuthType.OPENAI_CODEX),
+        getGenerationConfig: vi.fn().mockReturnValue({}),
+      }),
+    });
+    await validateNonInteractiveAuth(
+      undefined,
+      nonInteractiveConfig,
+      mockSettings,
+    );
+    expect(refreshAuthMock).toHaveBeenCalledWith(AuthType.OPENAI_CODEX);
+  });
+
   it('exits if validateAuthMethod returns error', async () => {
     // Mock validateAuthMethod to return error
     vi.spyOn(auth, 'validateAuthMethod').mockReturnValue('Auth error!');

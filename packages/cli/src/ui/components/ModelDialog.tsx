@@ -162,20 +162,26 @@ export function ModelDialog({
       modelsByAuthTypeMap.get(authType)!.push(model);
     }
 
-    // Fixed order: qwen-oauth first, then others in a stable order
+    // Preferred order for /model (must cover every AuthType that has registry models).
+    // Previously missing openai-codex and gemini-vertex-oauth hid Codex + Vertex OAuth entirely.
     const authTypeOrder: AuthType[] = [
       AuthType.QWEN_OAUTH,
+      AuthType.OPENAI_CODEX,
+      AuthType.GEMINI_VERTEX_OAUTH,
       AuthType.USE_OPENAI,
-      AuthType.USE_ANTHROPIC,
       AuthType.USE_GEMINI,
       AuthType.USE_VERTEX_AI,
+      AuthType.USE_ANTHROPIC,
     ];
 
-    // Filter to only include authTypes that have registry models and maintain order
     const availableAuthTypes = new Set(modelsByAuthTypeMap.keys());
-    const orderedAuthTypes = authTypeOrder.filter((t) =>
+    const primaryOrdered = authTypeOrder.filter((t) =>
       availableAuthTypes.has(t),
     );
+    const remainder = [...availableAuthTypes]
+      .filter((t) => !primaryOrdered.includes(t))
+      .sort((a, b) => String(a).localeCompare(String(b)));
+    const orderedAuthTypes = [...primaryOrdered, ...remainder];
 
     // Build ordered list: runtime models first, then registry models grouped by authType
     const result: Array<{
@@ -360,11 +366,15 @@ export function ModelDialog({
           modelId = idx >= 0 ? selected.slice(idx + sep.length) : selected;
         }
 
+        const needsCachedSessionCredentials =
+          selectedAuthType !== authType &&
+          (selectedAuthType === AuthType.QWEN_OAUTH ||
+            selectedAuthType === AuthType.OPENAI_CODEX);
+
         await config.switchModel(
           selectedAuthType,
           modelId,
-          selectedAuthType !== authType &&
-            selectedAuthType === AuthType.QWEN_OAUTH
+          needsCachedSessionCredentials
             ? { requireCachedCredentials: true }
             : undefined,
         );
@@ -471,18 +481,20 @@ export function ModelDialog({
               highlightedEntry.model.contextWindowSize,
             )}
           />
-          {highlightedEntry.authType !== AuthType.QWEN_OAUTH && (
-            <>
-              <DetailRow
-                label="Base URL"
-                value={highlightedEntry.model.baseUrl ?? t('(default)')}
-              />
-              <DetailRow
-                label="API Key"
-                value={highlightedEntry.model.envKey ?? t('(not set)')}
-              />
-            </>
-          )}
+          {highlightedEntry.authType !== AuthType.QWEN_OAUTH &&
+            highlightedEntry.authType !== AuthType.OPENAI_CODEX &&
+            highlightedEntry.authType !== AuthType.GEMINI_VERTEX_OAUTH && (
+              <>
+                <DetailRow
+                  label="Base URL"
+                  value={highlightedEntry.model.baseUrl ?? t('(default)')}
+                />
+                <DetailRow
+                  label="API Key"
+                  value={highlightedEntry.model.envKey ?? t('(not set)')}
+                />
+              </>
+            )}
         </Box>
       )}
 

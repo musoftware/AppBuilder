@@ -17,6 +17,7 @@ import {
   decodeCodexJwtEmail,
   DEFAULT_GEMINI_VERTEX_OAUTH_MODEL,
   DEFAULT_OPENAI_CODEX_MODEL,
+  OPENAI_CODEX_MODELS,
   getActiveCodexOpenAiAccountId,
   getActiveQwenOAuthAccountId,
   hasGoogleVertexOAuthCredentials,
@@ -1124,9 +1125,9 @@ export async function showAuthStatus(): Promise<void> {
           writeStdoutLine(t('    • {{line}}{{mark}}', { line, mark }));
         }
         writeStdoutLine(
-          t(
-            '  Models: gpt-5.1-codex, gpt-5.1-codex-max · use /model to switch model or account',
-          ),
+          t('  Models: {{models}} · use /model to switch model or account', {
+            models: OPENAI_CODEX_MODELS.map((m) => m.id).join(', '),
+          }),
         );
         writeStdoutLine(
           t('  Files: ~/.qwen/codex_openai_accounts.json (+ active mirror)\n'),
@@ -1139,7 +1140,9 @@ export async function showAuthStatus(): Promise<void> {
           writeStdoutLine(t('  Account email: {{email}}', { email }));
         }
         writeStdoutLine(
-          t('  Models: gpt-5.1-codex, gpt-5.1-codex-max (api.openai.com)\n'),
+          t('  Models: {{models}} (ChatGPT Codex backend)\n', {
+            models: OPENAI_CODEX_MODELS.map((m) => m.id).join(', '),
+          }),
         );
       } else {
         writeStdoutLine(

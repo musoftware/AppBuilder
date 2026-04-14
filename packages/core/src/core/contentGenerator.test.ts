@@ -115,7 +115,7 @@ describe('createContentGeneratorConfig', () => {
   it('should treat OPENAI_CODEX as valid without a static apiKey', () => {
     const result = validateModelConfig({
       authType: AuthType.OPENAI_CODEX,
-      model: 'gpt-5.1-codex',
+      model: 'gpt-5.2-codex',
     });
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);

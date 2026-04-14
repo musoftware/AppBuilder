@@ -258,6 +258,58 @@ const oauthAccountCommand = {
   },
 };
 
+const codexAccountListCommand = {
+  command: 'list',
+  describe: t('List stored ChatGPT (OpenAI Codex) device-login sessions'),
+  handler: async () => {
+    await handleQwenAuth('codex-account', { op: 'list' });
+  },
+};
+
+const codexAccountUseCommand = {
+  command: 'use <id>',
+  describe: t(
+    'Select the active ChatGPT (Codex) session (mirrored for API calls)',
+  ),
+  builder: (yargs: Argv) =>
+    yargs.positional('id', {
+      describe: t('Account id'),
+      type: 'string',
+      demandOption: true,
+    }),
+  handler: async (argv: { id: string }) => {
+    await handleQwenAuth('codex-account', { op: 'use', id: argv['id'] });
+  },
+};
+
+const codexAccountRemoveCommand = {
+  command: 'remove <id>',
+  describe: t('Remove a stored ChatGPT (Codex) session'),
+  builder: (yargs: Argv) =>
+    yargs.positional('id', {
+      describe: t('Account id'),
+      type: 'string',
+      demandOption: true,
+    }),
+  handler: async (argv: { id: string }) => {
+    await handleQwenAuth('codex-account', { op: 'remove', id: argv['id'] });
+  },
+};
+
+const codexAccountCommand = {
+  command: 'codex-account',
+  describe: t('Manage multiple ChatGPT (OpenAI Codex) logins'),
+  builder: (yargs: Argv) =>
+    yargs
+      .command(codexAccountListCommand)
+      .command(codexAccountUseCommand)
+      .command(codexAccountRemoveCommand)
+      .demandCommand(1),
+  handler: async () => {
+    /* handled by subcommands */
+  },
+};
+
 export const authCommand: CommandModule = {
   command: 'auth',
   describe: t(
@@ -273,6 +325,7 @@ export const authCommand: CommandModule = {
       .command(logoutCommand)
       .command(apiKeyCommand)
       .command(oauthAccountCommand)
+      .command(codexAccountCommand)
       .demandCommand(0) // Don't require a subcommand
       .version(false),
   handler: async () => {

@@ -5,7 +5,7 @@
  */
 
 import { DEFAULT_QWEN_MODEL, MAINLINE_CODER_MODEL } from '../config/models.js';
-import { DEFAULT_OPENAI_BASE_URL } from '../core/openaiContentGenerator/constants.js';
+import { CODEX_CHATGPT_BACKEND_BASE_URL } from '../core/openaiContentGenerator/constants.js';
 
 import type { ModelConfig } from './types.js';
 
@@ -103,8 +103,8 @@ export const AUTH_ENV_MAPPINGS = {
 /** Default Gemini model when using Vertex with user OAuth. */
 export const DEFAULT_GEMINI_VERTEX_OAUTH_MODEL = 'gemini-2.5-flash';
 
-/** Default model when using ChatGPT / Codex OAuth against api.openai.com. */
-export const DEFAULT_OPENAI_CODEX_MODEL = 'gpt-5.1-codex';
+/** Default model when using ChatGPT / Codex OAuth (Codex backend Responses API). */
+export const DEFAULT_OPENAI_CODEX_MODEL = 'gpt-5.2-codex';
 
 export const DEFAULT_MODELS = {
   openai: MAINLINE_CODER_MODEL,
@@ -118,22 +118,37 @@ export const DEFAULT_MODELS = {
  * These cannot be overridden by user configuration.
  */
 /**
- * Curated OpenAI Codex models (ChatGPT OAuth). Same IDs as the Codex CLI catalog.
+ * Curated OpenAI Codex models (ChatGPT OAuth / Codex backend).
+ * `gpt-5.1-codex` is for the OpenAI API; ChatGPT-backed Codex rejects it (400).
  */
 export const OPENAI_CODEX_MODELS: ModelConfig[] = [
   {
-    id: 'gpt-5.1-codex',
-    name: 'GPT-5.1 Codex',
-    description: 'OpenAI Codex model for coding (ChatGPT subscription)',
+    id: 'gpt-5.2-codex',
+    name: 'GPT-5.2 Codex',
+    description: 'Codex via ChatGPT sign-in (default; works on free and paid)',
     capabilities: { vision: true },
-    baseUrl: DEFAULT_OPENAI_BASE_URL,
+    baseUrl: CODEX_CHATGPT_BACKEND_BASE_URL,
   },
   {
-    id: 'gpt-5.1-codex-max',
-    name: 'GPT-5.1 Codex Max',
-    description: 'Higher-capacity Codex variant when available on your account',
+    id: 'gpt-5.3-codex',
+    name: 'GPT-5.3 Codex',
+    description: 'Newer Codex (typically paid ChatGPT plans)',
     capabilities: { vision: true },
-    baseUrl: DEFAULT_OPENAI_BASE_URL,
+    baseUrl: CODEX_CHATGPT_BACKEND_BASE_URL,
+  },
+  {
+    id: 'gpt-5.4',
+    name: 'GPT-5.4',
+    description: 'Latest general Codex model (paid ChatGPT plans)',
+    capabilities: { vision: true },
+    baseUrl: CODEX_CHATGPT_BACKEND_BASE_URL,
+  },
+  {
+    id: 'gpt-5.4-mini',
+    name: 'GPT-5.4 Mini',
+    description: 'Faster, lower-cost option for lighter tasks',
+    capabilities: { vision: true },
+    baseUrl: CODEX_CHATGPT_BACKEND_BASE_URL,
   },
 ];
 

@@ -307,6 +307,19 @@ export class ContentGenerationPipeline {
     return true;
   }
 
+  /**
+   * Build OpenAI chat completion params from a Gemini-shaped request.
+   * Used by the ChatGPT Codex adapter, which maps these into a Responses API payload.
+   */
+  async buildOpenAiChatParams(
+    request: GenerateContentParameters,
+    userPromptId: string,
+    streaming: boolean,
+    effectiveModel: string,
+  ): Promise<OpenAI.Chat.ChatCompletionCreateParams> {
+    return this.buildRequest(request, userPromptId, streaming, effectiveModel);
+  }
+
   private async buildRequest(
     request: GenerateContentParameters,
     userPromptId: string,
