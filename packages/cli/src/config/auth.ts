@@ -9,7 +9,9 @@ import {
   type Config,
   type ModelProvidersConfig,
   type ProviderModelConfig,
+  Storage,
 } from '@qwen-code/qwen-code-core';
+import * as fs from 'node:fs';
 import { loadEnvironment, loadSettings, type Settings } from './settings.js';
 import { t } from '../i18n/index.js';
 
@@ -211,6 +213,28 @@ export function validateAuthMethod(
   if (authMethod === AuthType.QWEN_OAUTH) {
     // Qwen OAuth doesn't require any environment variables for basic setup
     // The OAuth flow will handle authentication
+    return null;
+  }
+
+  if (authMethod === AuthType.GEMINI_VERTEX_OAUTH) {
+    if (!fs.existsSync(Storage.getGoogleVertexOAuthCredsPath())) {
+      return t(
+        'Missing Google Vertex OAuth credentials. Run `qwen auth google-vertex-oauth`.',
+      );
+    }
+    if (
+      !process.env['GOOGLE_CLOUD_PROJECT']?.trim() &&
+      !process.env['GOOGLE_CLOUD_PROJECT_ID']?.trim()
+    ) {
+      return t(
+        'GOOGLE_CLOUD_PROJECT (or GOOGLE_CLOUD_PROJECT_ID) is required for gemini-vertex-oauth.',
+      );
+    }
+    if (!process.env['GOOGLE_CLOUD_LOCATION']?.trim()) {
+      return t(
+        'GOOGLE_CLOUD_LOCATION is required for gemini-vertex-oauth (Vertex region).',
+      );
+    }
     return null;
   }
 

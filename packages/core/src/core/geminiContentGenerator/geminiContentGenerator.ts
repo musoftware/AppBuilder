@@ -15,6 +15,7 @@ import type {
   ThinkingLevel,
   Content,
   Part,
+  GoogleGenAIOptions,
 } from '@google/genai';
 import { GoogleGenAI } from '@google/genai';
 import type {
@@ -30,15 +31,11 @@ export class GeminiContentGenerator implements ContentGenerator {
   private readonly contentGeneratorConfig?: ContentGeneratorConfig;
 
   constructor(
-    options: {
-      apiKey?: string;
-      vertexai?: boolean;
-      httpOptions?: { headers: Record<string, string> };
-    },
+    options: GoogleGenAIOptions,
     contentGeneratorConfig?: ContentGeneratorConfig,
   ) {
     const customHeaders = contentGeneratorConfig?.customHeaders;
-    const finalOptions = customHeaders
+    const finalOptions: GoogleGenAIOptions = customHeaders
       ? (() => {
           const baseHttpOptions = options.httpOptions;
           const baseHeaders = baseHttpOptions?.headers ?? {};

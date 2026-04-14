@@ -13,6 +13,7 @@ import { getProjectHash, sanitizeCwd } from '../utils/paths.js';
 export const QWEN_DIR = '.qwen';
 export const GOOGLE_ACCOUNTS_FILENAME = 'google_accounts.json';
 export const OAUTH_FILE = 'oauth_creds.json';
+export const GOOGLE_VERTEX_OAUTH_FILE = 'google_vertex_oauth_creds.json';
 export const SKILL_PROVIDER_CONFIG_DIRS = ['.qwen', '.agents'];
 const TMP_DIR_NAME = 'tmp';
 const BIN_DIR_NAME = 'bin';
@@ -208,6 +209,10 @@ export class Storage {
 
   static getOAuthCredsPath(): string {
     return path.join(Storage.getGlobalQwenDir(), OAUTH_FILE);
+  }
+
+  static getGoogleVertexOAuthCredsPath(): string {
+    return path.join(Storage.getGlobalQwenDir(), GOOGLE_VERTEX_OAUTH_FILE);
   }
 
   getProjectRoot(): string {

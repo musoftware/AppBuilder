@@ -40,6 +40,8 @@ export {
   type ModelProvidersConfig,
   type ModelSwitchMetadata,
   type OnModelChangeCallback,
+  DEFAULT_GEMINI_VERTEX_OAUTH_MODEL,
+  GEMINI_VERTEX_OAUTH_MODELS,
   QWEN_OAUTH_MODELS,
   resolveModelConfig,
   type ResolvedModelConfig,
@@ -259,6 +261,7 @@ export * from './utils/yaml-parser.js';
 // ============================================================================
 
 export * from './qwen/qwenOAuth2.js';
+export * from './google/googleVertexOAuth.js';
 
 // ============================================================================
 // Testing Utilities

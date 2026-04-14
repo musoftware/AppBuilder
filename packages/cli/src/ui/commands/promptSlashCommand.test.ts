@@ -15,6 +15,9 @@ describe('promptSlashCommand', () => {
   const feature = promptSlashCommand.subCommands?.find(
     (c) => c.name === 'feature',
   );
+  const frontend = promptSlashCommand.subCommands?.find(
+    (c) => c.name === 'frontend',
+  );
   const mockContext: CommandContext = createMockCommandContext({});
 
   it('parses /prompt plan <idea> via parseSlashCommand', () => {
@@ -34,6 +37,17 @@ describe('promptSlashCommand', () => {
     expect(parsed.commandToExecute?.name).toBe('feature');
     expect(parsed.args).toBe('OAuth2 login for admins');
     expect(parsed.canonicalPath).toEqual(['prompt', 'feature']);
+  });
+
+  it('parses /prompt frontend <brief> via parseSlashCommand', () => {
+    const commands = [promptSlashCommand] as const;
+    const parsed = parseSlashCommand(
+      '/prompt frontend responsive nav for mobile',
+      commands,
+    );
+    expect(parsed.commandToExecute?.name).toBe('frontend');
+    expect(parsed.args).toBe('responsive nav for mobile');
+    expect(parsed.canonicalPath).toEqual(['prompt', 'frontend']);
   });
 
   it('returns submit_prompt with wrapped scaffold text', async () => {
@@ -86,6 +100,38 @@ describe('promptSlashCommand', () => {
     );
   });
 
+  it('returns submit_prompt with wrapped frontend text', async () => {
+    if (!frontend?.action) {
+      throw new Error('prompt frontend subcommand must have an action');
+    }
+    const result = await frontend.action(
+      mockContext,
+      '  add empty state to lists  ',
+    );
+    expect(result).toMatchObject({ type: 'submit_prompt' });
+    if (result?.type !== 'submit_prompt') {
+      throw new Error('expected submit_prompt');
+    }
+    expect(result).toHaveProperty(
+      'content.0.text',
+      expect.stringContaining('=======\n'),
+    );
+    expect(result).toHaveProperty(
+      'content.0.text',
+      expect.stringContaining('"add empty state to lists"'),
+    );
+    expect(result).toHaveProperty(
+      'content.0.text',
+      expect.stringContaining(
+        'Implement the following UI goal end-to-end in the codebase:',
+      ),
+    );
+    expect(result).toHaveProperty(
+      'content.0.text',
+      expect.stringContaining('WCAG AA'),
+    );
+  });
+
   it('strips zero-width spaces from args', async () => {
     if (!plan?.action) {
       throw new Error('prompt plan subcommand must have an action');
@@ -117,6 +163,19 @@ describe('promptSlashCommand', () => {
       messageType: 'error',
       content:
         'Missing feature request after `/prompt feature`. Example: `/prompt feature add dark mode to settings`.',
+    });
+  });
+
+  it('errors when frontend brief is missing', async () => {
+    if (!frontend?.action) {
+      throw new Error('prompt frontend subcommand must have an action');
+    }
+    const result = await frontend.action(mockContext, '   \u200B  ');
+    expect(result).toEqual({
+      type: 'message',
+      messageType: 'error',
+      content:
+        'Missing UI brief after `/prompt frontend`. Example: `/prompt frontend rebuild the billing summary cards`.',
     });
   });
 });

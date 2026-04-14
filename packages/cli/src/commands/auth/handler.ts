@@ -12,8 +12,12 @@ import {
   type Config,
   type ProviderModelConfig as ModelConfig,
   clearQwenCredentials,
+  clearGoogleVertexOAuthCredentials,
+  DEFAULT_GEMINI_VERTEX_OAUTH_MODEL,
   getActiveQwenOAuthAccountId,
+  hasGoogleVertexOAuthCredentials,
   listQwenOAuthAccounts,
+  performGoogleVertexOAuthLogin,
   removeQwenOAuthAccount,
   setActiveQwenOAuthAccount,
 } from '@qwen-code/qwen-code-core';
@@ -83,6 +87,96 @@ interface MergedSettingsWithCodingPlan {
 /**
  * Handles the authentication process based on the specified command and options
  */
+export async function handleGoogleVertexOAuthAuth(
+  mode: 'login' | 'clear',
+): Promise<void> {
+  const settings = loadSettings();
+  const scope = getPersistScopeForModelSelection(settings);
+
+  if (mode === 'clear') {
+    await clearGoogleVertexOAuthCredentials();
+    settings.setValue(scope, 'security.auth.selectedType', undefined);
+    writeStdoutLine(
+      t('Removed stored Google Vertex OAuth credentials and reset auth type.'),
+    );
+    return;
+  }
+
+  const minimalArgv: CliArgs = {
+    query: undefined,
+    model: undefined,
+    sandbox: undefined,
+    sandboxImage: undefined,
+    debug: undefined,
+    prompt: undefined,
+    promptInteractive: undefined,
+    yolo: undefined,
+    approvalMode: undefined,
+    telemetry: undefined,
+    checkpointing: undefined,
+    telemetryTarget: undefined,
+    telemetryOtlpEndpoint: undefined,
+    telemetryOtlpProtocol: undefined,
+    telemetryLogPrompts: undefined,
+    telemetryOutfile: undefined,
+    allowedMcpServerNames: undefined,
+    allowedTools: undefined,
+    acp: undefined,
+    experimentalAcp: undefined,
+    experimentalLsp: undefined,
+    extensions: [],
+    listExtensions: undefined,
+    openaiLogging: undefined,
+    openaiApiKey: undefined,
+    openaiBaseUrl: undefined,
+    openaiLoggingDir: undefined,
+    proxy: undefined,
+    includeDirectories: undefined,
+    tavilyApiKey: undefined,
+    googleApiKey: undefined,
+    googleSearchEngineId: undefined,
+    webSearchDefault: undefined,
+    screenReader: undefined,
+    inputFormat: undefined,
+    outputFormat: undefined,
+    includePartialMessages: undefined,
+    chatRecording: undefined,
+    continue: undefined,
+    resume: undefined,
+    sessionId: undefined,
+    maxSessionTurns: undefined,
+    coreTools: undefined,
+    excludeTools: undefined,
+    authType: undefined,
+    channel: undefined,
+    systemPrompt: undefined,
+    appendSystemPrompt: undefined,
+  };
+
+  const config = await loadCliConfig(
+    settings.merged,
+    minimalArgv,
+    process.cwd(),
+    [],
+  );
+
+  await performGoogleVertexOAuthLogin(config);
+
+  const settingsFile = settings.forScope(scope);
+  backupSettingsFile(settingsFile.path);
+  settings.setValue(
+    scope,
+    'security.auth.selectedType',
+    AuthType.GEMINI_VERTEX_OAUTH,
+  );
+  settings.setValue(scope, 'model.name', DEFAULT_GEMINI_VERTEX_OAUTH_MODEL);
+  writeStdoutLine(
+    t(
+      'Google sign-in complete. Credentials are saved locally; set GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION, then run the CLI.',
+    ),
+  );
+}
+
 export async function handleQwenAuth(
   command:
     | 'qwen-oauth'
@@ -705,6 +799,13 @@ export async function runInteractiveAuth() {
         description: t('Free · 100 requests/day · Ending 2026-04-15'),
       },
       {
+        value: 'google-vertex-oauth' as const,
+        label: t('Google · Vertex AI Gemini (OAuth)'),
+        description: t(
+          'Uses your Google account · Requires GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION',
+        ),
+      },
+      {
         value: 'coding-plan' as const,
         label: t('Alibaba Cloud Coding Plan'),
         description: t(
@@ -728,6 +829,8 @@ export async function runInteractiveAuth() {
     await handleQwenAuth('coding-plan', {});
   } else if (choice === 'logout') {
     await handleQwenAuth('logout', {});
+  } else if (choice === 'google-vertex-oauth') {
+    await handleGoogleVertexOAuthAuth('login');
   } else {
     await handleQwenAuth('qwen-oauth', {});
   }
@@ -769,6 +872,11 @@ export async function showAuthStatus(): Promise<void> {
           '  qwen auth oauth-account list - List / switch Qwen OAuth accounts (multi-login)\n',
         ),
       );
+      writeStdoutLine(
+        t(
+          '  qwen auth google-vertex-oauth - Sign in with Google for Vertex AI Gemini\n',
+        ),
+      );
       writeStdoutLine(t('Or simply run:'));
       writeStdoutLine(
         t('  qwen auth                - Interactive authentication setup\n'),
@@ -801,6 +909,24 @@ export async function showAuthStatus(): Promise<void> {
       } catch {
         writeStdoutLine('');
       }
+    } else if (selectedType === AuthType.GEMINI_VERTEX_OAUTH) {
+      writeStdoutLine(
+        t('✓ Authentication Method: Gemini on Vertex AI (Google OAuth)'),
+      );
+      const credOk = await hasGoogleVertexOAuthCredentials();
+      writeStdoutLine(
+        t('  Stored OAuth credentials: {{status}}', {
+          status: credOk ? t('yes') : t('no'),
+        }),
+      );
+      writeStdoutLine(
+        t(
+          '  Required env: GOOGLE_CLOUD_PROJECT (or GOOGLE_CLOUD_PROJECT_ID), GOOGLE_CLOUD_LOCATION',
+        ),
+      );
+      writeStdoutLine(
+        t('  Clear credentials: `qwen auth google-vertex-oauth --clear`\n'),
+      );
     } else if (selectedType === AuthType.USE_OPENAI) {
       // Check for Coding Plan configuration
       const codingPlanRegion = mergedSettings.codingPlan?.region;

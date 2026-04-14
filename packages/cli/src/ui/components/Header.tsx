@@ -19,6 +19,7 @@ import { useTerminalSize } from '../hooks/useTerminalSize.js';
  */
 export enum AuthDisplayType {
   QWEN_OAUTH = 'Qwen OAuth',
+  GOOGLE_VERTEX_OAUTH = 'Gemini (Vertex OAuth)',
   CODING_PLAN = 'Coding Plan',
   API_KEY = 'API Key',
   UNKNOWN = 'Unknown',

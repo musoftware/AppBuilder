@@ -38,7 +38,9 @@ import {
 } from '../utils/configResolver.js';
 import {
   AUTH_ENV_MAPPINGS,
+  DEFAULT_GEMINI_VERTEX_OAUTH_MODEL,
   DEFAULT_MODELS,
+  GEMINI_VERTEX_OAUTH_ALLOWED_MODELS,
   QWEN_OAUTH_ALLOWED_MODELS,
   MODEL_GENERATION_CONFIG_FIELDS,
 } from './constants.js';
@@ -150,6 +152,10 @@ export function resolveModelConfig(
   // Special handling for Qwen OAuth
   if (authType === AuthType.QWEN_OAUTH) {
     return resolveQwenOAuthConfig(input, warnings);
+  }
+
+  if (authType === AuthType.GEMINI_VERTEX_OAUTH) {
+    return resolveGeminiVertexOAuthConfig(input, warnings);
   }
 
   // Get auth-specific env var mappings.
@@ -330,6 +336,98 @@ function resolveActiveApiKeyProfile(
     }
   }
   return apiProfiles.profiles.find((p) => !!p.apiKey);
+}
+
+/**
+ * Vertex AI Gemini with user OAuth (installed app). Project and region come
+ * from Google Cloud environment variables.
+ */
+function resolveGeminiVertexOAuthConfig(
+  input: ModelConfigSourcesInput,
+  warnings: string[],
+): ModelConfigResolutionResult {
+  const { cli, settings, env, modelProvider, proxy } = input;
+  const sources: ConfigSources = {};
+
+  const allowedModels = new Set<string>(GEMINI_VERTEX_OAUTH_ALLOWED_MODELS);
+
+  let requestedModel: string | undefined;
+  let requestedModelSource: ConfigSource | undefined;
+  if (cli?.model) {
+    requestedModel = cli.model;
+    requestedModelSource = cliSource('--model');
+  } else if (settings?.model) {
+    requestedModel = settings.model;
+    requestedModelSource = settingsSource('model.name');
+  } else if (env['GEMINI_MODEL']) {
+    requestedModel = env['GEMINI_MODEL'];
+    requestedModelSource = { kind: 'env', envKey: 'GEMINI_MODEL' };
+  }
+
+  let resolvedModel: string;
+  let modelSource: ConfigSource;
+
+  if (requestedModel && allowedModels.has(requestedModel)) {
+    resolvedModel = requestedModel;
+    modelSource = requestedModelSource ?? defaultSource('model');
+  } else {
+    if (requestedModel) {
+      warnings.push(
+        `Warning: Unsupported gemini-vertex-oauth model '${requestedModel}', falling back to '${DEFAULT_GEMINI_VERTEX_OAUTH_MODEL}'.`,
+      );
+    }
+    resolvedModel = DEFAULT_GEMINI_VERTEX_OAUTH_MODEL;
+    modelSource = defaultSource(
+      `fallback to '${DEFAULT_GEMINI_VERTEX_OAUTH_MODEL}'`,
+    );
+  }
+
+  sources['model'] = modelSource;
+  sources['apiKey'] = computedSource('Vertex OAuth (refresh token)');
+  sources['authType'] = computedSource('provided by caller');
+
+  const project = (
+    env['GOOGLE_CLOUD_PROJECT'] ||
+    env['GOOGLE_CLOUD_PROJECT_ID'] ||
+    ''
+  ).trim();
+  const location = (env['GOOGLE_CLOUD_LOCATION'] || '').trim();
+
+  if (project) {
+    sources['vertexProjectId'] = env['GOOGLE_CLOUD_PROJECT']?.trim()
+      ? { kind: 'env', envKey: 'GOOGLE_CLOUD_PROJECT' }
+      : { kind: 'env', envKey: 'GOOGLE_CLOUD_PROJECT_ID' };
+  }
+  if (location) {
+    sources['vertexLocation'] = {
+      kind: 'env',
+      envKey: 'GOOGLE_CLOUD_LOCATION',
+    };
+  }
+
+  if (proxy) {
+    sources['proxy'] = computedSource('Config.getProxy()');
+  }
+
+  const generationConfig = resolveGenerationConfig(
+    settings?.generationConfig,
+    modelProvider?.generationConfig,
+    AuthType.GEMINI_VERTEX_OAUTH,
+    resolvedModel,
+    sources,
+  );
+
+  const config: ContentGeneratorConfig = {
+    authType: AuthType.GEMINI_VERTEX_OAUTH,
+    model: resolvedModel,
+    vertexai: true,
+    vertexProjectId: project || undefined,
+    vertexLocation: location || undefined,
+    proxy,
+    ...generationConfig,
+  };
+
+  return { config, sources, warnings };
 }
 
 /**

@@ -6,6 +6,7 @@
 
 import type { Argv, CommandModule } from 'yargs';
 import { buildAddFeaturePrompt } from './prompt/buildAddFeaturePrompt.js';
+import { buildFrontendPrompt } from './prompt/buildFrontendPrompt.js';
 import { buildPlanScaffoldPrompt } from './prompt/buildPlanScaffoldPrompt.js';
 import { writeStderrLine, writeStdoutLine } from '../utils/stdioHelpers.js';
 
@@ -67,6 +68,35 @@ const featureCommand: CommandModule<
   },
 };
 
+const frontendCommand: CommandModule<
+  Record<string, unknown>,
+  { brief?: string | string[] }
+> = {
+  command: 'frontend <brief..>',
+  describe:
+    'Print the full frontend/UI implementation prompt with your brief embedded (for pasting into an LLM).',
+  builder: (yargs: Argv) =>
+    yargs
+      .positional('brief', {
+        describe:
+          'What to build or change in the UI (all words after "frontend" are joined into one brief).',
+        type: 'string',
+      })
+      .version(false),
+  handler: (argv) => {
+    const raw = argv['brief'];
+    const parts = Array.isArray(raw) ? raw : raw !== undefined ? [raw] : [];
+    const joined = parts.join(' ').trim();
+    if (!joined) {
+      writeStderrLine(
+        'Error: Missing UI brief. Example: qwen prompt frontend add a responsive data table to the dashboard',
+      );
+      process.exit(1);
+    }
+    writeStdoutLine(buildFrontendPrompt(joined));
+  },
+};
+
 export const promptCommand: CommandModule = {
   command: 'prompt',
   describe: 'Utilities for assembling LLM prompts from the CLI.',
@@ -74,7 +104,11 @@ export const promptCommand: CommandModule = {
     yargs
       .command(planCommand)
       .command(featureCommand)
-      .demandCommand(1, 'Choose a prompt subcommand (try: plan or feature).')
+      .command(frontendCommand)
+      .demandCommand(
+        1,
+        'Choose a prompt subcommand (try: plan, feature, or frontend).',
+      )
       .version(false),
   handler: () => {
     /* Subcommands handle execution. */

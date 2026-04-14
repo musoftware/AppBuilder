@@ -87,11 +87,20 @@ export const AUTH_ENV_MAPPINGS = {
     baseUrl: [],
     model: [],
   },
+  'gemini-vertex-oauth': {
+    apiKey: [],
+    baseUrl: [],
+    model: ['GEMINI_MODEL'],
+  },
 } as const satisfies Record<AuthType, AuthEnvMapping>;
+
+/** Default Gemini model when using Vertex with user OAuth. */
+export const DEFAULT_GEMINI_VERTEX_OAUTH_MODEL = 'gemini-2.5-flash';
 
 export const DEFAULT_MODELS = {
   openai: MAINLINE_CODER_MODEL,
   'qwen-oauth': DEFAULT_QWEN_MODEL,
+  'gemini-vertex-oauth': DEFAULT_GEMINI_VERTEX_OAUTH_MODEL,
 } as Partial<Record<AuthType, string>>;
 
 /**
@@ -115,3 +124,24 @@ export const QWEN_OAUTH_MODELS: ModelConfig[] = [
 export const QWEN_OAUTH_ALLOWED_MODELS = QWEN_OAUTH_MODELS.map(
   (model) => model.id,
 ) as readonly string[];
+
+/**
+ * Curated Gemini models on Vertex AI for OAuth-based auth.
+ */
+export const GEMINI_VERTEX_OAUTH_MODELS: ModelConfig[] = [
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    description: 'Fast Gemini 2.5 on Vertex AI',
+    capabilities: { vision: true },
+  },
+  {
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro',
+    description: 'Capable Gemini 2.5 on Vertex AI',
+    capabilities: { vision: true },
+  },
+];
+
+export const GEMINI_VERTEX_OAUTH_ALLOWED_MODELS =
+  GEMINI_VERTEX_OAUTH_MODELS.map((model) => model.id) as readonly string[];

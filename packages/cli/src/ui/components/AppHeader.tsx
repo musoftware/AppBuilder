@@ -37,6 +37,8 @@ function getAuthDisplayType(
   switch (authType) {
     case AuthType.QWEN_OAUTH:
       return AuthDisplayType.QWEN_OAUTH;
+    case AuthType.GEMINI_VERTEX_OAUTH:
+      return AuthDisplayType.GOOGLE_VERTEX_OAUTH;
     default:
       return AuthDisplayType.API_KEY;
   }

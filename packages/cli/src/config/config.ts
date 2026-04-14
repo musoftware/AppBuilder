@@ -71,6 +71,24 @@ import { isWorkspaceTrusted } from './trustedFolders.js';
 import { buildWebSearchConfig } from './webSearch.js';
 import { writeStderrLine } from '../utils/stdioHelpers.js';
 
+/**
+ * Maps settings / env auth strings to {@link AuthType}.
+ * `oauth-personal` matches Gemini CLI's LOGIN_WITH_GOOGLE value for portability.
+ */
+function coerceAuthType(value: string | undefined): AuthType | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (value === 'oauth-personal') {
+    return AuthType.GEMINI_VERTEX_OAUTH;
+  }
+  const all = Object.values(AuthType) as string[];
+  if (all.includes(value)) {
+    return value as AuthType;
+  }
+  return undefined;
+}
+
 const debugLogger = createDebugLogger('CONFIG');
 
 const VALID_APPROVAL_MODE_VALUES = [
@@ -510,6 +528,7 @@ export async function parseArguments(): Promise<CliArgs> {
             AuthType.QWEN_OAUTH,
             AuthType.USE_GEMINI,
             AuthType.USE_VERTEX_AI,
+            AuthType.GEMINI_VERTEX_OAUTH,
           ],
           description: 'Authentication type',
         })
@@ -955,7 +974,7 @@ export async function loadCliConfig(
 
   const selectedAuthType =
     (argv.authType as AuthType | undefined) ||
-    settings.security?.auth?.selectedType ||
+    coerceAuthType(settings.security?.auth?.selectedType) ||
     /* getAuthTypeFromEnv means no authType was explicitly provided, we infer the authType from env vars */
     getAuthTypeFromEnv();
 

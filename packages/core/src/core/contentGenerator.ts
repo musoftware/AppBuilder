@@ -57,6 +57,8 @@ export enum AuthType {
   QWEN_OAUTH = 'qwen-oauth',
   USE_GEMINI = 'gemini',
   USE_VERTEX_AI = 'vertex-ai',
+  /** Vertex AI Gemini using user OAuth (installed app), not an API key. */
+  GEMINI_VERTEX_OAUTH = 'gemini-vertex-oauth',
   USE_ANTHROPIC = 'anthropic',
 }
 
@@ -77,6 +79,10 @@ export type ContentGeneratorConfig = {
   apiKeyEnvKey?: string;
   baseUrl?: string;
   vertexai?: boolean;
+  /** Google Cloud project for Vertex AI (OAuth or API key). */
+  vertexProjectId?: string;
+  /** Vertex AI region, e.g. us-central1. */
+  vertexLocation?: string;
   authType?: AuthType | undefined;
   enableOpenAILogging?: boolean;
   openAILoggingDir?: string;
@@ -226,6 +232,31 @@ export function validateModelConfig(
     return { valid: true, errors: [] };
   }
 
+  if (config.authType === AuthType.GEMINI_VERTEX_OAUTH) {
+    const oauthErrors: Error[] = [];
+    if (!config.vertexProjectId?.trim()) {
+      oauthErrors.push(
+        new Error(
+          'GOOGLE_CLOUD_PROJECT is required for gemini-vertex-oauth (Vertex AI project).',
+        ),
+      );
+    }
+    if (!config.vertexLocation?.trim()) {
+      oauthErrors.push(
+        new Error(
+          'GOOGLE_CLOUD_LOCATION is required for gemini-vertex-oauth (Vertex AI region, e.g. us-central1).',
+        ),
+      );
+    }
+    if (!config.model?.trim()) {
+      const envKey = getDefaultModelEnvVar(config.authType);
+      oauthErrors.push(
+        new MissingModelError({ authType: config.authType, envKey }),
+      );
+    }
+    return { valid: oauthErrors.length === 0, errors: oauthErrors };
+  }
+
   // API key is required for all other auth types
   if (!config.apiKey) {
     if (isStrictModelProvider) {
@@ -341,12 +372,13 @@ export async function createContentGenerator(
     baseGenerator = createAnthropicContentGenerator(generatorConfig, config);
   } else if (
     authType === AuthType.USE_GEMINI ||
-    authType === AuthType.USE_VERTEX_AI
+    authType === AuthType.USE_VERTEX_AI ||
+    authType === AuthType.GEMINI_VERTEX_OAUTH
   ) {
     const { createGeminiContentGenerator } = await import(
       './geminiContentGenerator/index.js'
     );
-    baseGenerator = createGeminiContentGenerator(generatorConfig, config);
+    baseGenerator = await createGeminiContentGenerator(generatorConfig, config);
   } else {
     throw new Error(
       `Error creating contentGenerator: Unsupported authType: ${authType}`,

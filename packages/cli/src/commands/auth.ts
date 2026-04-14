@@ -5,7 +5,10 @@
  */
 
 import type { CommandModule, Argv } from 'yargs';
+import { getErrorMessage } from '@qwen-code/qwen-code-core';
+import { writeStderrLine } from '../utils/stdioHelpers.js';
 import {
+  handleGoogleVertexOAuthAuth,
   handleQwenAuth,
   runInteractiveAuth,
   showAuthStatus,
@@ -209,6 +212,28 @@ const oauthAccountRemoveCommand = {
   },
 };
 
+const googleVertexOauthCommand = {
+  command: 'google-vertex-oauth',
+  describe: t(
+    'Sign in with Google for Vertex AI Gemini (OAuth). Requires QWEN_GOOGLE_VERTEX_OAUTH_CLIENT_ID, QWEN_GOOGLE_VERTEX_OAUTH_CLIENT_SECRET, GOOGLE_CLOUD_PROJECT, and GOOGLE_CLOUD_LOCATION.',
+  ),
+  builder: (yargs: Argv) =>
+    yargs.option('clear', {
+      type: 'boolean',
+      default: false,
+      describe: t('Remove stored Google OAuth credentials'),
+    }),
+  handler: async (argv: { clear?: boolean }) => {
+    try {
+      await handleGoogleVertexOAuthAuth(argv.clear ? 'clear' : 'login');
+      process.exit(0);
+    } catch (error) {
+      writeStderrLine(getErrorMessage(error));
+      process.exit(1);
+    }
+  },
+};
+
 const oauthAccountCommand = {
   command: 'oauth-account',
   describe: t('Manage multiple Qwen OAuth logins'),
@@ -231,6 +256,7 @@ export const authCommand: CommandModule = {
   builder: (yargs: Argv) =>
     yargs
       .command(qwenOauthCommand)
+      .command(googleVertexOauthCommand)
       .command(codePlanCommand)
       .command(statusCommand)
       .command(logoutCommand)

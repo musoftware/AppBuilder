@@ -5,6 +5,7 @@
  */
 
 import { buildAddFeaturePrompt } from '../../commands/prompt/buildAddFeaturePrompt.js';
+import { buildFrontendPrompt } from '../../commands/prompt/buildFrontendPrompt.js';
 import { buildPlanScaffoldPrompt } from '../../commands/prompt/buildPlanScaffoldPrompt.js';
 import {
   CommandKind,
@@ -68,9 +69,38 @@ const promptFeatureSubcommand: SlashCommand = {
   },
 };
 
+const promptFrontendSubcommand: SlashCommand = {
+  name: 'frontend',
+  description:
+    'Submit the frontend/UI implementation prompt (same as `qwen prompt frontend`).',
+  kind: CommandKind.BUILT_IN,
+  action: async (
+    _context: CommandContext,
+    args: string,
+  ): Promise<SlashCommandActionReturn> => {
+    const brief = normalizePromptArgs(args);
+    if (!brief) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content:
+          'Missing UI brief after `/prompt frontend`. Example: `/prompt frontend rebuild the billing summary cards`.',
+      };
+    }
+    return {
+      type: 'submit_prompt',
+      content: [{ text: buildFrontendPrompt(brief) }],
+    };
+  },
+};
+
 export const promptSlashCommand: SlashCommand = {
   name: 'prompt',
   description: 'Wrap text in reusable LLM prompt templates.',
   kind: CommandKind.BUILT_IN,
-  subCommands: [promptPlanSubcommand, promptFeatureSubcommand],
+  subCommands: [
+    promptPlanSubcommand,
+    promptFeatureSubcommand,
+    promptFrontendSubcommand,
+  ],
 };

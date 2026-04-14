@@ -63,6 +63,15 @@ export function getAuthTypeFromEnv(): AuthType | undefined {
     return AuthType.USE_GEMINI;
   }
 
+  if (
+    process.env['GEMINI_VERTEX_OAUTH'] === '1' &&
+    (process.env['GOOGLE_CLOUD_PROJECT'] ||
+      process.env['GOOGLE_CLOUD_PROJECT_ID']) &&
+    process.env['GOOGLE_CLOUD_LOCATION']
+  ) {
+    return AuthType.GEMINI_VERTEX_OAUTH;
+  }
+
   if (process.env['GOOGLE_API_KEY'] && process.env['GOOGLE_MODEL']) {
     return AuthType.USE_VERTEX_AI;
   }

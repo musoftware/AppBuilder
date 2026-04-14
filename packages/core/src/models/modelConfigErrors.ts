@@ -14,6 +14,8 @@ export function getDefaultApiKeyEnvVar(authType: string | undefined): string {
       return 'GEMINI_API_KEY';
     case 'vertex-ai':
       return 'GOOGLE_API_KEY';
+    case 'gemini-vertex-oauth':
+      return 'GEMINI_VERTEX_OAUTH';
     default:
       return 'API_KEY';
   }
@@ -29,6 +31,8 @@ export function getDefaultModelEnvVar(authType: string | undefined): string {
       return 'GEMINI_MODEL';
     case 'vertex-ai':
       return 'GOOGLE_MODEL';
+    case 'gemini-vertex-oauth':
+      return 'GEMINI_MODEL';
     default:
       return 'MODEL';
   }

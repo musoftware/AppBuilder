@@ -9,6 +9,7 @@ import type {
   ContentGenerator,
   ContentGeneratorConfig,
 } from '../contentGenerator.js';
+import { AuthType } from '../contentGenerator.js';
 import type { Config } from '../../config/config.js';
 import { InstallationManager } from '../../utils/installationManager.js';
 
@@ -17,10 +18,10 @@ export { GeminiContentGenerator } from './geminiContentGenerator.js';
 /**
  * Create a Gemini content generator.
  */
-export function createGeminiContentGenerator(
+export async function createGeminiContentGenerator(
   config: ContentGeneratorConfig,
   gcConfig: Config,
-): ContentGenerator {
+): Promise<ContentGenerator> {
   const version = process.env['CLI_VERSION'] || process.version;
   const userAgent =
     config.userAgent ||
@@ -39,6 +40,24 @@ export function createGeminiContentGenerator(
     };
   }
   const httpOptions = { headers };
+
+  if (config.authType === AuthType.GEMINI_VERTEX_OAUTH) {
+    const { loadGoogleVertexOAuthGoogleAuthOptions } = await import(
+      '../../google/googleVertexOAuth.js'
+    );
+    const googleAuthOptions =
+      await loadGoogleVertexOAuthGoogleAuthOptions(gcConfig);
+    return new GeminiContentGenerator(
+      {
+        vertexai: true,
+        project: config.vertexProjectId,
+        location: config.vertexLocation,
+        googleAuthOptions,
+        httpOptions,
+      },
+      config,
+    );
+  }
 
   const geminiContentGenerator = new GeminiContentGenerator(
     {

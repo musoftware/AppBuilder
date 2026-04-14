@@ -26,14 +26,14 @@ describe('createGeminiContentGenerator', () => {
     } as unknown as Config;
   });
 
-  it('should create a GeminiContentGenerator', () => {
+  it('should create a GeminiContentGenerator', async () => {
     const config = {
       model: 'gemini-1.5-flash',
       apiKey: 'test-key',
       authType: AuthType.USE_GEMINI,
     };
 
-    const generator = createGeminiContentGenerator(config, mockConfig);
+    const generator = await createGeminiContentGenerator(config, mockConfig);
 
     expect(GeminiContentGenerator).toHaveBeenCalled();
     expect(generator).toBeDefined();
