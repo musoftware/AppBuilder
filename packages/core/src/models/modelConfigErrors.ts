@@ -7,6 +7,7 @@
 export function getDefaultApiKeyEnvVar(authType: string | undefined): string {
   switch (authType) {
     case 'openai':
+    case 'openai-codex':
       return 'OPENAI_API_KEY';
     case 'anthropic':
       return 'ANTHROPIC_API_KEY';

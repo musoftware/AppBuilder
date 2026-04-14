@@ -54,6 +54,8 @@ export interface ContentGenerator {
 
 export enum AuthType {
   USE_OPENAI = 'openai',
+  /** ChatGPT sign-in via OpenAI Codex device flow (auth.openai.com). */
+  OPENAI_CODEX = 'openai-codex',
   QWEN_OAUTH = 'qwen-oauth',
   USE_GEMINI = 'gemini',
   USE_VERTEX_AI = 'vertex-ai',
@@ -232,6 +234,10 @@ export function validateModelConfig(
     return { valid: true, errors: [] };
   }
 
+  if (config.authType === AuthType.OPENAI_CODEX) {
+    return { valid: true, errors: [] };
+  }
+
   if (config.authType === AuthType.GEMINI_VERTEX_OAUTH) {
     const oauthErrors: Error[] = [];
     if (!config.vertexProjectId?.trim()) {
@@ -342,6 +348,28 @@ export async function createContentGenerator(
       './openaiContentGenerator/index.js'
     );
     baseGenerator = createOpenAIContentGenerator(generatorConfig, config);
+  } else if (authType === AuthType.OPENAI_CODEX) {
+    const { getCodexOpenAiAuthClient } = await import(
+      '../openaiCodex/codexOpenAiAuth.js'
+    );
+    const { CodexOpenAiContentGenerator } = await import(
+      '../openaiCodex/codexOpenAiContentGenerator.js'
+    );
+    try {
+      const client = await getCodexOpenAiAuthClient(
+        config,
+        isInitialAuth ? { requireCachedCredentials: true } : undefined,
+      );
+      baseGenerator = new CodexOpenAiContentGenerator(
+        client,
+        generatorConfig,
+        config,
+      );
+    } catch (error) {
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   } else if (authType === AuthType.QWEN_OAUTH) {
     const { getQwenOAuthClient: getQwenOauthClient } = await import(
       '../qwen/qwenOAuth2.js'

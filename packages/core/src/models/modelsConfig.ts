@@ -85,6 +85,9 @@ export class ModelsConfig {
   // One-shot flag for qwen-oauth credential caching
   private requireCachedQwenCredentialsOnce: boolean = false;
 
+  // One-shot flag for openai-codex (ChatGPT OAuth) credential caching
+  private requireCachedOpenaiCodexCredentialsOnce: boolean = false;
+
   // One-shot flag indicating credentials were manually set via updateCredentials()
   // When true, syncAfterAuthRefresh should NOT override these credentials with
   // modelProviders defaults (even if the model ID matches a registry entry).
@@ -385,6 +388,12 @@ export class ModelsConfig {
     if (authType === AuthType.QWEN_OAUTH && options?.requireCachedCredentials) {
       this.requireCachedQwenCredentialsOnce = true;
     }
+    if (
+      authType === AuthType.OPENAI_CODEX &&
+      options?.requireCachedCredentials
+    ) {
+      this.requireCachedOpenaiCodexCredentialsOnce = true;
+    }
 
     try {
       const isAuthTypeChange = authType !== this.currentAuthType;
@@ -684,9 +693,11 @@ export class ModelsConfig {
    * Check and consume the one-shot cached credentials flag
    */
   consumeRequireCachedCredentialsFlag(): boolean {
-    const value = this.requireCachedQwenCredentialsOnce;
+    const qwen = this.requireCachedQwenCredentialsOnce;
+    const codex = this.requireCachedOpenaiCodexCredentialsOnce;
     this.requireCachedQwenCredentialsOnce = false;
-    return value;
+    this.requireCachedOpenaiCodexCredentialsOnce = false;
+    return qwen || codex;
   }
 
   /**
@@ -714,11 +725,22 @@ export class ModelsConfig {
     //
     // (OpenAI client instantiation requires an apiKey even though it will be
     // replaced later.)
-    if (this.currentAuthType === AuthType.QWEN_OAUTH) {
-      this._generationConfig.apiKey = 'QWEN_OAUTH_DYNAMIC_TOKEN';
+    if (
+      this.currentAuthType === AuthType.QWEN_OAUTH ||
+      this.currentAuthType === AuthType.OPENAI_CODEX
+    ) {
+      const placeholder =
+        this.currentAuthType === AuthType.QWEN_OAUTH
+          ? 'QWEN_OAUTH_DYNAMIC_TOKEN'
+          : 'OPENAI_CODEX_DYNAMIC_TOKEN';
+      const detail =
+        this.currentAuthType === AuthType.QWEN_OAUTH
+          ? 'Qwen OAuth placeholder token'
+          : 'OpenAI Codex ChatGPT OAuth placeholder token';
+      this._generationConfig.apiKey = placeholder;
       this.generationConfigSources['apiKey'] = {
         kind: 'computed',
-        detail: 'Qwen OAuth placeholder token',
+        detail,
       };
       this._generationConfig.apiKeyEnvKey = undefined;
       delete this.generationConfigSources['apiKeyEnvKey'];
@@ -822,7 +844,10 @@ export class ModelsConfig {
 
     // For Qwen OAuth, model switches within the same authType can always be hot-updated
     // (coder-model supports vision capabilities and doesn't require ContentGenerator recreation)
-    if (authType === AuthType.QWEN_OAUTH) {
+    if (
+      authType === AuthType.QWEN_OAUTH ||
+      authType === AuthType.OPENAI_CODEX
+    ) {
       return false;
     }
 

@@ -128,7 +128,11 @@ export const useAuthCommand = (
 
         // Only update credentials if not switching to QWEN_OAUTH,
         // so that OpenAI credentials are preserved when switching to QWEN_OAUTH.
-        if (authType !== AuthType.QWEN_OAUTH && credentials) {
+        if (
+          authType !== AuthType.QWEN_OAUTH &&
+          authType !== AuthType.OPENAI_CODEX &&
+          credentials
+        ) {
           if (credentials?.apiKey != null) {
             settings.setValue(
               authTypeScope,
@@ -571,6 +575,7 @@ export const useAuthCommand = (
       ![
         AuthType.QWEN_OAUTH,
         AuthType.USE_OPENAI,
+        AuthType.OPENAI_CODEX,
         AuthType.USE_ANTHROPIC,
         AuthType.USE_GEMINI,
         AuthType.USE_VERTEX_AI,
@@ -584,6 +589,7 @@ export const useAuthCommand = (
             validValues: [
               AuthType.QWEN_OAUTH,
               AuthType.USE_OPENAI,
+              AuthType.OPENAI_CODEX,
               AuthType.USE_ANTHROPIC,
               AuthType.USE_GEMINI,
               AuthType.USE_VERTEX_AI,

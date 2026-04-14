@@ -28,6 +28,16 @@ export function buildAuthMethods(): AuthMethod[] {
         args: ['--auth-type=qwen-oauth'],
       },
     },
+    {
+      id: AuthType.OPENAI_CODEX,
+      name: 'OpenAI Codex (ChatGPT OAuth)',
+      description:
+        'Device login via auth.openai.com (same flow as the official Codex CLI); run `qwen auth codex-openai` first',
+      _meta: {
+        type: 'terminal',
+        args: ['--auth-type=openai-codex'],
+      },
+    },
   ];
 }
 
@@ -45,6 +55,14 @@ export function pickAuthMethodsForDetails(details?: string): AuthMethod[] {
   }
   if (details.includes('qwen-oauth') || details.includes('Qwen OAuth')) {
     const narrowed = filterAuthMethodsById(authMethods, AuthType.QWEN_OAUTH);
+    return narrowed.length ? narrowed : authMethods;
+  }
+  if (
+    details.includes('openai-codex') ||
+    details.includes('Codex') ||
+    details.includes('ChatGPT')
+  ) {
+    const narrowed = filterAuthMethodsById(authMethods, AuthType.OPENAI_CODEX);
     return narrowed.length ? narrowed : authMethods;
   }
   return authMethods;

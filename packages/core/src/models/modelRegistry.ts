@@ -15,12 +15,20 @@ import {
   type AvailableModel,
 } from './types.js';
 import { DEFAULT_QWEN_MODEL } from '../config/models.js';
-import { GEMINI_VERTEX_OAUTH_MODELS, QWEN_OAUTH_MODELS } from './constants.js';
+import {
+  GEMINI_VERTEX_OAUTH_MODELS,
+  OPENAI_CODEX_MODELS,
+  QWEN_OAUTH_MODELS,
+} from './constants.js';
 import { createDebugLogger } from '../utils/debugLogger.js';
 
 const debugLogger = createDebugLogger('MODEL_REGISTRY');
 
-export { GEMINI_VERTEX_OAUTH_MODELS, QWEN_OAUTH_MODELS } from './constants.js';
+export {
+  GEMINI_VERTEX_OAUTH_MODELS,
+  OPENAI_CODEX_MODELS,
+  QWEN_OAUTH_MODELS,
+} from './constants.js';
 
 /**
  * Validates if a string key is a valid AuthType enum value.
@@ -49,6 +57,7 @@ export class ModelRegistry {
       case AuthType.QWEN_OAUTH:
         return 'DYNAMIC_QWEN_OAUTH_BASE_URL';
       case AuthType.USE_OPENAI:
+      case AuthType.OPENAI_CODEX:
         return DEFAULT_OPENAI_BASE_URL;
       default:
         return '';
@@ -66,6 +75,8 @@ export class ModelRegistry {
       GEMINI_VERTEX_OAUTH_MODELS,
     );
 
+    this.registerAuthTypeModels(AuthType.OPENAI_CODEX, OPENAI_CODEX_MODELS);
+
     // Register user-configured models for other authTypes
     if (modelProvidersConfig) {
       for (const [rawKey, models] of Object.entries(modelProvidersConfig)) {
@@ -78,10 +89,11 @@ export class ModelRegistry {
           continue;
         }
 
-        // Skip qwen-oauth as it uses hard-coded models
+        // Skip auth types that use hard-coded models
         if (
           authType === AuthType.QWEN_OAUTH ||
-          authType === AuthType.GEMINI_VERTEX_OAUTH
+          authType === AuthType.GEMINI_VERTEX_OAUTH ||
+          authType === AuthType.OPENAI_CODEX
         ) {
           continue;
         }
@@ -215,7 +227,8 @@ export class ModelRegistry {
     for (const authType of this.modelsByAuthType.keys()) {
       if (
         authType !== AuthType.QWEN_OAUTH &&
-        authType !== AuthType.GEMINI_VERTEX_OAUTH
+        authType !== AuthType.GEMINI_VERTEX_OAUTH &&
+        authType !== AuthType.OPENAI_CODEX
       ) {
         this.modelsByAuthType.delete(authType);
       }
@@ -226,6 +239,7 @@ export class ModelRegistry {
       AuthType.GEMINI_VERTEX_OAUTH,
       GEMINI_VERTEX_OAUTH_MODELS,
     );
+    this.registerAuthTypeModels(AuthType.OPENAI_CODEX, OPENAI_CODEX_MODELS);
 
     // Re-register user-configured models for other authTypes
     if (modelProvidersConfig) {
@@ -239,10 +253,11 @@ export class ModelRegistry {
           continue;
         }
 
-        // Skip qwen-oauth as it uses hard-coded models
+        // Skip auth types that use hard-coded models
         if (
           authType === AuthType.QWEN_OAUTH ||
-          authType === AuthType.GEMINI_VERTEX_OAUTH
+          authType === AuthType.GEMINI_VERTEX_OAUTH ||
+          authType === AuthType.OPENAI_CODEX
         ) {
           continue;
         }

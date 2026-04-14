@@ -13,12 +13,21 @@ import {
   type ProviderModelConfig as ModelConfig,
   clearQwenCredentials,
   clearGoogleVertexOAuthCredentials,
+  clearCodexOpenAiCredentials,
+  decodeCodexJwtEmail,
   DEFAULT_GEMINI_VERTEX_OAUTH_MODEL,
+  DEFAULT_OPENAI_CODEX_MODEL,
+  getActiveCodexOpenAiAccountId,
   getActiveQwenOAuthAccountId,
   hasGoogleVertexOAuthCredentials,
   listQwenOAuthAccounts,
+  loadCodexOpenAiAccountStore,
+  loadCodexOpenAiCredentials,
   performGoogleVertexOAuthLogin,
+  removeCodexOpenAiAccount,
   removeQwenOAuthAccount,
+  runCodexOpenAiDeviceCodeLogin,
+  setActiveCodexOpenAiAccount,
   setActiveQwenOAuthAccount,
 } from '@qwen-code/qwen-code-core';
 import { writeStdoutLine, writeStderrLine } from '../../utils/stdioHelpers.js';
@@ -59,6 +68,8 @@ type OAuthAccountCommand =
   | { op: 'list' }
   | { op: 'use'; id: string }
   | { op: 'remove'; id: string };
+
+type CodexAccountCommand = OAuthAccountCommand;
 
 interface CodingPlanSettings {
   region?: CodingPlanRegion;
@@ -180,10 +191,12 @@ export async function handleGoogleVertexOAuthAuth(
 export async function handleQwenAuth(
   command:
     | 'qwen-oauth'
+    | 'codex-openai'
     | 'coding-plan'
     | 'logout'
     | 'api-key'
-    | 'oauth-account',
+    | 'oauth-account'
+    | 'codex-account',
   options: QwenAuthOptions | ApiKeyProfileCommand | OAuthAccountCommand,
 ) {
   try {
@@ -196,6 +209,11 @@ export async function handleQwenAuth(
 
     if (command === 'oauth-account') {
       await handleOAuthAccounts(settings, options as OAuthAccountCommand);
+      process.exit(0);
+    }
+
+    if (command === 'codex-account') {
+      await handleCodexAccounts(settings, options as CodexAccountCommand);
       process.exit(0);
     }
 
@@ -261,6 +279,8 @@ export async function handleQwenAuth(
 
     if (command === 'qwen-oauth') {
       await handleQwenOAuth(config, settings);
+    } else if (command === 'codex-openai') {
+      await handleCodexOpenAiOAuth(config, settings);
     } else if (command === 'coding-plan') {
       await handleCodePlanAuth(config, settings, options as QwenAuthOptions);
     } else if (command === 'logout') {
@@ -282,6 +302,17 @@ async function handleLogout(
   options: QwenAuthOptions,
 ): Promise<void> {
   const authTypeScope = getPersistScopeForModelSelection(settings);
+  const selected = settings.merged.security?.auth?.selectedType as
+    | AuthType
+    | undefined;
+
+  if (selected === AuthType.OPENAI_CODEX) {
+    await clearCodexOpenAiCredentials();
+    settings.setValue(authTypeScope, 'security.auth.selectedType', undefined);
+    writeStdoutLine(t('Logged out from OpenAI Codex (ChatGPT OAuth).'));
+    return;
+  }
+
   await clearQwenCredentials();
   settings.setValue(authTypeScope, 'security.auth.selectedType', undefined);
   writeStdoutLine(
@@ -316,6 +347,51 @@ async function handleQwenOAuth(
   } catch (error) {
     writeStderrLine(
       t('Failed to authenticate with Qwen OAuth: {{error}}', {
+        error: getErrorMessage(error),
+      }),
+    );
+    process.exit(1);
+  }
+}
+
+/**
+ * OpenAI Codex (ChatGPT) device login — compatible with the official Codex CLI auth service.
+ */
+async function handleCodexOpenAiOAuth(
+  config: Config,
+  settings: LoadedSettings,
+): Promise<void> {
+  writeStdoutLine(t('Starting OpenAI Codex (ChatGPT) sign-in...'));
+
+  try {
+    const noBrowser = !!process.env['NO_BROWSER'];
+    await runCodexOpenAiDeviceCodeLogin({
+      openBrowser: !noBrowser,
+      onStatus: (line: string) => writeStdoutLine(line),
+    });
+
+    const authTypeScope = getPersistScopeForModelSelection(settings);
+    const settingsFile = settings.forScope(authTypeScope);
+    backupSettingsFile(settingsFile.path);
+
+    settings.setValue(
+      authTypeScope,
+      'security.auth.selectedType',
+      AuthType.OPENAI_CODEX,
+    );
+    settings.setValue(authTypeScope, 'model.name', DEFAULT_OPENAI_CODEX_MODEL);
+
+    await config.refreshAuth(AuthType.OPENAI_CODEX, true);
+
+    writeStdoutLine(
+      t(
+        'Successfully signed in with ChatGPT. Accounts: ~/.qwen/codex_openai_accounts.json (active session mirrored to codex_openai_auth.json).',
+      ),
+    );
+    process.exit(0);
+  } catch (error) {
+    writeStderrLine(
+      t('OpenAI Codex sign-in failed: {{error}}', {
         error: getErrorMessage(error),
       }),
     );
@@ -787,6 +863,102 @@ async function handleOAuthAccounts(
   }
 }
 
+async function handleCodexAccounts(
+  settings: LoadedSettings,
+  cmd: CodexAccountCommand,
+): Promise<void> {
+  const scope = getPersistScopeForModelSelection(settings);
+
+  if (cmd.op === 'list') {
+    const store = await loadCodexOpenAiAccountStore();
+    const activeId = await getActiveCodexOpenAiAccountId();
+    if (!store.accounts.length) {
+      writeStdoutLine(t('No ChatGPT (Codex) accounts stored.'));
+      writeStdoutLine(t('Run `qwen auth codex-openai` to add a session.'));
+      return;
+    }
+    writeStdoutLine(
+      t('ChatGPT / Codex accounts (active is mirrored for API calls):\n'),
+    );
+    for (const a of store.accounts) {
+      const active = a.id === activeId;
+      const mark = active ? t(' (active)') : '';
+      const email = decodeCodexJwtEmail(a.credentials.id_token);
+      const label = email
+        ? `${a.id} — ${email}`
+        : a.label
+          ? `${a.id} — ${a.label}`
+          : a.id;
+      writeStdoutLine(
+        t('  • {{label}}{{mark}}  access: {{masked}}', {
+          label,
+          mark,
+          masked: maskOAuthAccessToken(a.credentials.access_token),
+        }),
+      );
+    }
+    writeStdoutLine(
+      t('\nSwitch account: `qwen auth codex-account use <id>`\n'),
+    );
+    return;
+  }
+
+  if (cmd.op === 'use') {
+    const ok = await setActiveCodexOpenAiAccount(cmd.id);
+    if (!ok) {
+      writeStderrLine(
+        t(
+          'Unknown Codex account id "{{id}}". Run `qwen auth codex-account list`.',
+          { id: cmd.id },
+        ),
+      );
+      process.exit(1);
+    }
+    const settingsFile = settings.forScope(scope);
+    backupSettingsFile(settingsFile.path);
+    settings.setValue(
+      scope,
+      'security.auth.selectedType',
+      AuthType.OPENAI_CODEX,
+    );
+    writeStdoutLine(
+      t(
+        'Active ChatGPT (Codex) account set to "{{id}}". Restart or run /model if the session was already open.',
+        { id: cmd.id },
+      ),
+    );
+    return;
+  }
+
+  const removed = await removeCodexOpenAiAccount(cmd.id);
+  if (!removed) {
+    writeStderrLine(
+      t(
+        'Unknown Codex account id "{{id}}". Run `qwen auth codex-account list`.',
+        { id: cmd.id },
+      ),
+    );
+    process.exit(1);
+  }
+  const remaining = await loadCodexOpenAiAccountStore();
+  if (remaining.accounts.length === 0) {
+    const settingsFile = settings.forScope(scope);
+    backupSettingsFile(settingsFile.path);
+    settings.setValue(scope, 'security.auth.selectedType', undefined);
+    writeStdoutLine(
+      t('Removed Codex account "{{id}}". No accounts left; signed out.', {
+        id: cmd.id,
+      }),
+    );
+  } else {
+    writeStdoutLine(
+      t('Removed Codex account "{{id}}". Active credentials updated.', {
+        id: cmd.id,
+      }),
+    );
+  }
+}
+
 /**
  * Runs the interactive authentication flow
  */
@@ -803,6 +975,13 @@ export async function runInteractiveAuth() {
         label: t('Google · Vertex AI Gemini (OAuth)'),
         description: t(
           'Uses your Google account · Requires GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION',
+        ),
+      },
+      {
+        value: 'codex-openai' as const,
+        label: t('OpenAI Codex (ChatGPT OAuth)'),
+        description: t(
+          'Same device login as the Codex CLI · Uses api.openai.com with your ChatGPT subscription',
         ),
       },
       {
@@ -831,6 +1010,8 @@ export async function runInteractiveAuth() {
     await handleQwenAuth('logout', {});
   } else if (choice === 'google-vertex-oauth') {
     await handleGoogleVertexOAuthAuth('login');
+  } else if (choice === 'codex-openai') {
+    await handleQwenAuth('codex-openai', {});
   } else {
     await handleQwenAuth('qwen-oauth', {});
   }
@@ -859,6 +1040,11 @@ export async function showAuthStatus(): Promise<void> {
       );
       writeStdoutLine(
         t(
+          '  qwen auth codex-openai   - Sign in with ChatGPT (OpenAI Codex device flow)',
+        ),
+      );
+      writeStdoutLine(
+        t(
           '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
         ),
       );
@@ -870,6 +1056,11 @@ export async function showAuthStatus(): Promise<void> {
       writeStdoutLine(
         t(
           '  qwen auth oauth-account list - List / switch Qwen OAuth accounts (multi-login)\n',
+        ),
+      );
+      writeStdoutLine(
+        t(
+          '  qwen auth codex-account list - List / switch ChatGPT (Codex) sessions\n',
         ),
       );
       writeStdoutLine(
@@ -908,6 +1099,54 @@ export async function showAuthStatus(): Promise<void> {
         }
       } catch {
         writeStdoutLine('');
+      }
+    } else if (selectedType === AuthType.OPENAI_CODEX) {
+      writeStdoutLine(
+        t('✓ Authentication Method: OpenAI Codex (ChatGPT OAuth)'),
+      );
+      const store = await loadCodexOpenAiAccountStore();
+      const activeId = await getActiveCodexOpenAiAccountId();
+      if (store.accounts.length > 0) {
+        writeStdoutLine(
+          t('  Stored sessions: {{count}} (active: {{activeId}})', {
+            count: String(store.accounts.length),
+            activeId: activeId ?? store.accounts[0]?.id ?? '—',
+          }),
+        );
+        for (const a of store.accounts) {
+          const mark = a.id === activeId ? t(' (active)') : '';
+          const email = decodeCodexJwtEmail(a.credentials.id_token);
+          const line = email
+            ? `${a.id} — ${email}`
+            : a.label
+              ? `${a.id} — ${a.label}`
+              : a.id;
+          writeStdoutLine(t('    • {{line}}{{mark}}', { line, mark }));
+        }
+        writeStdoutLine(
+          t(
+            '  Models: gpt-5.1-codex, gpt-5.1-codex-max · use /model to switch model or account',
+          ),
+        );
+        writeStdoutLine(
+          t('  Files: ~/.qwen/codex_openai_accounts.json (+ active mirror)\n'),
+        );
+      } else if (await loadCodexOpenAiCredentials()) {
+        const creds = await loadCodexOpenAiCredentials();
+        const email = creds ? decodeCodexJwtEmail(creds.id_token) : undefined;
+        writeStdoutLine(t('  Session: legacy single-file credential'));
+        if (email) {
+          writeStdoutLine(t('  Account email: {{email}}', { email }));
+        }
+        writeStdoutLine(
+          t('  Models: gpt-5.1-codex, gpt-5.1-codex-max (api.openai.com)\n'),
+        );
+      } else {
+        writeStdoutLine(
+          t(
+            '  ⚠️  No local session found. Run `qwen auth codex-openai` to sign in.\n',
+          ),
+        );
       }
     } else if (selectedType === AuthType.GEMINI_VERTEX_OAUTH) {
       writeStdoutLine(

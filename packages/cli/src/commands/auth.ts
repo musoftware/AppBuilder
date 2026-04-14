@@ -24,6 +24,16 @@ const qwenOauthCommand = {
   },
 };
 
+const codexOpenAiCommand = {
+  command: 'codex-openai',
+  describe: t(
+    'Sign in with ChatGPT using the OpenAI Codex device flow (same as the official Codex CLI)',
+  ),
+  handler: async () => {
+    await handleQwenAuth('codex-openai', {});
+  },
+};
+
 const codePlanCommand = {
   command: 'coding-plan',
   describe: t('Authenticate using Alibaba Cloud Coding Plan'),
@@ -256,6 +266,7 @@ export const authCommand: CommandModule = {
   builder: (yargs: Argv) =>
     yargs
       .command(qwenOauthCommand)
+      .command(codexOpenAiCommand)
       .command(googleVertexOauthCommand)
       .command(codePlanCommand)
       .command(statusCommand)

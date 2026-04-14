@@ -5,6 +5,7 @@
  */
 
 import { DEFAULT_QWEN_MODEL, MAINLINE_CODER_MODEL } from '../config/models.js';
+import { DEFAULT_OPENAI_BASE_URL } from '../core/openaiContentGenerator/constants.js';
 
 import type { ModelConfig } from './types.js';
 
@@ -67,6 +68,11 @@ export const AUTH_ENV_MAPPINGS = {
     baseUrl: ['OPENAI_BASE_URL'],
     model: ['OPENAI_MODEL', 'QWEN_MODEL'],
   },
+  'openai-codex': {
+    apiKey: [],
+    baseUrl: [],
+    model: [],
+  },
   anthropic: {
     apiKey: ['ANTHROPIC_API_KEY'],
     baseUrl: ['ANTHROPIC_BASE_URL'],
@@ -97,8 +103,12 @@ export const AUTH_ENV_MAPPINGS = {
 /** Default Gemini model when using Vertex with user OAuth. */
 export const DEFAULT_GEMINI_VERTEX_OAUTH_MODEL = 'gemini-2.5-flash';
 
+/** Default model when using ChatGPT / Codex OAuth against api.openai.com. */
+export const DEFAULT_OPENAI_CODEX_MODEL = 'gpt-5.1-codex';
+
 export const DEFAULT_MODELS = {
   openai: MAINLINE_CODER_MODEL,
+  'openai-codex': DEFAULT_OPENAI_CODEX_MODEL,
   'qwen-oauth': DEFAULT_QWEN_MODEL,
   'gemini-vertex-oauth': DEFAULT_GEMINI_VERTEX_OAUTH_MODEL,
 } as Partial<Record<AuthType, string>>;
@@ -107,6 +117,30 @@ export const DEFAULT_MODELS = {
  * Hard-coded Qwen OAuth models that are always available.
  * These cannot be overridden by user configuration.
  */
+/**
+ * Curated OpenAI Codex models (ChatGPT OAuth). Same IDs as the Codex CLI catalog.
+ */
+export const OPENAI_CODEX_MODELS: ModelConfig[] = [
+  {
+    id: 'gpt-5.1-codex',
+    name: 'GPT-5.1 Codex',
+    description: 'OpenAI Codex model for coding (ChatGPT subscription)',
+    capabilities: { vision: true },
+    baseUrl: DEFAULT_OPENAI_BASE_URL,
+  },
+  {
+    id: 'gpt-5.1-codex-max',
+    name: 'GPT-5.1 Codex Max',
+    description: 'Higher-capacity Codex variant when available on your account',
+    capabilities: { vision: true },
+    baseUrl: DEFAULT_OPENAI_BASE_URL,
+  },
+];
+
+export const OPENAI_CODEX_ALLOWED_MODELS = OPENAI_CODEX_MODELS.map(
+  (model) => model.id,
+) as readonly string[];
+
 export const QWEN_OAUTH_MODELS: ModelConfig[] = [
   {
     id: 'coder-model',

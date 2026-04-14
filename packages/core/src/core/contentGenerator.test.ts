@@ -9,6 +9,7 @@ import {
   createContentGenerator,
   createContentGeneratorConfig,
   AuthType,
+  validateModelConfig,
 } from './contentGenerator.js';
 import { GoogleGenAI } from '@google/genai';
 import type { Config } from '../config/config.js';
@@ -109,5 +110,14 @@ describe('createContentGeneratorConfig', () => {
     expect(cfg.apiKey).toBeUndefined();
     expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+
+  it('should treat OPENAI_CODEX as valid without a static apiKey', () => {
+    const result = validateModelConfig({
+      authType: AuthType.OPENAI_CODEX,
+      model: 'gpt-5.1-codex',
+    });
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 });

@@ -40,10 +40,13 @@ import {
   AUTH_ENV_MAPPINGS,
   DEFAULT_GEMINI_VERTEX_OAUTH_MODEL,
   DEFAULT_MODELS,
+  DEFAULT_OPENAI_CODEX_MODEL,
   GEMINI_VERTEX_OAUTH_ALLOWED_MODELS,
+  OPENAI_CODEX_ALLOWED_MODELS,
   QWEN_OAUTH_ALLOWED_MODELS,
   MODEL_GENERATION_CONFIG_FIELDS,
 } from './constants.js';
+import { DEFAULT_OPENAI_BASE_URL } from '../core/openaiContentGenerator/constants.js';
 import type { ModelConfig as ModelProviderConfig } from './types.js';
 export {
   validateModelConfig,
@@ -152,6 +155,10 @@ export function resolveModelConfig(
   // Special handling for Qwen OAuth
   if (authType === AuthType.QWEN_OAUTH) {
     return resolveQwenOAuthConfig(input, warnings);
+  }
+
+  if (authType === AuthType.OPENAI_CODEX) {
+    return resolveOpenAiCodexConfig(input, warnings);
   }
 
   if (authType === AuthType.GEMINI_VERTEX_OAUTH) {
@@ -434,6 +441,67 @@ function resolveGeminiVertexOAuthConfig(
  * Special resolver for Qwen OAuth authentication.
  * Qwen OAuth has fixed model options and uses dynamic tokens.
  */
+/**
+ * OpenAI Codex (ChatGPT OAuth): fixed catalog, dynamic bearer from stored session.
+ */
+function resolveOpenAiCodexConfig(
+  input: ModelConfigSourcesInput,
+  warnings: string[],
+): ModelConfigResolutionResult {
+  const { cli, settings, proxy, modelProvider } = input;
+  const sources: ConfigSources = {};
+
+  const allowedModels = new Set<string>(OPENAI_CODEX_ALLOWED_MODELS);
+  const requestedModel = cli?.model || settings?.model;
+  let resolvedModel: string;
+  let modelSource: ConfigSource;
+
+  if (requestedModel && allowedModels.has(requestedModel)) {
+    resolvedModel = requestedModel;
+    modelSource = cli?.model
+      ? cliSource('--model')
+      : settingsSource('model.name');
+  } else {
+    if (requestedModel) {
+      warnings.push(
+        `Warning: Unsupported openai-codex model '${requestedModel}', falling back to '${DEFAULT_OPENAI_CODEX_MODEL}'.`,
+      );
+    }
+    resolvedModel = DEFAULT_OPENAI_CODEX_MODEL;
+    modelSource = defaultSource(`fallback to '${DEFAULT_OPENAI_CODEX_MODEL}'`);
+  }
+
+  sources['model'] = modelSource;
+  sources['apiKey'] = computedSource(
+    'OpenAI Codex ChatGPT OAuth dynamic token',
+  );
+  sources['baseUrl'] = computedSource('OpenAI Codex default API base');
+  sources['authType'] = computedSource('provided by caller');
+
+  if (proxy) {
+    sources['proxy'] = computedSource('Config.getProxy()');
+  }
+
+  const generationConfig = resolveGenerationConfig(
+    settings?.generationConfig,
+    modelProvider?.generationConfig,
+    AuthType.OPENAI_CODEX,
+    resolvedModel,
+    sources,
+  );
+
+  const config: ContentGeneratorConfig = {
+    authType: AuthType.OPENAI_CODEX,
+    model: resolvedModel,
+    apiKey: 'OPENAI_CODEX_DYNAMIC_TOKEN',
+    baseUrl: DEFAULT_OPENAI_BASE_URL,
+    proxy,
+    ...generationConfig,
+  };
+
+  return { config, sources, warnings };
+}
+
 function resolveQwenOAuthConfig(
   input: ModelConfigSourcesInput,
   warnings: string[],
