@@ -74,7 +74,7 @@ import { useVimMode } from './contexts/VimModeContext.js';
 import { CompactModeProvider } from './contexts/CompactModeContext.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { calculatePromptWidths } from './components/InputPrompt.js';
-import { useStdin, useStdout } from 'ink';
+import { useApp, useStdin, useStdout } from 'ink';
 import ansiEscapes from 'ansi-escapes';
 import * as fs from 'node:fs';
 import { basename } from 'node:path';
@@ -101,6 +101,22 @@ import { migrateTomlCommands } from '../services/command-migration-tool.js';
 import { type UpdateObject } from './utils/updateCheck.js';
 import { setUpdateHandler } from '../utils/handleAutoUpdate.js';
 import { registerCleanup, runExitCleanup } from '../utils/cleanup.js';
+import {
+  AutopilotDriver,
+  getReadyProductionRounds,
+  mergeAutopilotPartialSettings,
+  messageMatchesGoTrigger,
+  summarizeAutopilotQueue,
+} from '@qwen-code/autopilot';
+import type {
+  AutopilotInteractiveMode,
+  AutopilotRequestOptions,
+} from './commands/types.js';
+import { buildProjectHardeningQueue } from './projectHardeningQueue.js';
+import { resolvePhasePickFromQueue } from './utils/resolvePhasePickFromQueue.js';
+import { setEnqueueFunction } from './commands/queueCommand.js';
+import { createAutopilotModelAdapters } from '../autopilot/autopilotToolLoop.js';
+import { resolvePath } from '../utils/resolvePath.js';
 import { useMessageQueue } from './hooks/useMessageQueue.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useSessionStats } from './contexts/SessionContext.js';
@@ -151,6 +167,28 @@ interface AppContainerProps {
   startupWarnings?: string[];
   version: string;
   initializationResult: InitializationResult;
+  /** From `mu-pilot --brainstorm`: same UI as `--prod`; starts brainstorm → plan → task queue when ready. */
+  startupBrainstorm?: boolean;
+  /** Seed idea from `mu-pilot --brainstorm "…"` (optional). */
+  startupBrainstormInitialIdea?: string;
+  /** From `mu-pilot --brainstorm --brownfield`: force brownfield planning. */
+  startupBrainstormBrownfield?: boolean;
+  /** From `mu-pilot --idea`: skips brainstorm Q&A, goes straight to plan + execute. */
+  startupIdea?: string;
+  /** From `mu-pilot --quality-check`: same UI; starts quality-check autopilot when ready (no slash). */
+  startupQualityCheck?: boolean;
+  /** From `mu-pilot --prod`: same UI; starts stack-detected prod autopilot when ready. */
+  startupProd?: boolean;
+  /** From `mu-pilot --prod-ready`: same UI; starts prod-ready autopilot when ready (no slash). */
+  startupProdReady?: boolean;
+  /** From `mu-pilot --full-chain`: same UI; starts full-chain autopilot when ready (no slash). */
+  startupFullChain?: boolean;
+  /** From `mu-pilot --frontend-audit`: same UI; starts frontend-audit autopilot when ready (no slash). */
+  startupFrontendAudit?: boolean;
+  /** From `mu-pilot --ready-production`: starts ready-production autopilot when ready (no slash). */
+  startupReadyProduction?: boolean;
+  /** From `mu-pilot --skill <name>`: starts that project-brain skill when ready (no slash). */
+  startupBrainSkill?: string;
 }
 
 /**
@@ -166,7 +204,22 @@ const SHELL_WIDTH_FRACTION = 0.89;
 const SHELL_HEIGHT_PADDING = 10;
 
 export const AppContainer = (props: AppContainerProps) => {
-  const { settings, config, initializationResult } = props;
+  const {
+    settings,
+    config,
+    initializationResult,
+    startupBrainstorm,
+    startupBrainstormInitialIdea,
+    startupBrainstormBrownfield,
+    startupIdea,
+    startupQualityCheck,
+    startupProd,
+    startupProdReady,
+    startupFullChain,
+    startupFrontendAudit,
+    startupReadyProduction,
+    startupBrainSkill,
+  } = props;
   const historyManager = useHistory();
   useMemoryMonitor(historyManager);
   const [debugMessage, setDebugMessage] = useState<string>('');
@@ -284,6 +337,14 @@ export const AppContainer = (props: AppContainerProps) => {
   const { columns: terminalWidth, rows: terminalHeight } = useTerminalSize();
   const { stdin, setRawMode } = useStdin();
   const { stdout } = useStdout();
+  useApp();
+  const autopilotHandlerRef = useRef<
+    (
+      idea?: string,
+      mode?: AutopilotInteractiveMode,
+      options?: AutopilotRequestOptions,
+    ) => void
+  >(() => {});
 
   // Additional hooks moved from App.tsx
   const { stats: sessionStats, startNewSession } = useSessionStats();
@@ -471,6 +532,7 @@ export const AppContainer = (props: AppContainerProps) => {
     handleAuthSelect,
     handleCodingPlanSubmit,
     handleAlibabaStandardSubmit,
+    handleQwenOAuthLogout,
     openAuthDialog,
     cancelAuthentication,
   } = useAuthCommand(settings, config, historyManager.addItem, refreshStatic);
@@ -715,6 +777,8 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const cancelHandlerRef = useRef<() => void>(() => {});
   const midTurnDrainRef = useRef<(() => string[]) | null>(null);
+  /** CLI `--brainstorm`: planned tasks wait for a go-trigger before YOLO drain. */
+  const pendingBrainstormAutopilotQueueRef = useRef<string[] | null>(null);
 
   const {
     streamingState,
@@ -727,6 +791,8 @@ export const AppContainer = (props: AppContainerProps) => {
     handleApprovalModeChange,
     activePtyId,
     loopDetectionConfirmationRequest,
+    setAutopilotQueue,
+    appendAutopilotQueue,
   } = useGeminiStream(
     config.getGeminiClient(),
     historyManager.history,
@@ -747,7 +813,550 @@ export const AppContainer = (props: AppContainerProps) => {
     terminalWidth,
     terminalHeight,
     midTurnDrainRef,
+    autopilotHandlerRef,
   );
+
+  // Autopilot: runs planning internally, then submits task messages through the
+  // normal chat pipeline so the user never leaves the interactive UI.
+  const handleAutopilotRequest = useCallback(
+    (
+      idea?: string,
+      mode?: AutopilotInteractiveMode,
+      options?: AutopilotRequestOptions,
+    ) => {
+      void (async () => {
+        const ap = settings.merged.autopilot;
+        const driver = new AutopilotDriver({
+          skillsPath: ap?.skillsPath ? resolvePath(ap.skillsPath) : undefined,
+          extraSkillsPaths:
+            ap?.extraSkillsPaths && ap.extraSkillsPaths.length > 0
+              ? ap.extraSkillsPaths.map((p) => resolvePath(p))
+              : undefined,
+          maxTaskRetries: ap?.maxTaskRetries,
+          planPreviewSeconds: ap?.planPreviewSeconds,
+          goTriggers:
+            ap?.goTriggers && ap.goTriggers.length > 0
+              ? ap.goTriggers
+              : undefined,
+        });
+        const resolvedSkillsPath = ap?.skillsPath
+          ? resolvePath(ap.skillsPath)
+          : undefined;
+
+        const phasePick = options?.phasePick;
+        if (phasePick) {
+          const sel =
+            phasePick.phaseNames && phasePick.phaseNames.length > 0
+              ? `names ${phasePick.phaseNames.map((n) => `\`${n}\``).join(', ')}`
+              : `indices ${phasePick.start}${
+                  phasePick.end && phasePick.end !== phasePick.start
+                    ? `–${phasePick.end}`
+                    : ''
+                }`;
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Autopilot phase slice: building full \`${phasePick.pipeline}\` queue, then keeping ${sel}…`,
+            },
+            Date.now(),
+          );
+          try {
+            let full: string[] = [];
+            switch (phasePick.pipeline) {
+              case 'quality-check':
+                full = [await driver.qualityCheck()];
+                break;
+              case 'prod':
+                full = driver.prod(process.cwd(), {
+                  useWorkspaceOrchestrator:
+                    process.env['QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR'] === '1',
+                });
+                break;
+              case 'prod-ready':
+                full = await driver.prodReady(phasePick.pipelineFocus);
+                break;
+              case 'full-chain': {
+                const plan = await driver.fullChain(process.cwd());
+                full = plan.phases;
+                break;
+              }
+              case 'frontend-audit':
+                full = await driver.frontendAudit();
+                break;
+              case 'ready-production':
+                full = await driver.buildReadyProductionQueue(process.cwd());
+                break;
+              case 'project-hardening': {
+                full = await buildProjectHardeningQueue(
+                  phasePick.pipelineFocus,
+                  settings,
+                );
+                break;
+              }
+              default: {
+                const _exhaustive: never = phasePick.pipeline;
+                throw new Error(`Unhandled pipeline: ${_exhaustive}`);
+              }
+            }
+            const sliced = resolvePhasePickFromQueue(phasePick, full);
+            if (!sliced.ok) {
+              historyManager.addItem(
+                { type: MessageType.ERROR, text: sliced.error },
+                Date.now(),
+              );
+              return;
+            }
+            const pre = summarizeAutopilotQueue(sliced.messages);
+            const selDone =
+              phasePick.phaseNames && phasePick.phaseNames.length > 0
+                ? phasePick.phaseNames.map((n) => `\`${n}\``).join(', ')
+                : `${phasePick.start}${
+                    phasePick.end && phasePick.end !== phasePick.start
+                      ? `–${phasePick.end}`
+                      : ''
+                  }`;
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Queued ${sliced.messages.length} message(s) (\`${phasePick.pipeline}\` → ${selDone} of ${full.length} total).${
+                  pre.labeledPhaseMarkers > 0
+                    ? ` ~${pre.labeledPhaseMarkers} with PHASE x/y markers.`
+                    : ''
+                } Approval mode set to YOLO until the queue drains.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(sliced.messages);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Autopilot phase slice failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Phase slice failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'quality-check') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Autopilot: Starting quality check…',
+            },
+            Date.now(),
+          );
+          try {
+            const qcMessage = await driver.qualityCheck();
+            setAutopilotQueue([qcMessage]);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Autopilot quality check failed:', msg);
+            historyManager.addItem(
+              { type: MessageType.ERROR, text: `Quality check failed: ${msg}` },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'prod') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Production: queuing phased runs (understand → … → final gate → GIT TOOL: commit/branch/merge via shell). Interactive `/prod` ignores workspace smart-orchestrator unless QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR=1. Set QWEN_PROD_SKIP_GIT_TOOL=1 to drop the closing git step.',
+            },
+            Date.now(),
+          );
+          try {
+            const phases = driver.prod(process.cwd(), {
+              useWorkspaceOrchestrator:
+                process.env['QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR'] === '1',
+            });
+            const pre = summarizeAutopilotQueue(phases);
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Production: ${pre.messageCount} queued message(s)${pre.labeledPhaseMarkers > 0 ? ` (~${pre.labeledPhaseMarkers} with PHASE x/y markers)` : ''}. Approval mode set to YOLO until the queue drains. Env: QWEN_AUTOPILOT_QUEUE_LOG (JSONL path), QWEN_AUTOPILOT_STOP_QUEUE_ON_ERROR=0 to keep draining after API errors, QWEN_PROJECT_BRAIN_DIR (safe relative brain folder, default .project-brain). Phases run when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Production (stack-detected) failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Production pipeline failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'prod-ready') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Production readiness: queuing 7 phases (Analyst → Builder → Completer → Test Writer → Test Analyzer → Fixer → Prod Check)…',
+            },
+            Date.now(),
+          );
+          try {
+            const phases = await driver.prodReady(idea);
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Production readiness: ${phases.length} phase(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Production readiness failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Production readiness failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'skill') {
+          const skillName = idea?.trim() ?? '';
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Autopilot: Starting skill workflow \`${skillName || '(unknown)'}\`…`,
+            },
+            Date.now(),
+          );
+          try {
+            const skillMessage = await driver.skillWorkflow(
+              skillName,
+              resolvedSkillsPath,
+            );
+            setAutopilotQueue([skillMessage]);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Autopilot skill workflow failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Skill workflow failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'project-hardening') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Project hardening: queuing 9 phases (3 understand → 3 fix/gaps → 3 quality)…',
+            },
+            Date.now(),
+          );
+          try {
+            const messages = await buildProjectHardeningQueue(idea, settings);
+            if (messages.length === 0) {
+              historyManager.addItem(
+                {
+                  type: MessageType.ERROR,
+                  text: 'Project hardening: no phases loaded (missing skills under .qwen/skills or autopilot paths).',
+                },
+                Date.now(),
+              );
+              return;
+            }
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Project hardening: ${messages.length} phase(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(messages);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Project hardening failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Project hardening failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'full-chain') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Full chain: queuing 10 phases (understand → document → audit → plan → build → complete → test → analyze → fix → production gate)…',
+            },
+            Date.now(),
+          );
+          try {
+            const workspaceRoot = process.cwd();
+            const plan = await driver.fullChain(workspaceRoot);
+            const cacheNote =
+              plan.cacheMode === 'hit'
+                ? ' (Phase 0 from .ai-docs/.chain-cache.json — full scan skipped)'
+                : plan.cacheMode === 'delta'
+                  ? ' (Phase 0 — delta scan vs last cached commit)'
+                  : '';
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Full chain: ${plan.phases.length} phase(s) queued — they will run automatically when idle.${cacheNote}`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(plan.phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Full chain failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Full chain failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'frontend-audit') {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Frontend audit: queuing 4 phases (map roles/screens → fix wiring → write feature tests → run & analyze)…',
+            },
+            Date.now(),
+          );
+          try {
+            const phases = await driver.frontendAudit();
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Frontend audit: ${phases.length} phase(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Frontend audit failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Frontend audit failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'ready-production') {
+          const rounds = getReadyProductionRounds();
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Ready-production: queuing ${rounds} round(s) × (full-chain → frontend-audit → quality-check) — they will run automatically when idle. Headless runs can stop early when gates look green (see QWEN_READY_PRODUCTION_* env vars).`,
+            },
+            Date.now(),
+          );
+          try {
+            const messages = await driver.buildReadyProductionQueue(
+              process.cwd(),
+            );
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Ready-production: ${messages.length} message(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(messages);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Ready-production failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Ready-production failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'brain-skill') {
+          const skillName = idea?.trim() ?? '';
+          if (!skillName) {
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: 'Usage: /skill <name> — example: /skill audit-frontend',
+              },
+              Date.now(),
+            );
+            return;
+          }
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Project-brain skill: queuing \`${skillName}\`…`,
+            },
+            Date.now(),
+          );
+          try {
+            const phases = driver.runSkill(skillName, process.cwd());
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Project-brain skill: ${phases.length} message(s) queued — they will run automatically when idle.`,
+              },
+              Date.now(),
+            );
+            setAutopilotQueue(phases);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Project-brain skill failed:', msg);
+            historyManager.addItem(
+              {
+                type: MessageType.ERROR,
+                text: `Project-brain skill failed: ${msg}`,
+              },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        if (mode === 'design') {
+          const designName = idea?.trim() ?? '';
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: `Design: Downloading \`${designName}\` DESIGN.md and planning tasks…`,
+            },
+            Date.now(),
+          );
+          try {
+            const { callModel } = createAutopilotModelAdapters(config);
+            const { taskMessages, planSummary } = await driver.designPlan(
+              callModel,
+              designName,
+            );
+            historyManager.addItem(
+              { type: MessageType.INFO, text: planSummary },
+              Date.now(),
+            );
+            setAutopilotQueue(taskMessages);
+          } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            debugLogger.error('Design autopilot failed:', msg);
+            historyManager.addItem(
+              { type: MessageType.ERROR, text: `Design failed: ${msg}` },
+              Date.now(),
+            );
+          }
+          return;
+        }
+
+        historyManager.addItem(
+          {
+            type: MessageType.INFO,
+            text:
+              options?.ideaDirectBuild && idea
+                ? `Idea → Build: Extracting spec from "${idea.slice(0, 80)}${idea.length > 80 ? '…' : ''}" and starting autonomous execution…`
+                : options?.brainstormAutoPlan
+                  ? `Autopilot: Planning from your request${idea ? ` (${idea.slice(0, 80)}${idea.length > 80 ? '…' : ''})` : ''}…`
+                  : `Autopilot: Planning tasks${idea ? ` for "${idea}"` : ''}…`,
+          },
+          Date.now(),
+        );
+        try {
+          const { callModel } = createAutopilotModelAdapters(config);
+          const { taskMessages, planSummary } = await driver.plan(
+            callModel,
+            idea,
+            options?.brainstormForceMode,
+            resolvedSkillsPath,
+            options?.brainstormAutoPlan || options?.ideaDirectBuild
+              ? { skipBrainstormChat: true }
+              : undefined,
+          );
+
+          historyManager.addItem(
+            { type: MessageType.INFO, text: planSummary },
+            Date.now(),
+          );
+          if (options?.brainstormDeferTasksUntilGo && taskMessages.length > 0) {
+            pendingBrainstormAutopilotQueueRef.current = taskMessages;
+            const triggers = mergeAutopilotPartialSettings({
+              goTriggers: ap?.goTriggers,
+            }).goTriggers;
+            const triggerHint = triggers
+              .slice(0, 4)
+              .map((t) => `\`${t}\``)
+              .join(', ');
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text:
+                  `Autopilot: ${taskMessages.length} task(s) planned — not started yet. ` +
+                  `Chat to refine, or send a go trigger (${triggerHint}, … — settings: autopilot goTriggers) to run the queue (YOLO until it finishes).`,
+              },
+              Date.now(),
+            );
+          } else {
+            pendingBrainstormAutopilotQueueRef.current = null;
+            setAutopilotQueue(taskMessages);
+          }
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : String(error);
+          debugLogger.error('Autopilot planning failed:', msg);
+          pendingBrainstormAutopilotQueueRef.current = null;
+          historyManager.addItem(
+            {
+              type: MessageType.ERROR,
+              text: `Autopilot planning failed: ${msg}`,
+            },
+            Date.now(),
+          );
+        }
+      })();
+    },
+    [config, settings, historyManager, setAutopilotQueue],
+  );
+  autopilotHandlerRef.current = handleAutopilotRequest;
+
+  // Set up the /queue command's enqueue function
+  // This creates a wrapper that appends to the existing autopilot queue
+  useEffect(() => {
+    setEnqueueFunction((messages: string[]) => {
+      appendAutopilotQueue(messages);
+    });
+  }, [appendAutopilotQueue]);
 
   // Contextual tips — show tips based on context usage after model responses
   // Defer TipHistory loading when tips are disabled to avoid side effects
@@ -968,6 +1577,8 @@ export const AppContainer = (props: AppContainerProps) => {
       config,
       geminiClient,
       historyManager,
+      settings.merged.autopilot?.goTriggers,
+      setAutopilotQueue,
     ],
   );
 
@@ -1097,6 +1708,15 @@ export const AppContainer = (props: AppContainerProps) => {
   // Initial prompt handling
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const initialPromptSubmitted = useRef(false);
+  const startupBrainstormSubmitted = useRef(false);
+  const startupIdeaSubmitted = useRef(false);
+  const startupQualityCheckSubmitted = useRef(false);
+  const startupProdSubmitted = useRef(false);
+  const startupProdReadySubmitted = useRef(false);
+  const startupFullChainSubmitted = useRef(false);
+  const startupFrontendAuditSubmitted = useRef(false);
+  const startupReadyProductionSubmitted = useRef(false);
+  const startupBrainSkillSubmitted = useRef(false);
 
   useEffect(() => {
     if (activePtyId) {
@@ -1128,6 +1748,309 @@ export const AppContainer = (props: AppContainerProps) => {
     initialPrompt,
     isConfigInitialized,
     handleFinalSubmit,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupBrainstorm ||
+      !isConfigInitialized ||
+      startupBrainstormSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupBrainstormSubmitted.current = true;
+    const seed = startupBrainstormInitialIdea?.trim();
+    handleAutopilotRequest(seed || undefined, undefined, {
+      brainstormAutoPlan: true,
+      brainstormDeferTasksUntilGo: true,
+      ...(startupBrainstormBrownfield
+        ? { brainstormForceMode: 'brownfield' as const }
+        : {}),
+    });
+  }, [
+    startupBrainstorm,
+    startupBrainstormInitialIdea,
+    startupBrainstormBrownfield,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  // --idea: direct build from simple text, skips brainstorm Q&A
+  useEffect(() => {
+    if (
+      !startupIdea ||
+      !startupIdea.trim() ||
+      !isConfigInitialized ||
+      startupIdeaSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupIdeaSubmitted.current = true;
+    // Skip brainstorm Q&A, go straight to planning + execution
+    handleAutopilotRequest(startupIdea.trim(), undefined, {
+      ideaDirectBuild: true,
+    });
+  }, [
+    startupIdea,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupQualityCheck ||
+      !isConfigInitialized ||
+      startupQualityCheckSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupQualityCheckSubmitted.current = true;
+    handleAutopilotRequest(undefined, 'quality-check');
+  }, [
+    startupQualityCheck,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupProd ||
+      !isConfigInitialized ||
+      startupProdSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupProdSubmitted.current = true;
+    handleAutopilotRequest(undefined, 'prod');
+  }, [
+    startupProd,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupProdReady ||
+      !isConfigInitialized ||
+      startupProdReadySubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupProdReadySubmitted.current = true;
+    handleAutopilotRequest(undefined, 'prod-ready');
+  }, [
+    startupProdReady,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupFullChain ||
+      !isConfigInitialized ||
+      startupFullChainSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupFullChainSubmitted.current = true;
+    handleAutopilotRequest(undefined, 'full-chain');
+  }, [
+    startupFullChain,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupFrontendAudit ||
+      !isConfigInitialized ||
+      startupFrontendAuditSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupFrontendAuditSubmitted.current = true;
+    handleAutopilotRequest(undefined, 'frontend-audit');
+  }, [
+    startupFrontendAudit,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startupReadyProduction ||
+      !isConfigInitialized ||
+      startupReadyProductionSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupReadyProductionSubmitted.current = true;
+    handleAutopilotRequest(undefined, 'ready-production');
+  }, [
+    startupReadyProduction,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
+    isAuthenticating,
+    isAuthDialogOpen,
+    isThemeDialogOpen,
+    isEditorDialogOpen,
+    showWelcomeBackDialog,
+    welcomeBackChoice,
+    geminiClient,
+  ]);
+
+  useEffect(() => {
+    const name = startupBrainSkill?.trim() ?? '';
+    if (
+      !name ||
+      !isConfigInitialized ||
+      startupBrainSkillSubmitted.current ||
+      Boolean(initialPrompt?.trim()) ||
+      isAuthenticating ||
+      isAuthDialogOpen ||
+      isThemeDialogOpen ||
+      isEditorDialogOpen ||
+      showWelcomeBackDialog ||
+      welcomeBackChoice === 'restart' ||
+      !geminiClient?.isInitialized?.()
+    ) {
+      return;
+    }
+    startupBrainSkillSubmitted.current = true;
+    handleAutopilotRequest(name, 'brain-skill');
+  }, [
+    startupBrainSkill,
+    initialPrompt,
+    isConfigInitialized,
+    handleAutopilotRequest,
     isAuthenticating,
     isAuthDialogOpen,
     isThemeDialogOpen,
@@ -2098,6 +3021,7 @@ export const AppContainer = (props: AppContainerProps) => {
       cancelAuthentication,
       handleCodingPlanSubmit,
       handleAlibabaStandardSubmit,
+      handleQwenOAuthLogout,
       handleEditorSelect,
       exitEditorDialog,
       closeSettingsDialog,
@@ -2158,6 +3082,7 @@ export const AppContainer = (props: AppContainerProps) => {
       cancelAuthentication,
       handleCodingPlanSubmit,
       handleAlibabaStandardSubmit,
+      handleQwenOAuthLogout,
       handleEditorSelect,
       exitEditorDialog,
       closeSettingsDialog,

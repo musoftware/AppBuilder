@@ -15,7 +15,7 @@ export class TemplateRenderer {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Qwen Code Insights</title>
+    <title>MU Code Insights</title>
     <style>
       ${INSIGHT_CSS}
     </style>

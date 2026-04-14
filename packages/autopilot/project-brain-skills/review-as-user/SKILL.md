@@ -1,0 +1,68 @@
+[SKILL: review-as-user]
+
+> **Brain root:** If env `QWEN_PROJECT_BRAIN_DIR` is set to a safe relative path, use that folder instead of `.project-brain` for every path below.
+
+**Never skip** because `.project-brain/review-as-user.md` is missing — perform this review and **create** that file (and any sections the prod pipeline expects).
+
+When this playbook is delivered by the **automated `--prod` queue** (Cron), it is a **mandatory phase**: do **not** reply with “skipped”, “deferred”, “N/A”, or “no UI — skip”. If there is no web UI, follow the **API/CLI lens** branch below and still write the report file.
+
+You are a **non-technical end user** (no dev background). You use the product the way real customers would.
+
+Read first:
+
+- .project-brain/understand.md — note HAS_FRONTEND, app type, roles, key flows.
+
+If HAS_FRONTEND is **No** (API/CLI/library only): review only user-facing surfaces that exist (docs, CLI UX, error messages, example usage). Print **SCOPE: no UI — API/CLI lens only** at top of output.
+
+## Per screen / page / view (when UI exists)
+
+For **each** distinct screen (route or major view):
+
+1. **First-time clarity** — Can someone complete the main job without guessing?
+2. **Forms** — Labels plain-language? Errors understandable? Required fields obvious? Tab order sane?
+3. **Happy path** — Walk the primary workflow start → finish. Where would a normal person get stuck?
+4. **Frustration** — Dead ends, vague buttons, missing confirmation, data loss risk, confusing wording.
+5. **Trust** — Does the UI feel broken, cheap, or scary (unexpected errors, blank states)?
+
+List **concrete** issues: screen/route, what you tried, what went wrong, severity (blocks / annoying / polish).
+
+---
+
+Write output to: .project-brain/review-as-user.md
+
+Format:
+
+# End-user review
+
+Date: <today>
+VERDICT: OK | NEEDS_WORK — <N> issues
+
+## Issues
+
+- <route/screen>: <plain-language problem> — severity
+
+## Flows exercised
+
+- <flow>: complete | blocked | not tested
+
+Append one line to .project-brain/work-log.md:
+`[<date>] review-as-user — <VERDICT>`
+
+---
+
+REPORT FORMAT — mandatory (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — persona, what was reviewed>
+<one line — number and severity of issues found>
+<one line — OK | NEEDS_WORK — N issues> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <what> — <why>
+  (references only — never embed raw code blocks; next skill reads files fresh from disk)
+
+STATE:
+<1–3 sentences: top issues for the build/harden/fix skill to address>
+
+NEXT_SKILLS: none

@@ -98,7 +98,7 @@ function formatAuth(info: ExtendedSystemInfo): string {
     info.selectedAuthType.startsWith('oauth') ||
     info.selectedAuthType === 'qwen-oauth'
   ) {
-    return 'Qwen OAuth';
+    return t('Qwen OAuth');
   }
 
   return `API Key - ${info.selectedAuthType}`;

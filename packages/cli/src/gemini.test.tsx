@@ -511,6 +511,18 @@ describe('gemini.tsx main function kitty protocol', () => {
       channel: undefined,
       chatRecording: undefined,
       sessionId: undefined,
+      brainstorm: undefined,
+      brainstormInitialIdea: undefined,
+      idea: undefined,
+      brownfield: undefined,
+      qualityCheck: undefined,
+      prod: undefined,
+      prodReady: undefined,
+      fullChain: undefined,
+      clearChainCache: undefined,
+      frontendAudit: undefined,
+      readyProduction: undefined,
+      skill: undefined,
     });
 
     await main();

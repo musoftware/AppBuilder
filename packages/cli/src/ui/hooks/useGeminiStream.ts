@@ -4,7 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react';
 import type {
   Config,
   EditorType,
@@ -43,6 +52,12 @@ import {
   isSupportedImageMimeType,
   getUnsupportedImageFormatWarning,
 } from '@qwen-code/qwen-code-core';
+import {
+  appendAutopilotQueueJsonl,
+  getAutopilotQueueLogPath,
+  logAutopilotQueueHalted,
+  logAutopilotQueueTurn,
+} from '../../autopilot/autopilotQueueJsonl.js';
 import { type Part, type PartListUnion, FinishReason } from '@google/genai';
 import type {
   HistoryItem,
@@ -61,7 +76,13 @@ import { handleAtCommand } from './atCommandProcessor.js';
 import { findLastSafeSplitPoint } from '../utils/markdownUtilities.js';
 import { useStateAndRef } from './useStateAndRef.js';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
+import type {
+  AutopilotInteractiveMode,
+  AutopilotRequestOptions,
+} from '../commands/types.js';
 import { useLogger } from './useLogger.js';
+import { buildPostUserPromptFollowUpMessages } from '../postPromptFollowUpQueue.js';
+import { isLikelyNewFeatureOrImplementationRequest } from '../postPromptFollowUpTrigger.js';
 import {
   useReactToolScheduler,
   mapToDisplay as mapTrackedToolCallsToDisplay,
@@ -76,6 +97,10 @@ import path from 'node:path';
 import { useSessionStats } from '../contexts/SessionContext.js';
 import type { LoadedSettings } from '../../config/settings.js';
 import { t } from '../../i18n/index.js';
+import {
+  looksLikeSmartOrchestratorAwaitingUserNext,
+  SMART_ORCHESTRATOR_AUTO_CONTINUE_CAP,
+} from '../utils/smartOrchestratorAutoContinue.js';
 
 const debugLogger = createDebugLogger('GEMINI_STREAM');
 
@@ -176,6 +201,12 @@ enum StreamProcessingStatus {
   Error,
 }
 
+type GeminiStreamProcessResult = {
+  status: StreamProcessingStatus;
+  streamedAssistantText: string;
+  toolCallsDeferred: boolean;
+};
+
 const EDIT_TOOL_NAMES = new Set(['replace', 'write_file']);
 
 function showCitations(settings: LoadedSettings): boolean {
@@ -205,13 +236,21 @@ export const useGeminiStream = (
   onAuthError: (error: string) => void,
   performMemoryRefresh: () => Promise<void>,
   modelSwitchedFromQuotaError: boolean,
-  setModelSwitchedFromQuotaError: React.Dispatch<React.SetStateAction<boolean>>,
+  setModelSwitchedFromQuotaError: Dispatch<SetStateAction<boolean>>,
   onEditorClose: () => void,
   onCancelSubmit: () => void,
   setShellInputFocused: (value: boolean) => void,
   terminalWidth: number,
   terminalHeight: number,
-  midTurnDrainRef?: React.RefObject<(() => string[]) | null>,
+  midTurnDrainRef?: RefObject<(() => string[]) | null>,
+  autopilotRequestRef?: RefObject<
+    | ((
+        idea?: string,
+        mode?: AutopilotInteractiveMode,
+        options?: AutopilotRequestOptions,
+      ) => void)
+    | null
+  >,
 ) => {
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -236,6 +275,17 @@ export const useGeminiStream = (
   const retryCountdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
+  /** Clears the autopilot queue on API/stream errors unless `QWEN_AUTOPILOT_STOP_QUEUE_ON_ERROR=0`. */
+  const haltAutopilotQueueOnErrorRef = useRef<(reason: string) => void>(
+    () => {},
+  );
+  /**
+   * When the API signals Retry (e.g. rate limit) and the autopilot queue is
+   * non-empty, append JSONL (`autopilot_queue_stream_retry`) without halting.
+   */
+  const logAutopilotStreamRetryRef = useRef<
+    (info: RetryInfo | undefined) => void
+  >(() => {});
   const processedMemoryToolsRef = useRef<Set<string>>(new Set());
   const modelOverrideRef = useRef<string | undefined>(undefined);
   const {
@@ -294,6 +344,7 @@ export const useGeminiStream = (
   }, [toolCalls]);
 
   const loopDetectedRef = useRef(false);
+  const smartOrchestratorAutoContinueCountRef = useRef(0);
   const [
     loopDetectionConfirmationRequest,
     setLoopDetectionConfirmationRequest,
@@ -572,6 +623,15 @@ export const useGeminiStream = (
             case 'handled': {
               return { queryToSend: null, shouldProceed: false };
             }
+            case 'autopilot': {
+              const pick = slashCommandResult.phasePick;
+              autopilotRequestRef?.current?.(
+                slashCommandResult.initialIdea,
+                slashCommandResult.mode,
+                pick ? { phasePick: pick } : undefined,
+              );
+              return { queryToSend: null, shouldProceed: false };
+            }
             default: {
               const unreachable: never = slashCommandResult;
               throw new Error(
@@ -630,6 +690,7 @@ export const useGeminiStream = (
       logger,
       shellModeActive,
       scheduleToolCalls,
+      autopilotRequestRef,
     ],
   );
 
@@ -1082,7 +1143,7 @@ export const useGeminiStream = (
       stream: AsyncIterable<GeminiEvent>,
       userMessageTimestamp: number,
       signal: AbortSignal,
-    ): Promise<StreamProcessingStatus> => {
+    ): Promise<GeminiStreamProcessResult> => {
       let geminiMessageBuffer = '';
       let thoughtBuffer = '';
       const toolCallRequests: ToolCallRequestInfo[] = [];
@@ -1156,6 +1217,7 @@ export const useGeminiStream = (
               // The retry attempt is starting now, so any prior retry UI is stale.
               clearRetryCountdown();
             }
+            logAutopilotStreamRetryRef.current(event.retryInfo);
             break;
           case ServerGeminiEventType.HookSystemMessage:
             // Display system message from Stop hooks with "Stop says:" prefix
@@ -1188,10 +1250,15 @@ export const useGeminiStream = (
           }
         }
       }
-      if (toolCallRequests.length > 0) {
+      const toolCallsDeferred = toolCallRequests.length > 0;
+      if (toolCallsDeferred) {
         scheduleToolCalls(toolCallRequests, signal);
       }
-      return StreamProcessingStatus.Completed;
+      return {
+        status: StreamProcessingStatus.Completed,
+        streamedAssistantText: geminiMessageBuffer,
+        toolCallsDeferred,
+      };
     },
     [
       handleContentEvent,
@@ -1288,6 +1355,8 @@ export const useGeminiStream = (
       }
 
       return promptIdContext.run(prompt_id, async () => {
+        let cronSmartOrchestratorFollowUp: string | null = null;
+
         const { queryToSend, shouldProceed } =
           submitType === SendMessageType.Retry
             ? { queryToSend: query, shouldProceed: true }
@@ -1323,6 +1392,26 @@ export const useGeminiStream = (
         const finalQueryToSend = queryToSend;
         lastPromptRef.current = finalQueryToSend;
         lastPromptErroredRef.current = false;
+
+        if (submitType === SendMessageType.UserQuery) {
+          smartOrchestratorAutoContinueCountRef.current = 0;
+        }
+
+        const finalQueryText =
+          typeof finalQueryToSend === 'string' ? finalQueryToSend : undefined;
+        const trimmedCronText = finalQueryText?.trimStart() ?? '';
+        const isSmartOrchestratorCronRoot =
+          submitType === SendMessageType.Cron &&
+          !!finalQueryText &&
+          finalQueryText.includes('[SKILL: smart-orchestrator]') &&
+          !trimmedCronText.startsWith('Continue the smart-orchestrator');
+        const isSmartOrchestratorCronContinue =
+          submitType === SendMessageType.Cron &&
+          trimmedCronText.startsWith('Continue the smart-orchestrator');
+
+        if (isSmartOrchestratorCronRoot) {
+          smartOrchestratorAutoContinueCountRef.current = 0;
+        }
 
         if (
           submitType === SendMessageType.UserQuery ||
@@ -1363,16 +1452,19 @@ export const useGeminiStream = (
             { type: submitType, modelOverride: modelOverrideRef.current },
           );
 
-          const processingStatus = await processGeminiStreamEvents(
+          const streamResult = await processGeminiStreamEvents(
             stream,
             userMessageTimestamp,
             abortSignal,
           );
 
-          if (processingStatus === StreamProcessingStatus.UserCancelled) {
+          if (streamResult.status === StreamProcessingStatus.UserCancelled) {
             isSubmittingQueryRef.current = false;
             return;
           }
+
+          const streamHadError = lastPromptErroredRef.current;
+          const streamHadLoop = loopDetectedRef.current;
 
           if (pendingHistoryItemRef.current) {
             addItem(pendingHistoryItemRef.current, userMessageTimestamp);
@@ -1389,8 +1481,65 @@ export const useGeminiStream = (
             loopDetectedRef.current = false;
             handleLoopDetectedEvent();
           }
+
+          const trimmedUserText =
+            typeof finalQueryToSend === 'string' ? finalQueryToSend.trim() : '';
+
+          if (
+            submitType === SendMessageType.UserQuery &&
+            settings.merged.ui?.postPromptFollowUp?.enabled === true &&
+            isLikelyNewFeatureOrImplementationRequest(trimmedUserText) &&
+            !streamHadError &&
+            !streamHadLoop &&
+            !turnCancelledRef.current &&
+            config.getApprovalMode() !== ApprovalMode.PLAN &&
+            config.isInteractive() &&
+            trimmedUserText.length > 0
+          ) {
+            const followUps = await buildPostUserPromptFollowUpMessages(
+              trimmedUserText,
+              settings,
+            );
+            if (followUps.length > 0) {
+              autopilotQueueRef.current.push(...followUps);
+              setAutopilotTrigger((n) => n + 1);
+              addItem(
+                {
+                  type: MessageType.INFO,
+                  text: `Queued ${followUps.length} skill-driven follow-up phase(s) (tests → verify/fix → complete).`,
+                },
+                userMessageTimestamp,
+              );
+            }
+          }
+
+          if (
+            submitType === SendMessageType.Cron &&
+            (isSmartOrchestratorCronRoot || isSmartOrchestratorCronContinue) &&
+            !streamResult.toolCallsDeferred &&
+            !streamHadError &&
+            !streamHadLoop &&
+            !turnCancelledRef.current &&
+            looksLikeSmartOrchestratorAwaitingUserNext(
+              streamResult.streamedAssistantText,
+            ) &&
+            smartOrchestratorAutoContinueCountRef.current <
+              SMART_ORCHESTRATOR_AUTO_CONTINUE_CAP
+          ) {
+            smartOrchestratorAutoContinueCountRef.current += 1;
+            addItem(
+              {
+                type: MessageType.INFO,
+                text: 'Smart orchestrator: continuing automatically (no manual "next")…',
+              },
+              userMessageTimestamp,
+            );
+            cronSmartOrchestratorFollowUp =
+              'Continue the smart-orchestrator PHASE C run: execute the next skill in your RUN plan immediately in this same automated session. Do not ask the user to type "next" or "continue". Do not print a `> next` prompt. Proceed with the next skill until prod-gate and report are complete, or stop only for blocking errors.';
+          }
         } catch (error: unknown) {
           if (error instanceof UnauthorizedError) {
+            haltAutopilotQueueOnErrorRef.current('unauthorized');
             onAuthError('Session expired or is unauthorized.');
           } else if (!isNodeError(error) || error.name !== 'AbortError') {
             lastPromptErroredRef.current = true;
@@ -1404,10 +1553,18 @@ export const useGeminiStream = (
               ),
               hint: retryHint,
             });
+            haltAutopilotQueueOnErrorRef.current('submit_query_throw');
           }
         } finally {
           setIsResponding(false);
           isSubmittingQueryRef.current = false;
+        }
+
+        if (cronSmartOrchestratorFollowUp) {
+          const continuation = cronSmartOrchestratorFollowUp;
+          queueMicrotask(() => {
+            void submitQuery(continuation, SendMessageType.Cron);
+          });
         }
       });
     },
@@ -1430,6 +1587,7 @@ export const useGeminiStream = (
       pendingRetryCountdownItemRef,
       pendingRetryErrorItemRef,
       setPendingRetryErrorItem,
+      settings,
     ],
   );
 
@@ -1525,6 +1683,9 @@ export const useGeminiStream = (
     },
     [toolCalls],
   );
+
+  const handleApprovalModeChangeRef = useRef(handleApprovalModeChange);
+  handleApprovalModeChangeRef.current = handleApprovalModeChange;
 
   const handleCompletedTools = useCallback(
     async (completedToolCallsFromScheduler: TrackedToolCall[]) => {
@@ -1819,6 +1980,8 @@ export const useGeminiStream = (
     const scheduler = config.getCronScheduler();
     scheduler.start((job: { prompt: string }) => {
       cronQueueRef.current.push(job.prompt);
+      config.setApprovalMode(ApprovalMode.YOLO);
+      void handleApprovalModeChangeRef.current(ApprovalMode.YOLO);
       setCronTrigger((n) => n + 1);
     });
     return () => {
@@ -1841,6 +2004,107 @@ export const useGeminiStream = (
     }
   }, [streamingState, submitQuery, cronTrigger]);
 
+  // ─── Autopilot queue integration ──────────────────────────────────────────
+  // Works exactly like the cron queue: AppContainer calls setAutopilotQueue()
+  // with a list of task messages after the planning phase completes, then this
+  // hook drains them one-by-one through the normal chat pipeline.
+  const autopilotQueueRef = useRef<string[]>([]);
+  const autopilotSessionTotalRef = useRef(0);
+  const autopilotTurnSubmittedRef = useRef(0);
+  const [autopilotTrigger, setAutopilotTrigger] = useState(0);
+
+  const setAutopilotQueue = useCallback(
+    (messages: string[]) => {
+      autopilotQueueRef.current = [...messages];
+      if (messages.length > 0) {
+        autopilotSessionTotalRef.current = messages.length;
+        autopilotTurnSubmittedRef.current = 0;
+        // Match --brainstorm / --prod / --prod-ready / --full-chain / --frontend-audit / --ready-production / --skill: drain queued prompts without tool
+        // confirmation dialogs (agent, shell, edits, etc.).
+        config.setApprovalMode(ApprovalMode.YOLO);
+        void handleApprovalModeChange(ApprovalMode.YOLO);
+      } else {
+        autopilotSessionTotalRef.current = 0;
+        autopilotTurnSubmittedRef.current = 0;
+      }
+      setAutopilotTrigger((n) => n + 1);
+    },
+    [config, handleApprovalModeChange],
+  );
+
+  /** Append messages to the existing autopilot queue without replacing it */
+  const appendAutopilotQueue = useCallback((messages: string[]) => {
+    if (messages.length === 0) {
+      // Clear queue
+      autopilotQueueRef.current = [];
+      autopilotSessionTotalRef.current = 0;
+      autopilotTurnSubmittedRef.current = 0;
+      setAutopilotTrigger((n) => n + 1);
+      return;
+    }
+    // Append to existing queue
+    autopilotQueueRef.current.push(...messages);
+    autopilotSessionTotalRef.current += messages.length;
+    setAutopilotTrigger((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    if (
+      streamingState === StreamingState.Idle &&
+      autopilotQueueRef.current.length > 0
+    ) {
+      const prompt = autopilotQueueRef.current.shift()!;
+      autopilotTurnSubmittedRef.current += 1;
+      logAutopilotQueueTurn(getAutopilotQueueLogPath(), {
+        kind: 'autopilot_queue',
+        index: autopilotTurnSubmittedRef.current,
+        total: autopilotSessionTotalRef.current,
+        prompt,
+        extra: { source: 'interactive_tui' },
+      });
+      submitQuery(prompt, SendMessageType.Cron);
+    }
+  }, [streamingState, submitQuery, autopilotTrigger]);
+
+  haltAutopilotQueueOnErrorRef.current = (reason: string) => {
+    if (process.env['QWEN_AUTOPILOT_STOP_QUEUE_ON_ERROR'] === '0') {
+      return;
+    }
+    const dropped = autopilotQueueRef.current.length;
+    if (dropped === 0) {
+      return;
+    }
+    autopilotQueueRef.current = [];
+    autopilotSessionTotalRef.current = 0;
+    autopilotTurnSubmittedRef.current = 0;
+    setAutopilotTrigger((n) => n + 1);
+    logAutopilotQueueHalted(getAutopilotQueueLogPath(), {
+      reason,
+      droppedRemaining: dropped,
+    });
+  };
+
+  logAutopilotStreamRetryRef.current = (retryInfo: RetryInfo | undefined) => {
+    const logPath = getAutopilotQueueLogPath();
+    if (!logPath) {
+      return;
+    }
+    const queued = autopilotQueueRef.current.length;
+    if (queued === 0) {
+      return;
+    }
+    appendAutopilotQueueJsonl(logPath, {
+      kind: 'autopilot_queue_stream_retry',
+      source: 'interactive_tui',
+      autopilotQueuedRemaining: queued,
+      retryAttempt: retryInfo?.attempt,
+      retryMax: retryInfo?.maxRetries,
+      messagePreview: retryInfo?.message
+        ? retryInfo.message.slice(0, 160).replace(/\s+/g, ' ').trim()
+        : undefined,
+    });
+  };
+
   return {
     streamingState,
     submitQuery,
@@ -1853,5 +2117,7 @@ export const useGeminiStream = (
     handleApprovalModeChange,
     activePtyId,
     loopDetectionConfirmationRequest,
+    setAutopilotQueue,
+    appendAutopilotQueue,
   };
 };

@@ -15,6 +15,10 @@ import type {
 } from '@qwen-code/qwen-code-core';
 import type { PartListUnion } from '@google/genai';
 import { type ReactNode } from 'react';
+import type {
+  AutopilotInteractiveMode,
+  AutopilotPhasePick,
+} from './commands/types.js';
 
 export type { ThoughtSummary };
 
@@ -566,7 +570,13 @@ export type SlashCommandProcessorResult =
   | {
       type: 'handled'; // Indicates the command was processed and no further action is needed.
     }
-  | SubmitPromptResult;
+  | SubmitPromptResult
+  | {
+      type: 'autopilot';
+      initialIdea?: string;
+      mode?: AutopilotInteractiveMode;
+      phasePick?: AutopilotPhasePick;
+    };
 
 export interface ShellConfirmationRequest {
   commands: string[];

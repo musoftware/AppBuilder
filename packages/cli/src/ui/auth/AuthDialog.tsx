@@ -43,7 +43,11 @@ function parseDefaultAuthType(
 }
 
 // Main menu option type
-type MainOption = typeof AuthType.QWEN_OAUTH | 'CODING_PLAN' | 'API_KEY';
+type MainOption =
+  | typeof AuthType.QWEN_OAUTH
+  | 'CODING_PLAN'
+  | 'API_KEY'
+  | 'LOGOUT_QWEN_OAUTH';
 type ApiKeyOption = 'ALIBABA_STANDARD_API_KEY' | 'CUSTOM_API_KEY';
 
 // View level for navigation
@@ -77,6 +81,7 @@ export function AuthDialog(): React.JSX.Element {
     handleAuthSelect: onAuthSelect,
     handleCodingPlanSubmit,
     handleAlibabaStandardSubmit,
+    handleQwenOAuthLogout,
     onAuthError,
   } = useUIActions();
   const config = useConfig();
@@ -100,8 +105,8 @@ export function AuthDialog(): React.JSX.Element {
   const [alibabaStandardModelIdError, setAlibabaStandardModelIdError] =
     useState<string | null>(null);
 
-  // Main authentication entries (flat three-option layout)
-  const mainItems = [
+  // Main authentication entries (flat layout; optional logout when using MU OAuth)
+  const mainItemsBase = [
     {
       key: AuthType.QWEN_OAUTH,
       title: t('Qwen OAuth'),
@@ -126,6 +131,23 @@ export function AuthDialog(): React.JSX.Element {
       value: 'API_KEY' as MainOption,
     },
   ];
+
+  const logoutItems =
+    config.getAuthType() === AuthType.QWEN_OAUTH
+      ? [
+          {
+            key: 'LOGOUT_QWEN_OAUTH',
+            title: t('Log out of MU OAuth'),
+            label: t('Log out of MU OAuth'),
+            description: t(
+              'Remove saved MU OAuth session and stored sign-in choice',
+            ),
+            value: 'LOGOUT_QWEN_OAUTH' as MainOption,
+          },
+        ]
+      : [];
+
+  const mainItems = [...mainItemsBase, ...logoutItems];
 
   // Region selection entries (shown after selecting Alibaba Cloud Coding Plan)
   const regionItems = [
@@ -277,6 +299,11 @@ export function AuthDialog(): React.JSX.Element {
   const handleMainSelect = async (value: MainOption) => {
     setErrorMessage(null);
     onAuthError(null);
+
+    if (value === 'LOGOUT_QWEN_OAUTH') {
+      await handleQwenOAuthLogout();
+      return;
+    }
 
     if (value === 'CODING_PLAN') {
       // Navigate to region selection

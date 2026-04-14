@@ -80,6 +80,69 @@ interface MergedSettingsWithCodingPlan {
   env?: Record<string, string>;
 }
 
+const MINIMAL_AUTH_CLI_ARGV: CliArgs = {
+  query: undefined,
+  model: undefined,
+  sandbox: undefined,
+  sandboxImage: undefined,
+  debug: undefined,
+  prompt: undefined,
+  promptInteractive: undefined,
+  yolo: undefined,
+  approvalMode: undefined,
+  telemetry: undefined,
+  checkpointing: undefined,
+  telemetryTarget: undefined,
+  telemetryOtlpEndpoint: undefined,
+  telemetryOtlpProtocol: undefined,
+  telemetryLogPrompts: undefined,
+  telemetryOutfile: undefined,
+  allowedMcpServerNames: undefined,
+  allowedTools: undefined,
+  acp: undefined,
+  experimentalAcp: undefined,
+  experimentalLsp: undefined,
+  extensions: [],
+  listExtensions: undefined,
+  openaiLogging: undefined,
+  openaiApiKey: undefined,
+  openaiBaseUrl: undefined,
+  openaiLoggingDir: undefined,
+  proxy: undefined,
+  includeDirectories: undefined,
+  tavilyApiKey: undefined,
+  googleApiKey: undefined,
+  googleSearchEngineId: undefined,
+  webSearchDefault: undefined,
+  screenReader: undefined,
+  inputFormat: undefined,
+  outputFormat: undefined,
+  includePartialMessages: undefined,
+  chatRecording: undefined,
+  continue: undefined,
+  resume: undefined,
+  sessionId: undefined,
+  maxSessionTurns: undefined,
+  coreTools: undefined,
+  excludeTools: undefined,
+  authType: undefined,
+  channel: undefined,
+  brainstorm: undefined,
+  brainstormInitialIdea: undefined,
+  idea: undefined,
+  brownfield: undefined,
+  qualityCheck: undefined,
+  prod: undefined,
+  prodReady: undefined,
+  fullChain: undefined,
+  clearChainCache: undefined,
+  frontendAudit: undefined,
+  readyProduction: undefined,
+  skill: undefined,
+  systemPrompt: undefined,
+  appendSystemPrompt: undefined,
+};
+
 /**
  * Handles the authentication process based on the specified command and options
  */
@@ -160,7 +223,7 @@ export async function handleQwenAuth(
     // Create a minimal config to access settings and storage
     const config = await loadCliConfig(
       settings.merged,
-      minimalArgv,
+      MINIMAL_AUTH_CLI_ARGV,
       process.cwd(),
       [], // No extensions for auth command
     );
@@ -734,6 +797,47 @@ export async function runInteractiveAuth() {
 }
 
 /**
+ * Log out of MU OAuth (qwen-oauth): remove settings selection, delete
+ * `~/.qwen/oauth_creds.json`, and clear in-process token state.
+ */
+export async function handleLogoutMuOAuth(): Promise<void> {
+  try {
+    const settings = loadSettings();
+    const selected = settings.merged.security?.auth?.selectedType;
+    if (selected !== AuthType.QWEN_OAUTH) {
+      writeStderrLine(
+        t(
+          'Not signed in with MU OAuth. Use /auth in the app or `autocreator auth` to change method.',
+        ),
+      );
+      process.exit(1);
+    }
+
+    const config = await loadCliConfig(
+      settings.merged,
+      MINIMAL_AUTH_CLI_ARGV,
+      process.cwd(),
+      [],
+    );
+
+    const authTypeScope = getPersistScopeForModelSelection(settings);
+    backupSettingsFile(settings.forScope(authTypeScope).path);
+    settings.deleteValue(authTypeScope, 'security.auth.selectedType');
+    await config.clearQwenOAuthLoginSession();
+
+    writeStdoutLine(t('Logged out of MU OAuth.'));
+    process.exit(0);
+  } catch (error) {
+    writeStderrLine(
+      t('Failed to log out of MU OAuth: {{message}}', {
+        message: getErrorMessage(error),
+      }),
+    );
+    process.exit(1);
+  }
+}
+
+/**
  * Shows the current authentication status
  */
 export async function showAuthStatus(): Promise<void> {
@@ -751,12 +855,12 @@ export async function showAuthStatus(): Promise<void> {
       writeStdoutLine(t('Run one of the following commands to get started:\n'));
       writeStdoutLine(
         t(
-          '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)',
+          '  autocreator auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)',
         ),
       );
       writeStdoutLine(
         t(
-          '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
+          '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
         ),
       );
       writeStdoutLine(
@@ -771,7 +875,9 @@ export async function showAuthStatus(): Promise<void> {
       );
       writeStdoutLine(t('Or simply run:'));
       writeStdoutLine(
-        t('  qwen auth                - Interactive authentication setup\n'),
+        t(
+          '  autocreator auth                - Interactive authentication setup\n',
+        ),
       );
       process.exit(0);
     }

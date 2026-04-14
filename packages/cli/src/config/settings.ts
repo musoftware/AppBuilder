@@ -30,7 +30,10 @@ import {
   getSettingsSchema,
 } from './settingsSchema.js';
 import { resolveEnvVarsInObject } from '../utils/envVarResolver.js';
-import { setNestedPropertySafe } from '../utils/settingsUtils.js';
+import {
+  deleteNestedPropertySafe,
+  setNestedPropertySafe,
+} from '../utils/settingsUtils.js';
 import { customDeepMerge } from '../utils/deepMerge.js';
 import { updateSettingsFilePreservingFormat } from '../utils/commentJson.js';
 import { runMigrations, needsMigration } from './migration/index.js';
@@ -436,6 +439,23 @@ export class LoadedSettings {
     setNestedPropertySafe(settingsFile.originalSettings, key, value);
     this._merged = this.computeMergedSettings();
     saveSettings(settingsFile, createSettingsUpdate(key, value));
+  }
+
+  deleteValue(scope: SettingScope, key: string): void {
+    const settingsFile = this.forScope(scope);
+    deleteNestedPropertySafe(
+      settingsFile.settings as Record<string, unknown>,
+      key,
+    );
+    deleteNestedPropertySafe(
+      settingsFile.originalSettings as Record<string, unknown>,
+      key,
+    );
+    this._merged = this.computeMergedSettings();
+    saveSettings(
+      settingsFile,
+      settingsFile.originalSettings as Record<string, unknown>,
+    );
   }
 }
 

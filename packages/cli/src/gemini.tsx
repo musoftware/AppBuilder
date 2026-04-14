@@ -60,11 +60,12 @@ import { start_sandbox } from './utils/sandbox.js';
 import { getStartupWarnings } from './utils/startupWarnings.js';
 import { getUserStartupWarnings } from './utils/userStartupWarnings.js';
 import { getCliVersion } from './utils/version.js';
-import { writeStderrLine } from './utils/stdioHelpers.js';
+import { writeStderrLine, writeStdoutLine } from './utils/stdioHelpers.js';
 import { computeWindowTitle } from './utils/windowTitle.js';
 import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';
 import { showResumeSessionPicker } from './ui/components/StandaloneSessionPicker.js';
 import { initializeLlmOutputLanguage } from './utils/languageUtils.js';
+import { runBrainstormAutopilot } from './autopilot/runBrainstormAutopilot.js';
 
 const debugLogger = createDebugLogger('STARTUP');
 
@@ -141,12 +142,38 @@ ${reason.stack}`
   });
 }
 
+export type InteractiveUiStartupOptions = {
+  /** When the UI is ready, start brainstorm → plan → task queue (same chat UI as /prod). */
+  startupBrainstorm?: boolean;
+  /** Optional seed idea from `mu-pilot --brainstorm "…"`. */
+  startupBrainstormInitialIdea?: string;
+  /** When true, force brownfield planning (`--brainstorm --brownfield`). */
+  startupBrainstormBrownfield?: boolean;
+  /** When the UI is ready, start idea direct build (no brainstorm Q&A, straight to plan + execute). */
+  startupIdea?: string;
+  /** When the UI is ready, start quality-check autopilot (direct; built-in slash list is /brainstorm and /prod only). */
+  startupQualityCheck?: boolean;
+  /** When the UI is ready, start stack-detected prod autopilot. */
+  startupProd?: boolean;
+  /** When the UI is ready, start prod-ready autopilot (direct). */
+  startupProdReady?: boolean;
+  /** When the UI is ready, start full-chain autopilot (direct). */
+  startupFullChain?: boolean;
+  /** When the UI is ready, start frontend-audit autopilot (direct). */
+  startupFrontendAudit?: boolean;
+  /** When the UI is ready, start ready-production autopilot (direct). */
+  startupReadyProduction?: boolean;
+  /** When the UI is ready, start the given project-brain skill (direct). */
+  startupBrainSkill?: string;
+};
+
 export async function startInteractiveUI(
   config: Config,
   settings: LoadedSettings,
   startupWarnings: string[],
   workspaceRoot: string = process.cwd(),
   initializationResult: InitializationResult,
+  interactiveStartup?: InteractiveUiStartupOptions,
 ) {
   const version = await getCliVersion();
   setWindowTitle(basename(workspaceRoot), settings);
@@ -174,6 +201,25 @@ export async function startInteractiveUI(
                   startupWarnings={startupWarnings}
                   version={version}
                   initializationResult={initializationResult}
+                  startupBrainstorm={interactiveStartup?.startupBrainstorm}
+                  startupBrainstormInitialIdea={
+                    interactiveStartup?.startupBrainstormInitialIdea
+                  }
+                  startupBrainstormBrownfield={
+                    interactiveStartup?.startupBrainstormBrownfield
+                  }
+                  startupIdea={interactiveStartup?.startupIdea}
+                  startupQualityCheck={interactiveStartup?.startupQualityCheck}
+                  startupProd={interactiveStartup?.startupProd}
+                  startupProdReady={interactiveStartup?.startupProdReady}
+                  startupFullChain={interactiveStartup?.startupFullChain}
+                  startupFrontendAudit={
+                    interactiveStartup?.startupFrontendAudit
+                  }
+                  startupReadyProduction={
+                    interactiveStartup?.startupReadyProduction
+                  }
+                  startupBrainSkill={interactiveStartup?.startupBrainSkill}
                 />
               </AgentViewProvider>
             </VimModeProvider>
@@ -229,6 +275,29 @@ export async function main() {
       'Error: The --prompt-interactive flag cannot be used when input is piped from stdin.',
     );
     process.exit(1);
+  }
+
+  if (argv.clearChainCache) {
+    const { clearChainCacheFile } = await import('@qwen-code/autopilot');
+    const removed = clearChainCacheFile(process.cwd());
+    if (removed) {
+      writeStdoutLine(
+        '✅ Chain cache cleared. Next --full-chain run will do a full project scan.',
+      );
+    } else {
+      writeStdoutLine('No cache found — nothing to clear.');
+    }
+    process.exit(0);
+  }
+
+  if (argv.skill !== undefined) {
+    const skillName = typeof argv.skill === 'string' ? argv.skill.trim() : '';
+    if (!skillName) {
+      writeStderrLine(
+        'Error: --skill requires a skill name (e.g. --skill understand).',
+      );
+      process.exit(1);
+    }
   }
 
   const isDebugMode = cliConfig.isDebugMode(argv);
@@ -418,6 +487,167 @@ export async function main() {
     const initializationResult = await initializeApp(config, settings);
     profileCheckpoint('after_initialize_app');
 
+    // Non-interactive: standalone chalk loop. Interactive TTY: same UI + chat pipeline as /quality-check.
+    if (argv.qualityCheck && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'quality-check-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (argv.prod && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'prod-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (argv.prodReady && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      const prodReadyFocus =
+        (typeof argv.prompt === 'string' && argv.prompt.trim()) ||
+        (typeof argv.query === 'string' && argv.query.trim()) ||
+        undefined;
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          prodReadyFocus,
+          'brownfield',
+          'prod-ready-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (argv.fullChain && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'full-chain-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (argv.frontendAudit && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'frontend-audit-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (argv.readyProduction && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          undefined,
+          'brownfield',
+          'ready-production-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (
+      argv.skill !== undefined &&
+      typeof argv.skill === 'string' &&
+      argv.skill.trim() &&
+      !config.isInteractive()
+    ) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          argv.skill.trim(),
+          'brownfield',
+          'skill-only',
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
+    if (argv.brainstorm && !config.isInteractive()) {
+      await config.initialize();
+      if (process.stdin.isTTY && process.stdin.isRaw) {
+        process.stdin.setRawMode(false);
+      }
+      try {
+        await runBrainstormAutopilot(
+          config,
+          settings,
+          argv.brainstormInitialIdea,
+          argv.brownfield ? 'brownfield' : undefined,
+        );
+      } finally {
+        await runExitCleanup();
+      }
+      process.exit(0);
+    }
+
     if (config.getExperimentalZedIntegration()) {
       await runAcpAgent(config, settings, argv);
       // Clean up child processes and force exit, matching other non-interactive modes
@@ -452,6 +682,34 @@ export async function main() {
         startupWarnings,
         process.cwd(),
         initializationResult!,
+        argv.qualityCheck
+          ? { startupQualityCheck: true }
+          : argv.prod
+            ? { startupProd: true }
+            : argv.prodReady
+              ? { startupProdReady: true }
+              : argv.fullChain
+                ? { startupFullChain: true }
+                : argv.frontendAudit
+                  ? { startupFrontendAudit: true }
+                  : argv.readyProduction
+                    ? { startupReadyProduction: true }
+                    : typeof argv.skill === 'string' && argv.skill.trim()
+                      ? { startupBrainSkill: argv.skill.trim() }
+                      : typeof argv.idea === 'string' && argv.idea.trim()
+                        ? {
+                            startupIdea: argv.idea.trim(),
+                          }
+                        : argv.brainstorm
+                          ? {
+                              startupBrainstorm: true,
+                              startupBrainstormInitialIdea:
+                                argv.brainstormInitialIdea,
+                              startupBrainstormBrownfield: Boolean(
+                                argv.brownfield,
+                              ),
+                            }
+                          : undefined,
       );
       return;
     }
@@ -505,7 +763,7 @@ export async function main() {
 
     if (!input) {
       writeStderrLine(
-        `No input provided via stdin. Input can be provided by piping data into gemini or using the --prompt option.`,
+        `No input provided via stdin. Input can be provided by piping data into autocreator or using the --prompt option.`,
       );
       process.exit(1);
     }

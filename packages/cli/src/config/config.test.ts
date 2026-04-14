@@ -578,6 +578,96 @@ describe('parseArguments', () => {
     const argv = await parseArguments();
     expect(argv.extensions).toEqual(['ext1', 'ext2']);
   });
+
+  it('should map autocreator --brainstorm with multi-word idea to brainstormInitialIdea', async () => {
+    process.argv = [
+      'node',
+      'script.js',
+      '--brainstorm',
+      'erp',
+      'system',
+      'in',
+      'laravel',
+    ];
+    const argv = await parseArguments();
+    expect(argv.brainstorm).toBe(true);
+    expect(argv.brainstormInitialIdea).toBe('erp system in laravel');
+    expect(argv.prompt).toBeUndefined();
+    expect(argv.promptInteractive).toBeUndefined();
+    expect(argv.query).toBeUndefined();
+  });
+
+  it('should map brainstorm -b alias with positional idea (autocreator -b erp app)', async () => {
+    process.argv = ['node', 'script.js', '-b', 'erp', 'app'];
+    const argv = await parseArguments();
+    expect(argv.brainstorm).toBe(true);
+    expect(argv.brainstormInitialIdea).toBe('erp app');
+    expect(argv.prompt).toBeUndefined();
+  });
+
+  it('should enable brainstorm without positional seed', async () => {
+    process.argv = ['node', 'script.js', '--brainstorm'];
+    const argv = await parseArguments();
+    expect(argv.brainstorm).toBe(true);
+    expect(argv.brainstormInitialIdea).toBeUndefined();
+    expect(argv.prompt).toBeUndefined();
+  });
+
+  it('should map --brainstorm with -p seed to brainstormInitialIdea', async () => {
+    process.argv = [
+      'node',
+      'script.js',
+      '--brainstorm',
+      '-p',
+      'erp system in laravel',
+    ];
+    const argv = await parseArguments();
+    expect(argv.brainstorm).toBe(true);
+    expect(argv.brainstormInitialIdea).toBe('erp system in laravel');
+    expect(argv.prompt).toBeUndefined();
+  });
+
+  it('should enable --prod flag', async () => {
+    process.argv = ['node', 'script.js', '--prod'];
+    const argv = await parseArguments();
+    expect(argv.prod).toBe(true);
+  });
+
+  it('should enable --prod-ready flag', async () => {
+    process.argv = ['node', 'script.js', '--prod-ready'];
+    const argv = await parseArguments();
+    expect(argv.prodReady).toBe(true);
+  });
+
+  it('should enable --full-chain flag', async () => {
+    process.argv = ['node', 'script.js', '--full-chain'];
+    const argv = await parseArguments();
+    expect(argv.fullChain).toBe(true);
+  });
+
+  it('should enable --clear-chain-cache flag', async () => {
+    process.argv = ['node', 'script.js', '--clear-chain-cache'];
+    const argv = await parseArguments();
+    expect(argv.clearChainCache).toBe(true);
+  });
+
+  it('should enable --frontend-audit flag', async () => {
+    process.argv = ['node', 'script.js', '--frontend-audit'];
+    const argv = await parseArguments();
+    expect(argv.frontendAudit).toBe(true);
+  });
+
+  it('should enable --ready-production flag', async () => {
+    process.argv = ['node', 'script.js', '--ready-production'];
+    const argv = await parseArguments();
+    expect(argv.readyProduction).toBe(true);
+  });
+
+  it('should map --skill name', async () => {
+    process.argv = ['node', 'script.js', '--skill', 'understand'];
+    const argv = await parseArguments();
+    expect(argv.skill).toBe('understand');
+  });
 });
 
 describe('loadCliConfig', () => {
@@ -615,6 +705,138 @@ describe('loadCliConfig', () => {
       ServerConfig.DEFAULT_CONTEXT_FILENAME,
       ServerConfig.AGENT_CONTEXT_FILENAME,
     ]);
+  });
+
+  it('should force YOLO when --brainstorm is set (autopilot unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--brainstorm'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --brainstorm even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--brainstorm'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --prod is set (stack-detected production pipeline)', async () => {
+    process.argv = ['node', 'script.js', '--prod'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --prod-ready is set (production readiness unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--prod-ready'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --prod-ready even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--prod-ready'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --full-chain is set (full BMAD chain unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--full-chain'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --full-chain even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--full-chain'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --frontend-audit is set (frontend audit unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--frontend-audit'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --frontend-audit even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--frontend-audit'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --skill is set with a name', async () => {
+    process.argv = ['node', 'script.js', '--skill', 'plan'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO when --quality-check is set (standalone QC unattended tools)', async () => {
+    process.argv = ['node', 'script.js', '--quality-check'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: true,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
+  });
+
+  it('should force YOLO for --quality-check even if workspace is marked untrusted', async () => {
+    process.argv = ['node', 'script.js', '--quality-check'];
+    const argv = await parseArguments();
+    vi.mocked(isWorkspaceTrusted).mockReturnValue({
+      isTrusted: false,
+      source: 'file',
+    });
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.getApprovalMode()).toBe(ServerConfig.ApprovalMode.YOLO);
   });
 
   it('should use configured context file name when settings.context.fileName is set', async () => {
@@ -1962,6 +2184,16 @@ describe('loadCliConfig interactive', () => {
     process.stdin.isTTY = true;
     process.argv = ['node', 'script.js', '--model', 'gemini-1.5-pro'];
     const argv = await parseArguments();
+    const config = await loadCliConfig({}, argv, undefined, []);
+    expect(config.isInteractive()).toBe(true);
+  });
+
+  it('should be interactive on TTY when --brainstorm has a positional seed', async () => {
+    process.stdin.isTTY = true;
+    process.argv = ['node', 'script.js', '--brainstorm', 'my', 'app', 'idea'];
+    const argv = await parseArguments();
+    expect(argv.brainstormInitialIdea).toBe('my app idea');
+    expect(argv.query).toBeUndefined();
     const config = await loadCliConfig({}, argv, undefined, []);
     expect(config.isInteractive()).toBe(true);
   });

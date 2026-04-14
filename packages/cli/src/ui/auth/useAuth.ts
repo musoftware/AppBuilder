@@ -594,6 +594,33 @@ export const useAuthCommand = (
     }
   }, [onAuthError]);
 
+  const handleQwenOAuthLogout = useCallback(async () => {
+    try {
+      const authTypeScope = getPersistScopeForModelSelection(settings);
+      backupSettingsFile(settings.forScope(authTypeScope).path);
+      settings.deleteValue(authTypeScope, 'security.auth.selectedType');
+      await config.clearQwenOAuthLoginSession();
+      setAuthError(null);
+      setPendingAuthType(undefined);
+      setIsAuthenticating(false);
+      setAuthState(AuthState.Updating);
+      setIsAuthDialogOpen(true);
+      onAuthChange?.();
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: t(
+            'Logged out of MU OAuth. Choose a sign-in method to continue.',
+          ),
+        },
+        Date.now(),
+      );
+    } catch (error) {
+      const message = getErrorMessage(error);
+      onAuthError(t('Failed to log out of MU OAuth: {{message}}', { message }));
+    }
+  }, [settings, config, onAuthChange, addItem, onAuthError]);
+
   return {
     authState,
     setAuthState,
@@ -606,6 +633,7 @@ export const useAuthCommand = (
     handleAuthSelect,
     handleCodingPlanSubmit,
     handleAlibabaStandardSubmit,
+    handleQwenOAuthLogout,
     openAuthDialog,
     cancelAuthentication,
   };

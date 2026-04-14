@@ -98,8 +98,9 @@ export class ModelsConfig {
   // Callback for notifying Config of model changes
   private onModelChange?: OnModelChangeCallback;
 
-  // Flag indicating whether authType was explicitly provided (not defaulted)
-  private readonly authTypeWasExplicitlyProvided: boolean;
+  // Flag indicating whether authType was explicitly provided (not defaulted).
+  // Mutable so logout can reset session state to match “no auth selected”.
+  private authTypeWasExplicitlyProvided: boolean;
 
   /**
    * Runtime model snapshot storage.
@@ -220,6 +221,15 @@ export class ModelsConfig {
    */
   getCurrentAuthType(): AuthType | undefined {
     return this.currentAuthType;
+  }
+
+  /**
+   * Clear in-memory auth selection (e.g. user logged out). Does not modify
+   * settings.json — callers should remove persisted `security.auth` fields.
+   */
+  clearCurrentAuthSelection(): void {
+    this.currentAuthType = undefined;
+    this.authTypeWasExplicitlyProvided = false;
   }
 
   /**

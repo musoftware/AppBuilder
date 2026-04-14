@@ -92,7 +92,7 @@ export default {
   // ============================================================================
   // Поля системной информации
   // ============================================================================
-  'Qwen Code': 'Qwen Code',
+  'Qwen Code': 'MU Code',
   Runtime: 'Среда выполнения',
   OS: 'ОС',
   Auth: 'Аутентификация',
@@ -1700,7 +1700,7 @@ export default {
     'Вы можете выполнять любые shell-команды в Qwen Code с помощью ! (например, !ls).',
   'Type / to open the command popup; Tab autocompletes slash commands and saved prompts.':
     'Введите /, чтобы открыть меню команд; Tab автодополняет слэш-команды и сохранённые промпты.',
-  'You can resume a previous conversation by running qwen --continue or qwen --resume.':
+  'You can resume a previous conversation by running autocreator --continue or autocreator --resume.':
     'Вы можете продолжить предыдущий разговор, запустив qwen --continue или qwen --resume.',
   'You can switch permission mode quickly with Shift+Tab or /approval-mode.':
     'Вы можете быстро переключать режим разрешений с помощью Shift+Tab или /approval-mode.',
@@ -1837,7 +1837,7 @@ export default {
   servers: 'серверов',
   'Add MCP servers to your settings to get started.':
     'Добавьте серверы MCP в настройки, чтобы начать.',
-  'Run qwen --debug to see error logs':
+  'Run autocreator --debug to see error logs':
     'Запустите qwen --debug для просмотра журналов ошибок',
 
   // MCP OAuth Authentication
@@ -1946,13 +1946,13 @@ export default {
     '⚠️  Метод аутентификации не настроен.\n',
   'Run one of the following commands to get started:\n':
     'Выполните одну из следующих команд для начала:\n',
-  '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
-    '  qwen auth qwen-oauth     - Аутентификация через Qwen OAuth (бесплатно)',
-  '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
-    '  qwen auth coding-plan      - Аутентификация через Alibaba Cloud Coding Plan\n',
+  '  autocreator auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
+    '  autocreator auth qwen-oauth     - Аутентификация через Qwen OAuth (бесплатно)',
+  '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
+    '  autocreator auth coding-plan      - Аутентификация через Alibaba Cloud Coding Plan\n',
   'Or simply run:': 'Или просто выполните:',
-  '  qwen auth                - Interactive authentication setup\n':
-    '  qwen auth                - Интерактивная настройка аутентификации\n',
+  '  autocreator auth                - Interactive authentication setup\n':
+    '  autocreator auth                - Интерактивная настройка аутентификации\n',
   '✓ Authentication Method: Qwen OAuth': '✓ Метод аутентификации: Qwen OAuth',
   '  Type: Free tier (ending 2026-04-15)':
     '  Тип: Бесплатный (завершение 2026-04-15)',
@@ -1970,8 +1970,8 @@ export default {
     '⚠️  Метод аутентификации: Alibaba Cloud Coding Plan (Не завершён)',
   '  Issue: API key not found in environment or settings\n':
     '  Проблема: API-ключ не найден в окружении или настройках\n',
-  '  Run `qwen auth coding-plan` to re-configure.\n':
-    '  Выполните `qwen auth coding-plan` для повторной настройки.\n',
+  '  Run `autocreator auth coding-plan` to re-configure.\n':
+    '  Выполните `autocreator auth coding-plan` для повторной настройки.\n',
   '✓ Authentication Method: {{type}}': '✓ Метод аутентификации: {{type}}',
   '  Status: Configured\n': '  Статус: Настроено\n',
   'Failed to check authentication status: {{error}}':

@@ -67,10 +67,10 @@ describe('showAuthStatus', () => {
       expect.stringContaining('No authentication method configured'),
     );
     expect(writeStdoutLine).toHaveBeenCalledWith(
-      expect.stringContaining('qwen auth qwen-oauth'),
+      expect.stringContaining('autocreator auth qwen-oauth'),
     );
     expect(writeStdoutLine).toHaveBeenCalledWith(
-      expect.stringContaining('qwen auth coding-plan'),
+      expect.stringContaining('autocreator auth coding-plan'),
     );
     expect(writeStdoutLine).toHaveBeenCalledWith(
       expect.stringContaining('oauth-account list'),
@@ -99,6 +99,9 @@ describe('showAuthStatus', () => {
     );
     expect(writeStdoutLine).toHaveBeenCalledWith(
       expect.stringContaining('100 requests/day'),
+    );
+    expect(writeStdoutLine).toHaveBeenCalledWith(
+      expect.stringContaining('auth logout'),
     );
     expect(process.exit).toHaveBeenCalledWith(0);
   });

@@ -294,7 +294,7 @@ const SETTINGS_SCHEMA = {
         requiresRestart: false,
         default: true,
         description:
-          'Automatically add a Co-authored-by trailer to git commit messages when commits are made through Qwen Code.',
+          'Automatically add a Co-authored-by trailer to git commit messages when commits are made through MU Code.',
         showInDialog: true,
       },
       checkpointing: {
@@ -463,7 +463,7 @@ const SETTINGS_SCHEMA = {
         requiresRestart: false,
         default: false,
         description:
-          'Show Qwen Code status and thoughts in the terminal window title',
+          'Show MU Code status and thoughts in the terminal window title',
         showInDialog: false,
       },
       hideTips: {
@@ -600,6 +600,48 @@ const SETTINGS_SCHEMA = {
         description:
           'Hide tool output and thinking for a cleaner view (toggle with Ctrl+O).',
         showInDialog: true,
+      },
+      postPromptFollowUp: {
+        type: 'object',
+        label: 'Post-prompt skill follow-ups',
+        category: 'UI',
+        requiresRestart: false,
+        default: {},
+        description:
+          'After a normal user message completes successfully, optionally queue three skill-driven prompts (tests → verify/fix → complete) when the message looks like a new-feature or implementation request — not for Q&A or casual replies. Uses post-turn-* skills.',
+        showInDialog: false,
+        mergeStrategy: MergeStrategy.SHALLOW_MERGE,
+        properties: {
+          enabled: {
+            type: 'boolean',
+            label: 'Enable post-prompt skill pipeline',
+            category: 'UI',
+            requiresRestart: false,
+            default: false,
+            description:
+              'When true, the UI may append three automated follow-up turns (Cron) after a successful user prompt that looks like a new feature or implementation request (heuristic). Not triggered for typical questions, thanks, or slash-only flows that never reach the model.',
+            showInDialog: true,
+          },
+          skillPhaseIds: {
+            type: 'array',
+            label: 'Skill folder names (phase order)',
+            category: 'UI',
+            requiresRestart: false,
+            default: [
+              'post-turn-deep-test',
+              'post-turn-verify-fix',
+              'post-turn-complete',
+            ] as string[],
+            description:
+              'Skill IDs under skills search paths (e.g. .qwen/skills/<id>/SKILL.md). Executed in array order.',
+            showInDialog: false,
+            mergeStrategy: MergeStrategy.REPLACE,
+            items: {
+              type: 'string',
+              description: 'Skill folder name',
+            },
+          },
+        },
       },
     },
   },
@@ -830,7 +872,7 @@ const SETTINGS_SCHEMA = {
             requiresRestart: false,
             default: undefined,
             description:
-              "Overrides the default context window size for the selected model. Use this setting when a provider's effective context limit differs from Qwen Code's default. This value defines the model's assumed maximum context capacity, not a per-request token limit.",
+              "Overrides the default context window size for the selected model. Use this setting when a provider's effective context limit differs from MU Code's default. This value defines the model's assumed maximum context capacity, not a per-request token limit.",
             parentKey: 'generationConfig',
             showInDialog: false,
           },
@@ -1706,6 +1748,78 @@ const SETTINGS_SCHEMA = {
         showInDialog: false,
         mergeStrategy: MergeStrategy.CONCAT,
         items: HOOK_DEFINITION_ITEMS,
+      },
+    },
+  },
+
+  autopilot: {
+    type: 'object',
+    label: 'Autopilot',
+    category: 'Advanced',
+    requiresRestart: false,
+    default: {},
+    description:
+      'Brainstorm → plan → autopilot execution (autocreator --brainstorm / /brainstorm).',
+    showInDialog: false,
+    properties: {
+      skillsPath: {
+        type: 'string',
+        label: 'Autopilot skills path',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: '' as string,
+        description:
+          'Extra directory with SKILL.md files (e.g. ~/.qwen/skills). The CLI also ships default autopilot skills; this path is searched first when set.',
+        showInDialog: false,
+      },
+      extraSkillsPaths: {
+        type: 'array',
+        label: 'Extra skill library roots',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: [] as string[],
+        description:
+          'Additional directories to scan for **/SKILL.md (e.g. a shallow clone of antigravity-awesome-skills/skills). Merged with skillsPath, project ~/.qwen/skills, and bundled defaults. First occurrence of a skill name wins.',
+        showInDialog: false,
+        mergeStrategy: MergeStrategy.CONCAT,
+        items: {
+          type: 'string',
+          description:
+            'Absolute or home-relative path to a folder containing skill subfolders',
+        },
+      },
+      maxTaskRetries: {
+        type: 'number',
+        label: 'Max task retries',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: 2,
+        description: 'Retries per autopilot task after failure.',
+        showInDialog: false,
+      },
+      planPreviewSeconds: {
+        type: 'number',
+        label: 'Plan preview seconds',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: 3,
+        description: 'Countdown before autopilot execution starts.',
+        showInDialog: false,
+      },
+      goTriggers: {
+        type: 'array',
+        label: 'Go triggers',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: [] as string[],
+        description:
+          'Phrases that start planning (merged with built-in defaults when empty).',
+        showInDialog: false,
+        mergeStrategy: MergeStrategy.CONCAT,
+        items: {
+          type: 'string',
+          description: 'Trigger phrase',
+        },
       },
     },
   },

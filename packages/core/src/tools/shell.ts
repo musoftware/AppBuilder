@@ -33,6 +33,7 @@ import { formatMemoryUsage } from '../utils/formatters.js';
 import type { AnsiOutput } from '../utils/terminalSerializer.js';
 import { isSubpaths } from '../utils/paths.js';
 import {
+  detectCommandSubstitution,
   getCommandRoot,
   getCommandRoots,
   splitCommands,
@@ -91,11 +92,19 @@ export class ShellToolInvocation extends BaseToolInvocation<
 
   /**
    * AST-based permission check for the shell command.
-   * - Read-only commands (via AST analysis) → 'allow'
-   * - All other commands → 'ask'
+   * - Trusted workspace → 'allow' (no per-command prompts), except command
+   *   substitution which stays 'deny' for safety.
+   * - Untrusted: read-only commands (via AST) → 'allow'; else → 'ask'
    */
   override async getDefaultPermission(): Promise<PermissionDecision> {
     const command = stripShellWrapper(this.params.command);
+
+    if (this.config.isTrustedFolder?.()) {
+      if (detectCommandSubstitution(command)) {
+        return 'deny';
+      }
+      return 'allow';
+    }
 
     // AST-based read-only detection
     try {

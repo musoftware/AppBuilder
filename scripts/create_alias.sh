@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Determine the project directory
 PROJECT_DIR=$(cd "$(dirname "$0")/.." && pwd)
-ALIAS_COMMAND="alias qwen='node "${PROJECT_DIR}/scripts/start.js"'"
+ALIAS_COMMAND="alias autocreator='node "${PROJECT_DIR}/scripts/start.js"'"
 
 # Detect shell and set config file path
 if [[ "${SHELL}" == *"/bash" ]]; then
@@ -22,8 +22,8 @@ echo "  ${ALIAS_COMMAND}"
 echo ""
 
 # Check if the alias already exists
-if grep -q "alias qwen=" "${CONFIG_FILE}"; then
-    echo "A 'qwen' alias already exists in ${CONFIG_FILE}. No changes were made."
+if grep -q "alias autocreator=" "${CONFIG_FILE}"; then
+    echo "An 'autocreator' alias already exists in ${CONFIG_FILE}. No changes were made."
     exit 0
 fi
 

@@ -82,16 +82,16 @@ export default {
   'For a full list of shortcuts, see {{docPath}}':
     'For a full list of shortcuts, see {{docPath}}',
   'docs/keyboard-shortcuts.md': 'docs/keyboard-shortcuts.md',
-  'for help on Qwen Code': 'for help on Qwen Code',
+  'for help on Qwen Code': 'for help on MU Code',
   'show version info': 'show version info',
   'submit a bug report': 'submit a bug report',
-  'About Qwen Code': 'About Qwen Code',
+  'About Qwen Code': 'About MU Code',
   Status: 'Status',
 
   // ============================================================================
   // System Information Fields
   // ============================================================================
-  'Qwen Code': 'Qwen Code',
+  'Qwen Code': 'MU Code',
   Runtime: 'Runtime',
   OS: 'OS',
   Auth: 'Auth',
@@ -118,9 +118,9 @@ export default {
   'Analyzes the project and creates a tailored QWEN.md file.':
     'Analyzes the project and creates a tailored QWEN.md file.',
   'List available Qwen Code tools. Usage: /tools [desc]':
-    'List available Qwen Code tools. Usage: /tools [desc]',
+    'List available MU Code tools. Usage: /tools [desc]',
   'List available skills.': 'List available skills.',
-  'Available Qwen Code CLI tools:': 'Available Qwen Code CLI tools:',
+  'Available Qwen Code CLI tools:': 'Available MU Code CLI tools:',
   'No tools available': 'No tools available',
   'View or change the approval mode for tool usage':
     'View or change the approval mode for tool usage',
@@ -145,7 +145,7 @@ export default {
   'Compresses the context by replacing it with a summary.':
     'Compresses the context by replacing it with a summary.',
   'open full Qwen Code documentation in your browser':
-    'open full Qwen Code documentation in your browser',
+    'open full MU Code documentation in your browser',
   'Configuration not available.': 'Configuration not available.',
   'change the auth method': 'change the auth method',
   'Configure authentication information for login':
@@ -235,7 +235,7 @@ export default {
   'Step {{n}}: Choose Generation Method':
     'Step {{n}}: Choose Generation Method',
   'Generate with Qwen Code (Recommended)':
-    'Generate with Qwen Code (Recommended)',
+    'Generate with MU Code (Recommended)',
   'Manual Creation': 'Manual Creation',
   'Describe what this subagent should do and when it should be used. (Be comprehensive for best results)':
     'Describe what this subagent should do and when it should be used. (Be comprehensive for best results)',
@@ -361,10 +361,10 @@ export default {
   // ============================================================================
   // Commands - General (continued)
   // ============================================================================
-  'View and edit Qwen Code settings': 'View and edit Qwen Code settings',
+  'View and edit Qwen Code settings': 'View and edit MU Code settings',
   Settings: 'Settings',
   'To see changes, Qwen Code must be restarted. Press r to exit and apply changes now.':
-    'To see changes, Qwen Code must be restarted. Press r to exit and apply changes now.',
+    'To see changes, MU Code must be restarted. Press r to exit and apply changes now.',
   'The command "/{{command}}" is not supported in non-interactive mode.':
     'The command "/{{command}}" is not supported in non-interactive mode.',
   // ============================================================================
@@ -392,7 +392,7 @@ export default {
   'Show Welcome Back Dialog': 'Show Welcome Back Dialog',
   'Enable User Feedback': 'Enable User Feedback',
   'How is Qwen doing this session? (optional)':
-    'How is Qwen doing this session? (optional)',
+    'How is MU Code doing this session? (optional)',
   Bad: 'Bad',
   Fine: 'Fine',
   Good: 'Good',
@@ -520,7 +520,7 @@ export default {
   'Installation cancelled for "{{name}}".':
     'Installation cancelled for "{{name}}".',
   'You are installing an extension from {{originSource}}. Some features may not work perfectly with Qwen Code.':
-    'You are installing an extension from {{originSource}}. Some features may not work perfectly with Qwen Code.',
+    'You are installing an extension from {{originSource}}. Some features may not work perfectly with MU Code.',
   '--ref and --auto-update are not applicable for marketplace extensions.':
     '--ref and --auto-update are not applicable for marketplace extensions.',
   'Extension "{{name}}" installed successfully and enabled.':
@@ -631,7 +631,7 @@ export default {
   'enable IDE integration': 'enable IDE integration',
   'disable IDE integration': 'disable IDE integration',
   'IDE integration is not supported in your current environment. To use this feature, run Qwen Code in one of these supported IDEs: VS Code or VS Code forks.':
-    'IDE integration is not supported in your current environment. To use this feature, run Qwen Code in one of these supported IDEs: VS Code or VS Code forks.',
+    'IDE integration is not supported in your current environment. To use this feature, run MU Code in one of these supported IDEs: VS Code or VS Code forks.',
   'Set up GitHub Actions': 'Set up GitHub Actions',
   'Configure terminal keybindings for multiline input (VS Code, Cursor, Windsurf, Trae)':
     'Configure terminal keybindings for multiline input (VS Code, Cursor, Windsurf, Trae)',
@@ -665,7 +665,7 @@ export default {
   // ============================================================================
   // Commands - Hooks
   // ============================================================================
-  'Manage Qwen Code hooks': 'Manage Qwen Code hooks',
+  'Manage Qwen Code hooks': 'Manage MU Code hooks',
   'List all configured hooks': 'List all configured hooks',
   'Enable a disabled hook': 'Enable a disabled hook',
   'Disable an active hook': 'Disable an active hook',
@@ -684,14 +684,14 @@ export default {
   '{{count}} hook configured': '{{count}} hook configured',
   '{{count}} hooks configured': '{{count}} hooks configured',
   'This menu is read-only. To add or modify hooks, edit settings.json directly or ask Qwen Code.':
-    'This menu is read-only. To add or modify hooks, edit settings.json directly or ask Qwen Code.',
+    'This menu is read-only. To add or modify hooks, edit settings.json directly or ask MU Code.',
   'Enter to select · Esc to cancel': 'Enter to select · Esc to cancel',
   // Hooks - Detail Step
   'Exit codes:': 'Exit codes:',
   'Configured hooks:': 'Configured hooks:',
   'No hooks configured for this event.': 'No hooks configured for this event.',
   'To add hooks, edit settings.json directly or ask Qwen.':
-    'To add hooks, edit settings.json directly or ask Qwen.',
+    'To add hooks, edit settings.json directly or ask MU Code.',
   'Enter to select · Esc to go back': 'Enter to select · Esc to go back',
   // Hooks - Config Detail Step
   'Hook details': 'Hook details',
@@ -700,7 +700,7 @@ export default {
   'Desc:': 'Desc:',
   'No hook config selected': 'No hook config selected',
   'To modify or remove this hook, edit settings.json directly or ask Qwen to help.':
-    'To modify or remove this hook, edit settings.json directly or ask Qwen to help.',
+    'To modify or remove this hook, edit settings.json directly or ask MU Code to help.',
   // Hooks - Disabled Step
   'Hook Configuration - Disabled': 'Hook Configuration - Disabled',
   'All hooks are currently disabled. You have {{count}} that are not running.':
@@ -713,7 +713,7 @@ export default {
   'Tool operations will proceed without hook validation':
     'Tool operations will proceed without hook validation',
   'To re-enable hooks, remove "disableAllHooks" from settings.json or ask Qwen Code.':
-    'To re-enable hooks, remove "disableAllHooks" from settings.json or ask Qwen Code.',
+    'To re-enable hooks, remove "disableAllHooks" from settings.json or ask MU Code.',
   // Hooks - Source
   Project: 'Project',
   User: 'User',
@@ -734,7 +734,7 @@ export default {
   'When the user submits a prompt': 'When the user submits a prompt',
   'When a new session is started': 'When a new session is started',
   'Right before Qwen Code concludes its response':
-    'Right before Qwen Code concludes its response',
+    'Right before MU Code concludes its response',
   'When a subagent (Agent tool call) is started':
     'When a subagent (Agent tool call) is started',
   'Right before a subagent concludes its response':
@@ -778,7 +778,7 @@ export default {
     'show stderr to user only but continue with tool call',
   'block processing, erase original prompt, and show stderr to user only':
     'block processing, erase original prompt, and show stderr to user only',
-  'stdout shown to Qwen': 'stdout shown to Qwen',
+  'stdout shown to Qwen': 'stdout shown to MU Code',
   'show stderr to user only (blocking errors ignored)':
     'show stderr to user only (blocking errors ignored)',
   'command completes successfully': 'command completes successfully',
@@ -1037,7 +1037,8 @@ export default {
   servers: 'servers',
   'Add MCP servers to your settings to get started.':
     'Add MCP servers to your settings to get started.',
-  'Run qwen --debug to see error logs': 'Run qwen --debug to see error logs',
+  'Run autocreator --debug to see error logs':
+    'Run autocreator --debug to see error logs',
 
   // MCP OAuth Authentication
   'OAuth Authentication': 'OAuth Authentication',
@@ -1306,6 +1307,20 @@ export default {
     'Paid \u00B7 Up to 6,000 requests/5 hrs \u00B7 All Alibaba Cloud Coding Plan Models',
   'Alibaba Cloud Coding Plan': 'Alibaba Cloud Coding Plan',
   'Bring your own API key': 'Bring your own API key',
+  'Log out of MU OAuth': 'Log out of MU OAuth',
+  'Remove saved MU OAuth session and stored sign-in choice':
+    'Remove saved MU OAuth session and stored sign-in choice',
+  'Logged out of MU OAuth. Choose a sign-in method to continue.':
+    'Logged out of MU OAuth. Choose a sign-in method to continue.',
+  'Failed to log out of MU OAuth: {{message}}':
+    'Failed to log out of MU OAuth: {{message}}',
+  'Logged out of MU OAuth.': 'Logged out of MU OAuth.',
+  'Not signed in with MU OAuth. Use /auth in the app or `autocreator auth` to change method.':
+    'Not signed in with MU OAuth. Use /auth in the app or `autocreator auth` to change method.',
+  'Log out of MU OAuth (clear saved session and auth choice)':
+    'Log out of MU OAuth (clear saved session and auth choice)',
+  '  Log out: autocreator auth logout  (or /auth → Log out of MU OAuth)\n':
+    '  Log out: autocreator auth logout  (or /auth → Log out of MU OAuth)\n',
   'API-KEY': 'API-KEY',
   'Use coding plan credentials or your own api-keys/providers.':
     'Use coding plan credentials or your own api-keys/providers.',
@@ -1315,26 +1330,25 @@ export default {
   'Authentication is enforced to be {{enforcedType}}, but you are currently using {{currentType}}.':
     'Authentication is enforced to be {{enforcedType}}, but you are currently using {{currentType}}.',
   'Qwen OAuth authentication timed out. Please try again.':
-    'Qwen OAuth authentication timed out. Please try again.',
-  'Qwen OAuth authentication cancelled.':
-    'Qwen OAuth authentication cancelled.',
-  'Qwen OAuth Authentication': 'Qwen OAuth Authentication',
+    'MU OAuth authentication timed out. Please try again.',
+  'Qwen OAuth authentication cancelled.': 'MU OAuth authentication cancelled.',
+  'Qwen OAuth Authentication': 'MU OAuth Authentication',
   'Please visit this URL to authorize:': 'Please visit this URL to authorize:',
   'Or scan the QR code below:': 'Or scan the QR code below:',
   'Waiting for authorization': 'Waiting for authorization',
   'Time remaining:': 'Time remaining:',
   '(Press ESC or CTRL+C to cancel)': '(Press ESC or CTRL+C to cancel)',
-  'Qwen OAuth Authentication Timeout': 'Qwen OAuth Authentication Timeout',
+  'Qwen OAuth Authentication Timeout': 'MU OAuth Authentication Timeout',
   'OAuth token expired (over {{seconds}} seconds). Please select authentication method again.':
     'OAuth token expired (over {{seconds}} seconds). Please select authentication method again.',
   'Press any key to return to authentication type selection.':
     'Press any key to return to authentication type selection.',
   'Waiting for Qwen OAuth authentication...':
-    'Waiting for Qwen OAuth authentication...',
+    'Waiting for MU OAuth authentication...',
   'Note: Your existing API key in settings.json will not be cleared when using Qwen OAuth. You can switch back to OpenAI authentication later if needed.':
-    'Note: Your existing API key in settings.json will not be cleared when using Qwen OAuth. You can switch back to OpenAI authentication later if needed.',
+    'Note: Your existing API key in settings.json will not be cleared when using MU OAuth. You can switch back to OpenAI authentication later if needed.',
   'Note: Your existing API key will not be cleared when using Qwen OAuth.':
-    'Note: Your existing API key will not be cleared when using Qwen OAuth.',
+    'Note: Your existing API key will not be cleared when using MU OAuth.',
   'Authentication timed out. Please try again.':
     'Authentication timed out. Please try again.',
   'Waiting for auth... (Press ESC or CTRL+C to cancel)':
@@ -1410,11 +1424,11 @@ export default {
   Deny: 'Deny',
   Workspace: 'Workspace',
   "Qwen Code won't ask before using allowed tools.":
-    "Qwen Code won't ask before using allowed tools.",
+    "MU Code won't ask before using allowed tools.",
   'Qwen Code will ask before using these tools.':
-    'Qwen Code will ask before using these tools.',
+    'MU Code will ask before using these tools.',
   'Qwen Code is not allowed to use denied tools.':
-    'Qwen Code is not allowed to use denied tools.',
+    'MU Code is not allowed to use denied tools.',
   'Manage trusted directories for this workspace.':
     'Manage trusted directories for this workspace.',
   'Any use of the {{tool}} tool': 'Any use of the {{tool}} tool',
@@ -1453,9 +1467,9 @@ export default {
   'Add directory…': 'Add directory…',
   'Add directory to workspace': 'Add directory to workspace',
   'Qwen Code can read files in the workspace, and make edits when auto-accept edits is on.':
-    'Qwen Code can read files in the workspace, and make edits when auto-accept edits is on.',
+    'MU Code can read files in the workspace, and make edits when auto-accept edits is on.',
   'Qwen Code will be able to read files in this directory and make edits when auto-accept edits is on.':
-    'Qwen Code will be able to read files in this directory and make edits when auto-accept edits is on.',
+    'MU Code will be able to read files in this directory and make edits when auto-accept edits is on.',
   'Enter the path to the directory:': 'Enter the path to the directory:',
   'Enter directory path…': 'Enter directory path…',
   'Tab to complete · Enter to add · Esc to cancel':
@@ -1546,11 +1560,11 @@ export default {
   'Switch auth type quickly with /auth.':
     'Switch auth type quickly with /auth.',
   'You can run any shell commands from Qwen Code using ! (e.g. !ls).':
-    'You can run any shell commands from Qwen Code using ! (e.g. !ls).',
+    'You can run any shell commands from MU Code using ! (e.g. !ls).',
   'Type / to open the command popup; Tab autocompletes slash commands and saved prompts.':
     'Type / to open the command popup; Tab autocompletes slash commands and saved prompts.',
-  'You can resume a previous conversation by running qwen --continue or qwen --resume.':
-    'You can resume a previous conversation by running qwen --continue or qwen --resume.',
+  'You can resume a previous conversation by running autocreator --continue or autocreator --resume.':
+    'You can resume a previous conversation by running autocreator --continue or autocreator --resume.',
   'You can switch permission mode quickly with Shift+Tab or /approval-mode.':
     'You can switch permission mode quickly with Shift+Tab or /approval-mode.',
   'You can switch permission mode quickly with Tab or /approval-mode.':
@@ -1955,8 +1969,8 @@ export default {
   // Commands - Auth
   // ============================================================================
   'Configure Qwen authentication information with Qwen-OAuth or Alibaba Cloud Coding Plan':
-    'Configure Qwen authentication information with Qwen-OAuth or Alibaba Cloud Coding Plan',
-  'Authenticate using Qwen OAuth': 'Authenticate using Qwen OAuth',
+    'Configure MU Code authentication information with MU-OAuth or Alibaba Cloud Coding Plan',
+  'Authenticate using Qwen OAuth': 'Authenticate using MU OAuth',
   'Authenticate using Alibaba Cloud Coding Plan':
     'Authenticate using Alibaba Cloud Coding Plan',
   'Region for Coding Plan (china/global)':
@@ -1966,11 +1980,11 @@ export default {
   'Authentication completed successfully.':
     'Authentication completed successfully.',
   'Starting Qwen OAuth authentication...':
-    'Starting Qwen OAuth authentication...',
+    'Starting MU OAuth authentication...',
   'Successfully authenticated with Qwen OAuth.':
-    'Successfully authenticated with Qwen OAuth.',
+    'Successfully authenticated with MU OAuth.',
   'Failed to authenticate with Qwen OAuth: {{error}}':
-    'Failed to authenticate with Qwen OAuth: {{error}}',
+    'Failed to authenticate with MU OAuth: {{error}}',
   'Processing Alibaba Cloud Coding Plan authentication...':
     'Processing Alibaba Cloud Coding Plan authentication...',
   'Successfully authenticated with Alibaba Cloud Coding Plan.':
@@ -1989,10 +2003,10 @@ export default {
     '⚠️  No authentication method configured.\n',
   'Run one of the following commands to get started:\n':
     'Run one of the following commands to get started:\n',
-  '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
-    '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)',
-  '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
-    '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
+  '  autocreator auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
+    '  autocreator auth qwen-oauth     - Authenticate with MU OAuth (free tier)',
+  '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
+    '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n',
   'Or simply run:': 'Or simply run:',
   '  qwen auth                - Interactive authentication setup\n':
     '  qwen auth                - Interactive authentication setup\n',
@@ -2013,8 +2027,8 @@ export default {
     '⚠️  Authentication Method: Alibaba Cloud Coding Plan (Incomplete)',
   '  Issue: API key not found in environment or settings\n':
     '  Issue: API key not found in environment or settings\n',
-  '  Run `qwen auth coding-plan` to re-configure.\n':
-    '  Run `qwen auth coding-plan` to re-configure.\n',
+  '  Run `autocreator auth coding-plan` to re-configure.\n':
+    '  Run `autocreator auth coding-plan` to re-configure.\n',
   '✓ Authentication Method: {{type}}': '✓ Authentication Method: {{type}}',
   '  Status: Configured\n': '  Status: Configured\n',
   'Failed to check authentication status: {{error}}':
@@ -2041,5 +2055,5 @@ export default {
   'Not in plan mode. Use "/plan" to enter plan mode first.':
     'Not in plan mode. Use "/plan" to enter plan mode first.',
 
-  "Set up Qwen Code's status line UI": "Set up Qwen Code's status line UI",
+  "Set up Qwen Code's status line UI": "Set up MU Code's status line UI",
 };

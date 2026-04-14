@@ -71,7 +71,9 @@ export async function showResumeSessionPicker(
   const sessionService = new SessionService(cwd);
   const hasSession = await sessionService.loadLastSession();
   if (!hasSession) {
-    writeStdoutLine('No sessions found. Start a new session with `qwen`.');
+    writeStdoutLine(
+      'No sessions found. Start a new session with `autocreator`.',
+    );
     return undefined;
   }
 

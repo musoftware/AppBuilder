@@ -53,6 +53,12 @@ packages/web-templates/src/generated/
 .integration-tests/
 packages/vscode-ide-companion/*.vsix
 
+# Full-chain BMAD cache (machine-specific; .ai-docs/*.md may be committed)
+.ai-docs/.chain-cache.json
+
+# Project brain — auto-generated skill outputs (machine-specific)
+.project-brain/
+
 # Qwen Code Configs
 
 .qwen/*
@@ -88,3 +94,4 @@ storybook-static
 
 # Dev symlink: qc-helper bundled skill docs (created by scripts/dev.js)
 packages/core/src/skills/bundled/qc-helper/docs
+qwen-code-qwen-code-0.14.2.tgz

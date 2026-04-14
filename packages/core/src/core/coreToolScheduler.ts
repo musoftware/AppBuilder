@@ -69,6 +69,20 @@ import levenshtein from 'fast-levenshtein';
 import { getPlanModeSystemReminder } from './prompts.js';
 import { ShellToolInvocation } from '../tools/shell.js';
 import { IdeClient } from '../ide/ide-client.js';
+import { setMaxListeners } from 'node:events';
+
+/** Node's default AbortSignal max listeners (10) is easy to exceed when many
+ *  tool schedules queue on the same session signal; avoid MaxListenersExceededWarning. */
+const TOOL_SCHEDULER_ABORT_SIGNAL_MAX_LISTENERS = 64;
+
+function relaxAbortSignalListenerLimit(signal: AbortSignal): void {
+  try {
+    setMaxListeners(TOOL_SCHEDULER_ABORT_SIGNAL_MAX_LISTENERS, signal);
+  } catch {
+    // `setMaxListeners` only accepts EventEmitter/EventTarget. Some runtimes (or test doubles)
+    // expose AbortSignal without matching Node's EventTarget check; scheduling still works.
+  }
+}
 
 const TRUNCATION_PARAM_GUIDANCE =
   'Note: Your previous response was truncated due to max_tokens limit, ' +
@@ -710,6 +724,8 @@ export class CoreToolScheduler {
     request: ToolCallRequestInfo | ToolCallRequestInfo[],
     signal: AbortSignal,
   ): Promise<void> {
+    relaxAbortSignalListenerLimit(signal);
+
     if (this.isRunning() || this.isScheduling) {
       return new Promise((resolve, reject) => {
         const abortHandler = () => {
@@ -1009,12 +1025,15 @@ export class CoreToolScheduler {
             }
 
             /**
-             * In non-interactive mode, automatically deny.
+             * In non-interactive mode, automatically deny — unless approval mode
+             * already auto-approves (YOLO). That path should usually short-circuit
+             * above; this guards mode drift (e.g. a tool switching to DEFAULT).
              */
             const shouldAutoDeny =
               !this.config.isInteractive() &&
               !this.config.getExperimentalZedIntegration() &&
-              this.config.getInputFormat() !== InputFormat.STREAM_JSON;
+              this.config.getInputFormat() !== InputFormat.STREAM_JSON &&
+              this.config.getApprovalMode() !== ApprovalMode.YOLO;
 
             if (shouldAutoDeny) {
               const errorMessage = `Qwen Code requires permission to use "${reqInfo.name}", but that permission was declined (non-interactive mode cannot prompt for confirmation).`;

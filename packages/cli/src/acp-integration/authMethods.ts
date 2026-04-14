@@ -20,7 +20,7 @@ export function buildAuthMethods(): AuthMethod[] {
     },
     {
       id: AuthType.QWEN_OAUTH,
-      name: 'Qwen OAuth',
+      name: 'MU OAuth',
       description:
         'OAuth authentication for Qwen models with free daily requests (ending 2026-04-15)',
       _meta: {
@@ -43,7 +43,11 @@ export function pickAuthMethodsForDetails(details?: string): AuthMethod[] {
   if (!details) {
     return authMethods;
   }
-  if (details.includes('qwen-oauth') || details.includes('Qwen OAuth')) {
+  if (
+    details.includes('qwen-oauth') ||
+    details.includes('Qwen OAuth') ||
+    details.includes('MU OAuth')
+  ) {
     const narrowed = filterAuthMethodsById(authMethods, AuthType.QWEN_OAUTH);
     return narrowed.length ? narrowed : authMethods;
   }

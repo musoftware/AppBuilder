@@ -72,6 +72,7 @@ describe('ShellTool', () => {
         email: 'qwen-coder@alibabacloud.com',
       }),
       getShouldUseNodePtyShell: vi.fn().mockReturnValue(false),
+      isTrustedFolder: vi.fn().mockReturnValue(false),
     } as unknown as Config;
 
     shellTool = new ShellTool(mockConfig);
@@ -912,7 +913,27 @@ describe('ShellTool', () => {
       expect(permission).toBe('allow');
     });
 
-    it('should request confirmation for a non-read-only command and return details', async () => {
+    it('should allow non-read-only commands in a trusted folder without confirmation', async () => {
+      (mockConfig.isTrustedFolder as Mock).mockReturnValue(true);
+      const params = { command: 'npm install', is_background: false };
+      const invocation = shellTool.build(params);
+
+      const permission = await invocation.getDefaultPermission();
+      expect(permission).toBe('allow');
+    });
+
+    it('should deny command substitution in a trusted folder', async () => {
+      (mockConfig.isTrustedFolder as Mock).mockReturnValue(true);
+      const invocation = shellTool.build({
+        command: 'echo $(date)',
+        is_background: false,
+      });
+
+      const permission = await invocation.getDefaultPermission();
+      expect(permission).toBe('deny');
+    });
+
+    it('should request confirmation for a non-read-only command when folder is not trusted', async () => {
       const params = { command: 'npm install', is_background: false };
       const invocation = shellTool.build(params);
 

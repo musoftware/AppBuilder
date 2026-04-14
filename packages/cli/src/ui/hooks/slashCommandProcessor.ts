@@ -574,6 +574,14 @@ export const useSlashCommandProcessor = (
                     type: 'submit_prompt',
                     content: result.content,
                   };
+
+                case 'autopilot':
+                  return {
+                    type: 'autopilot',
+                    initialIdea: result.initialIdea,
+                    mode: result.mode,
+                    phasePick: result.phasePick,
+                  };
                 case 'confirm_shell_commands': {
                   const { outcome, approvedCommands } = await new Promise<{
                     outcome: ToolConfirmationOutcome;

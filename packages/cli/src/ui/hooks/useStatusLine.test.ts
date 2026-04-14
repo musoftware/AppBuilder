@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import * as child_process from 'child_process';
+import { useStatusLine } from './useStatusLine.js';
 
 // --- Mock child_process (auto-mock, then override exec in beforeEach) ---
 vi.mock('child_process');
@@ -88,11 +89,7 @@ function setStatusLineConfig(
 }
 
 describe('useStatusLine', () => {
-  // Must import dynamically after mocks are set up
-  let useStatusLine: typeof import('./useStatusLine.js').useStatusLine;
-
-  beforeEach(async () => {
-    vi.useFakeTimers();
+  beforeEach(() => {
     vi.clearAllMocks();
     lastExecCommand = undefined;
     stdinWrittenData = '';
@@ -136,9 +133,7 @@ describe('useStatusLine', () => {
     mockVimMode.vimEnabled = false;
     mockVimMode.vimMode = 'INSERT';
 
-    // Dynamic import to get fresh module after mocks
-    const mod = await import('./useStatusLine.js');
-    useStatusLine = mod.useStatusLine;
+    vi.useFakeTimers();
   });
 
   afterEach(() => {

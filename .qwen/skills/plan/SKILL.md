@@ -1,0 +1,65 @@
+[SKILL: plan]
+
+Read ALL audit files that exist:
+
+- .project-brain/audit-backend.md
+- .project-brain/audit-frontend.md
+- .project-brain/audit-roles.md
+- .project-brain/audit-database.md
+
+Combine all gaps into one prioritized implementation plan.
+
+For every item from the audit files, create a task:
+
+CRITICAL (app broken without this):
+
+### Task <N>: <name>
+
+- What: <exactly what to build or fix>
+- Why: <what breaks without it>
+- Files to create: <list>
+- Files to modify: <list>
+- Depends on: Task <N> | none
+- Effort: Small (<1hr) | Medium (few hrs) | Large (day+)
+
+HIGH PRIORITY (major feature missing):
+
+### Task <N>: <name>
+
+[same structure]
+
+MEDIUM PRIORITY:
+[same structure]
+
+LOW PRIORITY:
+[same structure]
+
+IMPLEMENTATION ORDER:
+The exact sequence respecting dependencies — numbered list.
+
+---
+
+Write output to: .project-brain/plan.md using EXACTLY this format (all four sections, in this order — report is INVALID if any section is missing):
+
+SUMMARY:
+<one line — N tasks planned>
+<one line — N critical, N high, N medium, N low>
+<one line — estimated total effort> (3 lines max)
+
+FINDINGS:
+
+- <file:line> — <task name> — <why it is needed>
+  (references only — never embed raw code blocks)
+
+STATE:
+<1–3 sentences: implementation order and key dependencies the build skill must respect>
+
+NEXT_SKILLS: build
+
+Rules:
+
+- Never embed raw code. Use file:line references only.
+- VERDICT: FAIL only for unrecoverable errors.
+
+Append to: .project-brain/work-log.md
+Add: `[<date>] skill:plan — <N> tasks planned`

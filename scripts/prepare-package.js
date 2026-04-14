@@ -154,9 +154,11 @@ const distPackageJson = {
   repository: rootPackageJson.repository,
   type: 'module',
   main: 'cli.js',
-  bin: {
-    qwen: 'cli.js',
-  },
+  bin: rootPackageJson.bin
+    ? Object.fromEntries(
+        Object.entries(rootPackageJson.bin).map(([k]) => [k, 'cli.js']),
+      )
+    : { mu: 'cli.js', 'mu-pilot': 'cli.js' },
   files: [
     'cli.js',
     'vendor',
@@ -165,6 +167,7 @@ const distPackageJson = {
     'LICENSE',
     'locales',
     'bundled',
+    'autopilot-bundled-skills',
   ],
   config: rootPackageJson.config,
   dependencies: {},

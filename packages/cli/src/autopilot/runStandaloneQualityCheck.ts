@@ -1,0 +1,77 @@
+/* eslint-disable no-console -- CLI banner output */
+import chalk from 'chalk';
+import {
+  DEFAULT_QUALITY_CHECK_MAX_PASSES,
+  QualityCheckLoop,
+  TaskRunner,
+} from '@qwen-code/autopilot';
+import type { ChatMessage, ContextSpec } from '@qwen-code/autopilot';
+import {
+  appendAutopilotQueueJsonl,
+  getAutopilotQueueLogPath,
+} from './autopilotQueueJsonl.js';
+
+interface StandaloneQcOptions {
+  maxTaskRetries?: number;
+  maxIterations?: number;
+}
+
+export async function runStandaloneQualityCheck(
+  callModelWithTools: (
+    messages: ChatMessage[],
+    system: string,
+    yolo: boolean,
+  ) => Promise<string>,
+  options: StandaloneQcOptions = {},
+): Promise<void> {
+  const workspaceRoot = process.cwd();
+
+  console.log('\n' + chalk.bold.cyan('━'.repeat(50)));
+  console.log(chalk.bold(' MU Code — Quality Check mode'));
+  console.log(chalk.dim(` Workspace: ${workspaceRoot}`));
+  console.log(chalk.cyan('━'.repeat(50)) + '\n');
+
+  // Minimal context — the QC loop reads the workspace itself
+  const context: ContextSpec = {
+    idea: 'Quality check of existing project',
+    goal: 'Identify and fix bugs, missing implementations, and logical conflicts',
+    techStack: [],
+    constraints: [],
+    outputFormat: 'other',
+    clarifications: {},
+    workspaceRoot,
+    projectMode: 'brownfield',
+  };
+
+  const runner = new TaskRunner(
+    callModelWithTools,
+    options.maxTaskRetries ?? 2,
+  );
+  const logPath = getAutopilotQueueLogPath();
+  const telemetry =
+    logPath !== null
+      ? {
+          onVerificationPassStart(
+            iteration: number,
+            maxIterations: number,
+          ): void {
+            appendAutopilotQueueJsonl(logPath, {
+              kind: 'quality_check_pass',
+              source: 'quality-check-only',
+              iteration,
+              maxIterations,
+            });
+          },
+        }
+      : undefined;
+
+  const loop = new QualityCheckLoop(
+    callModelWithTools,
+    runner,
+    context,
+    options.maxIterations ?? DEFAULT_QUALITY_CHECK_MAX_PASSES,
+    telemetry,
+  );
+
+  await loop.run();
+}

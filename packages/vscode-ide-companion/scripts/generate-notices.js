@@ -110,6 +110,55 @@ function collectDependencies(packageName, packageLock, dependenciesMap) {
   }
 }
 
+async function resolveInstalledPackageJsonPath(depName) {
+  const candidates = [
+    path.join(projectRoot, 'node_modules', depName, 'package.json'),
+    path.join(packagePath, 'node_modules', depName, 'package.json'),
+  ];
+  for (const candidate of candidates) {
+    if (await fs.stat(candidate).catch(() => false)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+/**
+ * When package-lock.json is absent (e.g. archive without lockfile), collect
+ * dependency names and versions from the installed tree under node_modules.
+ */
+async function collectDependenciesFromInstall(depName, dependenciesMap) {
+  if (dependenciesMap.has(depName)) {
+    return;
+  }
+
+  const pkgJsonPath = await resolveInstalledPackageJsonPath(depName);
+  if (!pkgJsonPath) {
+    console.warn(
+      `Warning: Could not resolve ${depName} under node_modules (no package-lock.json fallback).`,
+    );
+    return;
+  }
+
+  let pkg;
+  try {
+    pkg = JSON.parse(await fs.readFile(pkgJsonPath, 'utf-8'));
+  } catch (e) {
+    console.warn(
+      `Warning: Could not read package.json for ${depName}: ${e.message}`,
+    );
+    return;
+  }
+
+  const version = typeof pkg.version === 'string' ? pkg.version : '0.0.0';
+  dependenciesMap.set(depName, version);
+
+  const childDeps = pkg.dependencies ?? {};
+  for (const childName of Object.keys(childDeps)) {
+    await collectDependenciesFromInstall(childName, dependenciesMap);
+  }
+}
+
 async function main() {
   try {
     const packageJsonPath = path.join(packagePath, 'package.json');
@@ -117,17 +166,55 @@ async function main() {
     const packageJson = JSON.parse(packageJsonContent);
 
     const packageLockJsonPath = path.join(projectRoot, 'package-lock.json');
-    const packageLockJsonContent = await fs.readFile(
-      packageLockJsonPath,
-      'utf-8',
-    );
-    const packageLockJson = JSON.parse(packageLockJsonContent);
-
     const allDependencies = new Map();
     const directDependencies = Object.keys(packageJson.dependencies);
 
-    for (const depName of directDependencies) {
-      collectDependencies(depName, packageLockJson, allDependencies);
+    let usedLockfile = false;
+    try {
+      const packageLockJsonContent = await fs.readFile(
+        packageLockJsonPath,
+        'utf-8',
+      );
+      const packageLockJson = JSON.parse(packageLockJsonContent);
+      if (
+        packageLockJson.packages &&
+        typeof packageLockJson.packages === 'object'
+      ) {
+        usedLockfile = true;
+        for (const depName of directDependencies) {
+          collectDependencies(depName, packageLockJson, allDependencies);
+        }
+      } else {
+        console.warn(
+          'Warning: package-lock.json has no `packages` field; generating NOTICES from node_modules.',
+        );
+        for (const depName of directDependencies) {
+          await collectDependenciesFromInstall(depName, allDependencies);
+        }
+      }
+    } catch (e) {
+      if (e && e.code !== 'ENOENT') {
+        throw e;
+      }
+      console.warn(
+        'Warning: No root package-lock.json; generating NOTICES from installed node_modules.',
+      );
+      for (const depName of directDependencies) {
+        await collectDependenciesFromInstall(depName, allDependencies);
+      }
+    }
+
+    if (
+      usedLockfile &&
+      allDependencies.size === 0 &&
+      directDependencies.length > 0
+    ) {
+      console.warn(
+        'Warning: package-lock.json produced no dependencies; falling back to node_modules.',
+      );
+      for (const depName of directDependencies) {
+        await collectDependenciesFromInstall(depName, allDependencies);
+      }
     }
 
     const dependencyEntries = Array.from(allDependencies.entries());

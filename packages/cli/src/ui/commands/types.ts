@@ -188,6 +188,100 @@ export interface SubmitPromptActionReturn {
   content: PartListUnion;
 }
 
+/** Optional flags for interactive autopilot (CLI startup or advanced slash flows). */
+export interface AutopilotRequestOptions {
+  /**
+   * When using the default brainstorm → plan path, override workspace mode detection.
+   * Set from `mu-pilot --brainstorm --brownfield`.
+   */
+  brainstormForceMode?: 'brownfield' | 'greenfield';
+  /**
+   * Skip the hidden brainstorm Q&A model turn and go straight to extract + plan + task queue.
+   * Used for `mu-pilot --brainstorm` so startup feels as automatic as `--prod`.
+   */
+  brainstormAutoPlan?: boolean;
+  /**
+   * After planning, hold tasks off the autopilot drain until the user sends a
+   * go trigger (see autopilot `goTriggers` in settings). Other messages are
+   * normal chat. Used for interactive `mu-pilot --brainstorm` startup.
+   */
+  brainstormDeferTasksUntilGo?: boolean;
+  /**
+   * Skip brainstorm Q&A entirely and build directly from a simple idea string.
+   * Used for `mu-pilot --idea` — extracts context in one model call, then
+   * proceeds to skill selection, planning, and YOLO execution.
+   */
+  ideaDirectBuild?: boolean;
+  /**
+   * Queue only a 1-based subset of messages from a built-in autopilot pipeline
+   * (from `/phase …`). Handled in the interactive autopilot hook before other modes.
+   */
+  phasePick?: AutopilotPhasePick;
+}
+
+/** Pipelines supported by `/phase` (subset of autopilot queue builders). */
+export type AutopilotPhasePickPipeline =
+  | 'prod'
+  | 'prod-ready'
+  | 'full-chain'
+  | 'frontend-audit'
+  | 'ready-production'
+  | 'project-hardening'
+  | 'quality-check';
+
+/** Selects queued messages for a pipeline (numeric slice and/or name match). */
+export type AutopilotPhasePick = {
+  pipeline: AutopilotPhasePickPipeline;
+  /** 1-based index of the first queued message (omit when using `phaseNames`) */
+  start?: number;
+  /** 1-based inclusive end; omit to take only `start` */
+  end?: number;
+  /**
+   * Match queued messages by phase/skill slug (comma-separated in `/phase`).
+   * For `prod`, use skill folder names (e.g. `e2e-testing`) or `understand`, `gate`, `git`.
+   */
+  phaseNames?: readonly string[];
+  /** Optional focus for `prod-ready` / `project-hardening` queue builders */
+  pipelineFocus?: string;
+};
+
+/** Modes for slash commands that drive the interactive autopilot hook. */
+export type AutopilotInteractiveMode =
+  | 'quality-check'
+  | 'prod'
+  | 'prod-ready'
+  | 'full-chain'
+  | 'frontend-audit'
+  | 'ready-production'
+  | 'design'
+  | 'skill'
+  | 'brain-skill'
+  | 'project-hardening';
+
+/** Run autopilot through the interactive chat pipeline. */
+export interface AutopilotActionReturn {
+  type: 'autopilot';
+  /**
+   * - default (no mode): the user's idea/request for brainstorm → plan → execute
+   * - 'quality-check': analyze & fix bugs only, no planning phase
+   * - 'prod': production pipeline (stack-detected audits, custom skills, NEXT_SKILLS expansion, persona reviews, final gate; smart-orchestrator single prompt when present)
+   * - 'prod-ready': optional focus text; queues 7 production-readiness phases
+   * - 'full-chain': queues 10-phase BMAD chain through production gate
+   * - 'frontend-audit': queues 4-phase frontend role/screen audit, fix, tests, run
+   * - 'ready-production': queues full-chain + frontend-audit + quality-check per outer round
+   * - 'design': initialIdea = design system name (e.g. 'cursor', 'stripe')
+   * - 'skill': initialIdea = skill folder name (e.g. 'e2e-testing')
+   * - 'brain-skill': initialIdea = project-brain skill name (e.g. 'audit-frontend')
+   * - 'project-hardening': optional focus text; queues 9 skill phases
+   *
+   * When `phasePick` is set (e.g. from `/phase`), only that slice of the
+   * pipeline’s queue is scheduled; `mode` is omitted.
+   */
+  initialIdea?: string;
+  mode?: AutopilotInteractiveMode;
+  phasePick?: AutopilotPhasePick;
+}
+
 /**
  * The return type for a command action that needs to pause and request
  * confirmation for a set of shell commands before proceeding.
@@ -220,6 +314,7 @@ export type SlashCommandActionReturn =
   | OpenDialogActionReturn
   | LoadHistoryActionReturn
   | SubmitPromptActionReturn
+  | AutopilotActionReturn
   | ConfirmShellCommandsActionReturn
   | ConfirmActionReturn;
 

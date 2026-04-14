@@ -6,6 +6,7 @@
 
 import type { CommandModule, Argv } from 'yargs';
 import {
+  handleLogoutMuOAuth,
   handleQwenAuth,
   runInteractiveAuth,
   showAuthStatus,

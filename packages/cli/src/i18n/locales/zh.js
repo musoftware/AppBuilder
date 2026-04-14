@@ -89,7 +89,7 @@ export default {
   // ============================================================================
   // System Information Fields
   // ============================================================================
-  'Qwen Code': 'Qwen Code',
+  'Qwen Code': 'MU Code',
   Runtime: '运行环境',
   OS: '操作系统',
   Auth: '认证',
@@ -978,7 +978,7 @@ export default {
   servers: '个服务器',
   'Add MCP servers to your settings to get started.':
     '请在设置中添加 MCP 服务器以开始使用。',
-  'Run qwen --debug to see error logs': '运行 qwen --debug 查看错误日志',
+  'Run autocreator --debug to see error logs': '运行 qwen --debug 查看错误日志',
 
   // MCP OAuth Authentication
   'OAuth Authentication': 'OAuth 认证',
@@ -1235,6 +1235,20 @@ export default {
     '付费 \u00B7 每 5 小时最多 6,000 次请求 \u00B7 支持阿里云百炼 Coding Plan 全部模型',
   'Alibaba Cloud Coding Plan': '阿里云百炼 Coding Plan',
   'Bring your own API key': '使用自己的 API 密钥',
+  'Log out of MU OAuth': '退出 MU OAuth 登录',
+  'Remove saved MU OAuth session and stored sign-in choice':
+    '清除已保存的 MU OAuth 会话与登录方式选择',
+  'Logged out of MU OAuth. Choose a sign-in method to continue.':
+    '已退出 MU OAuth。请选择一种登录方式以继续。',
+  'Failed to log out of MU OAuth: {{message}}':
+    '退出 MU OAuth 失败：{{message}}',
+  'Logged out of MU OAuth.': '已退出 MU OAuth。',
+  'Not signed in with MU OAuth. Use /auth in the app or `autocreator auth` to change method.':
+    '当前未使用 MU OAuth 登录。请在应用中使用 /auth 或运行 `autocreator auth` 更改登录方式。',
+  'Log out of MU OAuth (clear saved session and auth choice)':
+    '退出 MU OAuth（清除已保存的会话与登录选择）',
+  '  Log out: autocreator auth logout  (or /auth → Log out of MU OAuth)\n':
+    '  退出登录：autocreator auth logout（或在 /auth 中选择「退出 MU OAuth」）\n',
   'Use coding plan credentials or your own api-keys/providers.':
     '使用 Coding Plan 凭证或您自己的 API 密钥/提供商。',
   OpenAI: 'OpenAI',
@@ -1466,7 +1480,7 @@ export default {
     '在 Qwen Code 中使用 ! 可运行任意 shell 命令（例如 !ls）。',
   'Type / to open the command popup; Tab autocompletes slash commands and saved prompts.':
     '输入 / 打开命令弹窗；按 Tab 自动补全斜杠命令和保存的提示词。',
-  'You can resume a previous conversation by running qwen --continue or qwen --resume.':
+  'You can resume a previous conversation by running autocreator --continue or autocreator --resume.':
     '运行 qwen --continue 或 qwen --resume 可继续之前的会话。',
   'You can switch permission mode quickly with Shift+Tab or /approval-mode.':
     '按 Shift+Tab 或输入 /approval-mode 可快速切换权限模式。',
@@ -1795,13 +1809,13 @@ export default {
   '⚠️  No authentication method configured.\n': '⚠️  未配置认证方式。\n',
   'Run one of the following commands to get started:\n':
     '运行以下命令之一开始配置：\n',
-  '  qwen auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
-    '  qwen auth qwen-oauth     - 使用 Qwen OAuth 认证（免费）',
-  '  qwen auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
-    '  qwen auth coding-plan      - 使用阿里云百炼 Coding Plan 认证\n',
+  '  autocreator auth qwen-oauth     - Authenticate with Qwen OAuth (free tier)':
+    '  autocreator auth qwen-oauth     - 使用 Qwen OAuth 认证（免费）',
+  '  autocreator auth coding-plan      - Authenticate with Alibaba Cloud Coding Plan\n':
+    '  autocreator auth coding-plan      - 使用阿里云百炼 Coding Plan 认证\n',
   'Or simply run:': '或者直接运行：',
-  '  qwen auth                - Interactive authentication setup\n':
-    '  qwen auth                - 交互式认证配置\n',
+  '  autocreator auth                - Interactive authentication setup\n':
+    '  autocreator auth                - 交互式认证配置\n',
   '✓ Authentication Method: Qwen OAuth': '✓ 认证方式：Qwen OAuth',
   '  Type: Free tier (ending 2026-04-15)':
     '  类型：免费版（将于 2026-04-15 停止）',
@@ -1819,8 +1833,8 @@ export default {
     '⚠️  认证方式：阿里云百炼 Coding Plan（不完整）',
   '  Issue: API key not found in environment or settings\n':
     '  问题：在环境变量或设置中未找到 API 密钥\n',
-  '  Run `qwen auth coding-plan` to re-configure.\n':
-    '  运行 `qwen auth coding-plan` 重新配置。\n',
+  '  Run `autocreator auth coding-plan` to re-configure.\n':
+    '  运行 `autocreator auth coding-plan` 重新配置。\n',
   '✓ Authentication Method: {{type}}': '✓ 认证方式：{{type}}',
   '  Status: Configured\n': '  状态：已配置\n',
   'Failed to check authentication status: {{error}}':

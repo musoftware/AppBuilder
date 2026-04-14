@@ -162,6 +162,18 @@ export interface CliArgs {
   excludeTools: string[] | undefined;
   authType: string | undefined;
   channel: string | undefined;
+  brainstorm: boolean | undefined;
+  brainstormInitialIdea: string | undefined;
+  idea: string | undefined;
+  brownfield: boolean | undefined;
+  qualityCheck: boolean | undefined;
+  prod: boolean | undefined;
+  prodReady: boolean | undefined;
+  fullChain: boolean | undefined;
+  clearChainCache: boolean | undefined;
+  frontendAudit: boolean | undefined;
+  readyProduction: boolean | undefined;
+  skill: string | undefined;
 }
 
 function normalizeOutputFormat(
@@ -194,9 +206,25 @@ export async function parseArguments(): Promise<CliArgs> {
 
   const yargsInstance = yargs(rawArgv)
     .locale('en')
-    .scriptName('qwen')
+    .scriptName('autocreator')
     .usage(
-      'Usage: qwen [options] [command]\n\nQwen Code - Launch an interactive CLI, use -p/--prompt for non-interactive mode',
+      [
+        'Usage: autocreator [options] [command]',
+        '',
+        'MU Code: interactive CLI. Positional prompt or -p/--prompt: one-shot;',
+        '-i/--prompt-interactive: run a prompt then stay interactive.',
+        '',
+        'Commands: mcp, extensions, auth, hooks (alias: hook), channel.',
+        'Run autocreator <command> --help for subcommands.',
+        '',
+        'Autopilot-style flags (default command): --brainstorm (-b),',
+        '--brownfield (with --brainstorm), --quality-check, --prod, --prod-ready, --full-chain, --frontend-audit, --ready-production, --skill <name>.',
+        '',
+        'Interactive TUI: /help lists slash commands. Examples: /quality-check,',
+        '/project-hardening (9-phase workspace hardening; optional focus text).',
+        '',
+        'Same entry point is also installed as: autopilot.',
+      ].join('\n'),
     )
     .option('telemetry', {
       type: 'boolean',
@@ -261,7 +289,7 @@ export async function parseArguments(): Promise<CliArgs> {
     })
     .option('proxy', {
       type: 'string',
-      description: 'Proxy for Qwen Code, like schema://user:password@host:port',
+      description: 'Proxy for MU Code, like schema://user:password@host:port',
     })
     .deprecateOption(
       'proxy',
@@ -272,7 +300,7 @@ export async function parseArguments(): Promise<CliArgs> {
       description:
         'Enable chat recording to disk. If false, chat history is not saved and --continue/--resume will not work.',
     })
-    .command('$0 [query..]', 'Launch Qwen Code CLI', (yargsInstance: Argv) =>
+    .command('$0 [query..]', 'Launch MU Code CLI', (yargsInstance: Argv) =>
       yargsInstance
         .positional('query', {
           description:
@@ -356,7 +384,74 @@ export async function parseArguments(): Promise<CliArgs> {
         .option('channel', {
           type: 'string',
           choices: ['VSCode', 'ACP', 'SDK', 'CI'],
-          description: 'Channel identifier (VSCode, ACP, SDK, CI)',
+          description:
+            'Client launch context (VSCode, ACP, SDK, CI). Not the `channel` subcommand for messaging.',
+        })
+        .option('brainstorm', {
+          alias: 'b',
+          type: 'boolean',
+          description:
+            'Autopilot brainstorm mode: with a TTY, auto-plans from your seed then waits for a go trigger (go, start, proceed, … — see autopilot goTriggers) or normal chat for questions before tasks run in YOLO; same UI as /brainstorm. Without a TTY, runs standalone autopilot.',
+          default: false,
+        })
+        .option('idea', {
+          alias: 'i',
+          type: 'string',
+          description:
+            'Build a full project from a simple idea. Skips brainstorm Q&A entirely — goes straight to context extraction, skill selection, planning, and autonomous execution in YOLO mode. Example: --idea "build a task manager CLI with SQLite storage"',
+        })
+        .option('brownfield', {
+          type: 'boolean',
+          description:
+            'Force brownfield (existing project) mode when used with --brainstorm. Skips auto-detection and treats the workspace as an existing project.',
+          default: false,
+        })
+        .option('quality-check', {
+          type: 'boolean',
+          description:
+            'Quality check: in an interactive terminal, same as plain launch but submits /quality-check once the UI is ready (no extra Enter). Without a TTY, runs a standalone loop of 3 verification passes (analyze and fix when needed), then a final automated coverage-gap closure task.',
+          default: false,
+        })
+        .option('prod', {
+          type: 'boolean',
+          description:
+            'Production pipeline: stack-detected audits, custom `.qwen/skills/` playbooks, NEXT_SKILLS expansion (up to 3 hops), persona reviews, final gate, then a GIT TOOL step (commit/branch/merge checklist; set QWEN_PROD_SKIP_GIT_TOOL=1 to skip). **Interactive TTY:** phased queue unless QWEN_PROD_USE_WORKSPACE_ORCHESTRATOR=1. **Headless:** workspace smart-orchestrator uses one prompt plus GIT TOOL when present. Prepends bundled skill paths when the workspace has no `.qwen/skills/`.',
+          default: false,
+        })
+        .option('prod-ready', {
+          type: 'boolean',
+          description:
+            'Production readiness chain: runs 7 sequential agents (Analyst → Builder → Completer → Test Writer → Test Analyzer → Fixer → Prod Check) and loops until the app is production ready.',
+          default: false,
+        })
+        .option('full-chain', {
+          type: 'boolean',
+          description:
+            'Run the complete 10-phase BMAD chain: understand project → document it → audit gaps (code + business + UX + roles) → plan → build → complete → write tests → analyze tests → fix → production gate. Without a TTY, repeats audit→gate passes until the gate prints PROD_READY (max 5 passes; set QWEN_FULL_CHAIN_MAX_PASSES to override).',
+          default: false,
+        })
+        .option('clear-chain-cache', {
+          type: 'boolean',
+          description:
+            'Clear the cached project context for --full-chain so the next run does a fresh full scan.',
+          default: false,
+        })
+        .option('frontend-audit', {
+          type: 'boolean',
+          description:
+            'Audit every frontend file by role: checks what screens exist per role, what is missing, what is broken (dead buttons, missing routes, no auth guards), then generates feature tests to prove each screen works correctly for the right roles.',
+          default: false,
+        })
+        .option('ready-production', {
+          type: 'boolean',
+          description:
+            'Run outer rounds of full-chain → frontend-audit → quality-check (default 5 rounds; set QWEN_READY_PRODUCTION_ROUNDS). Without a TTY, stops early when prod + frontend gates look green unless QWEN_READY_PRODUCTION_EXIT_WHEN_READY=0. Interactive mode queues the same sequence through the chat pipeline.',
+          default: false,
+        })
+        .option('skill', {
+          type: 'string',
+          description:
+            'Run one project-brain skill by name (six queued phases by default: brain, report, fixes, verify, complete — except understand, smart-orchestrator, and git-feature-workflow, which use one playbook message). Example: --skill audit-frontend, --skill git-feature-workflow. Playbooks: .qwen/skills/<name>/SKILL.md or bundled project-brain-skills.',
         })
         .option('allowed-mcp-server-names', {
           type: 'array',
@@ -495,13 +590,6 @@ export async function parseArguments(): Promise<CliArgs> {
           coerce: (tools: string[]) =>
             tools.flatMap((tool) => tool.split(',').map((t) => t.trim())),
         })
-        .option('allowed-tools', {
-          type: 'array',
-          string: true,
-          description: 'Tools to allow, will bypass confirmation',
-          coerce: (tools: string[]) =>
-            tools.flatMap((tool) => tool.split(',').map((t) => t.trim())),
-        })
         .option('auth-type', {
           type: 'string',
           choices: [
@@ -596,6 +684,13 @@ export async function parseArguments(): Promise<CliArgs> {
     .alias('v', 'version')
     .help()
     .alias('h', 'help')
+    .epilogue(
+      [
+        '--channel is the client context; `channel` configures messaging',
+        '(Telegram, Discord, etc.). TUI: /help for slash commands;',
+        '/project-hardening queues 9-phase hardening (understand, fix, quality).',
+      ].join(' '),
+    )
     .strict()
     .demandCommand(0, 0); // Allow base command to run with no subcommands
 
@@ -637,6 +732,36 @@ export async function parseArguments(): Promise<CliArgs> {
 
   // Keep CliArgs.query as a string for downstream typing
   (result as Record<string, unknown>)['query'] = q || undefined;
+
+  if (result['brainstorm']) {
+    const seed =
+      (typeof result['prompt'] === 'string' && result['prompt']) ||
+      (typeof result['promptInteractive'] === 'string' &&
+        result['promptInteractive']) ||
+      undefined;
+    if (seed) {
+      (result as Record<string, unknown>)['brainstormInitialIdea'] = seed;
+    }
+    delete (result as Record<string, unknown>)['prompt'];
+    delete (result as Record<string, unknown>)['promptInteractive'];
+    // Positional words live in `query` until mapped to `prompt` above. If we keep
+    // `query` set, loadCliConfig treats the session as one-shot (non-interactive)
+    // and --brainstorm falls back to standalone AutopilotSession instead of the
+    // main TUI (same as --prod with an optional seed).
+    (result as Record<string, unknown>)['query'] = undefined;
+  }
+
+  // --idea: direct build from a simple text idea, skipping brainstorm Q&A
+  const ideaString = result['idea'] as string | undefined;
+  if (ideaString && ideaString.trim()) {
+    (result as Record<string, unknown>)['idea'] = ideaString.trim();
+    // Force YOLO mode for unattended execution
+    if (!result['yolo']) {
+      (result as Record<string, unknown>)['yolo'] = true;
+    }
+    // Clear query so the interactive TUI launches instead of one-shot mode
+    (result as Record<string, unknown>)['query'] = undefined;
+  }
 
   // The import format is now only controlled by settings.memoryImportFormat
   // We no longer accept it as a CLI argument
@@ -796,6 +921,24 @@ export async function loadCliConfig(
       `Approval mode overridden to "default" because the current folder is not trusted.`,
     );
     approvalMode = ApprovalMode.DEFAULT;
+  }
+
+  // Unattended CLI entry points: force YOLO so tools run without prompts.
+  // - --brainstorm / --prod / --prod-ready / --full-chain / --frontend-audit / --ready-production / --quality-check / --skill (this block)
+  // - Interactive TUI: cron-fired prompts, autopilot queues (/prod-ready, etc.)
+  //   set YOLO in useGeminiStream; non-interactive cron in nonInteractiveCli /
+  //   ACP Session sets YOLO when a job fires.
+  if (
+    argv.brainstorm ||
+    argv.prod ||
+    argv.prodReady ||
+    argv.fullChain ||
+    argv.frontendAudit ||
+    argv.readyProduction ||
+    argv.qualityCheck ||
+    (typeof argv.skill === 'string' && argv.skill.trim().length > 0)
+  ) {
+    approvalMode = ApprovalMode.YOLO;
   }
 
   let telemetrySettings;
@@ -997,7 +1140,7 @@ export async function loadCliConfig(
       sessionId = argv.resume;
       sessionData = await sessionService.loadSession(argv.resume);
       if (!sessionData) {
-        const message = `No saved session found with ID ${argv.resume}. Run \`qwen --resume\` without an ID to choose from existing sessions.`;
+        const message = `No saved session found with ID ${argv.resume}. Run \`autocreator --resume\` without an ID to choose from existing sessions.`;
         writeStderrLine(message);
         process.exit(1);
       }

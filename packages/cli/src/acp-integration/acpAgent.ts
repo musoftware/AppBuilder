@@ -155,7 +155,7 @@ class QwenAgent implements Agent {
       protocolVersion: PROTOCOL_VERSION,
       agentInfo: {
         name: 'qwen-code',
-        title: 'Qwen Code',
+        title: 'MU Code',
         version,
       },
       authMethods,
@@ -429,7 +429,7 @@ class QwenAgent implements Agent {
     if (!selectedType) {
       throw RequestError.authRequired(
         { authMethods: this.pickAuthMethodsForAuthRequired() },
-        'Use Qwen Code CLI to authenticate first.',
+        'Use MU Code CLI to authenticate first.',
       );
     }
 
@@ -454,7 +454,8 @@ class QwenAgent implements Agent {
     const errorMessage = this.extractErrorMessage(error);
     if (
       errorMessage?.includes('qwen-oauth') ||
-      errorMessage?.includes('Qwen OAuth')
+      errorMessage?.includes('Qwen OAuth') ||
+      errorMessage?.includes('MU OAuth')
     ) {
       const qwenOAuthMethods = authMethods.filter(
         (m) => m.id === AuthType.QWEN_OAUTH,
